@@ -434,9 +434,10 @@ async def register_client(server_url: str) -> None:
                 print(message, type(message))
                 mdata = Mdata.model_validate_json(message)
                 with execution_lock:
-                    is_waiting_user_input = get_is_waiting_user_input(
-                        default_model, default_cost
-                    )
+                    # is_waiting_user_input = get_is_waiting_user_input(
+                    #     default_model, default_cost
+                    # )
+                    is_waiting_user_input = lambda x: ("waiting_for_input", 0)
                     try:
                         output, cost = get_tool_output(
                             mdata.data,
@@ -461,5 +462,5 @@ def run() -> None:
     if len(sys.argv) > 1:
         server_url = sys.argv[1]
     else:
-        server_url = "ws://localhost:8000/register"
+        server_url = "wss://wcgw.arcfu.com/register"
     asyncio.run(register_client(server_url))

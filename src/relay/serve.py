@@ -7,6 +7,7 @@ import fastapi
 from fastapi import WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import uvicorn
+from fastapi.staticfiles import StaticFiles
 
 from dotenv import load_dotenv
 
@@ -85,6 +86,9 @@ async def chatgpt_server(json_data: Mdata) -> str:
         await asyncio.sleep(0.1)
 
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 def run() -> None:

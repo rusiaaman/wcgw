@@ -1,0 +1,7 @@
+Privacy Policy
+I do not collect, store, or share any personal data.
+The data from your terminal is not stored anywhere and it's not logged or collected in any form.
+There is a relay webserver for connecting your terminal to chatgpt the source code for which is open at https://github.com/rusiaaman/wcgw/tree/main/src/relay that you can run on your own.
+Other than the relay webserver there is no further involvement of my servers or services.
+Feel free to me contact at info@arcfu.com for questions on privacy or anything else.
+
