@@ -1,0 +1,39 @@
+[project]
+name = "wcgw"
+version = "0.1.0"
+description = "What could go wrong giving full shell access to chatgpt?"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.46.0",
+    "mypy>=1.11.2",
+    "typer>=0.12.5",
+    "rich>=13.8.1",
+    "python-dotenv>=1.0.1",
+    "tiktoken==0.7.0",
+    "pexpect>=4.9.0",
+    "shell>=1.0.1",
+    "types-pexpect>=4.9.0.20240806",
+    "toml>=0.10.2",
+    "petname>=2.6",
+    "pyte>=0.8.2",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.31.0",
+    "websockets>=13.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+wcgw_local = "wcgw:app"
+wcgw = "wcgw:listen"
+
+[tool.uv]
+dev-dependencies = [
+    "ipython>=8.27.0",
+    "mypy>=1.11.2",
+    "types-toml>=0.10.8.20240310",
+    "autoflake",
+]

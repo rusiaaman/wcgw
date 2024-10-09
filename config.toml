@@ -1,0 +1,11 @@
+model = "gpt-4o-2024-08-06"
+secondary_model = 'gpt-4o-2024-08-06'
+cost_limit = 0.1
+
+[cost_file.gpt-4o-2024-08-06]
+cost_per_1m_input_tokens = 5
+cost_per_1m_output_tokens = 15
+
+[cost_file.gpt-4o-mini]
+cost_per_1m_input_tokens = 0.15
+cost_per_1m_output_tokens = 0.6

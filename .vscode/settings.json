@@ -1,0 +1,16 @@
+{
+    "python.defaultInterpreterPath": ".venv/bin/python",
+    "mypy-type-checker.interpreter": [
+        ".venv/bin/python"
+    ],
+    "mypy.extraArguments": [
+        "--enable-incomplete-feature=NewGenericSyntax",
+        "--strict"
+    ],
+    "mypy-type-checker.args": [
+        "--enable-incomplete-feature=NewGenericSyntax",
+        "--strict"
+    ],
+    "editor.formatOnSave": true,
+    "editor.renderWhitespace": "selection",
+}
