@@ -1,5 +1,7 @@
 # What could go wrong giving full shell access to Chatgpt?
-Steps: First run the following client in any directory of choice, then use this custom gpt `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access` to let it interact with your shell.
+Steps: 
+1. First run the following client in any directory of choice
+2. Use this custom gpt `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access` to let it interact with your shell.
 
 ## Client
 
