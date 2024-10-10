@@ -247,11 +247,12 @@ def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
     with open(file_path, "rb") as image_file:
         image_bytes = image_file.read()
         media_type = mimetypes.guess_type(file_path)[0]
-        uu = {"name": name, "image_bytes": image_bytes, "media_type": media_type}
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        uu = {"name": name, "image_b64": image_b64, "media_type": media_type}
 
     with syncconnect(f"{server_url}/{client_uuid}") as websocket:
         try:
-            websocket.send(uu)
+            websocket.send(json.dumps(uu))
         except websockets.ConnectionClosed:
             print(f"Connection closed for UUID: {client_uuid}, retrying")
             serve_image_in_bg(file_path, client_uuid, name)

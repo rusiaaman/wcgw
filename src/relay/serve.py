@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import threading
 import time
 from typing import Any, Callable, Coroutine, DefaultDict, Literal, Optional, Sequence
@@ -44,8 +45,10 @@ async def register_serve_image(websocket: WebSocket, uuid: UUID) -> None:
     await websocket.accept()
     received_data = await websocket.receive_json()
     name = received_data["name"]
+    image_b64 = received_data["image_b64"]
+    image_bytes = base64.b64decode(image_b64)
     images[uuid][name] = {
-        "content": received_data["image_bytes"],
+        "content": image_bytes,
         "media_type": received_data["media_type"],
     }
 
