@@ -61,9 +61,8 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         print(f"Client {uuid} disconnected")
 
 
-@app.post("/action")
-async def chatgpt_server(json_data: Mdata) -> str:
-    user_id = json_data.user_id
+@app.post("/write_file/{uuid}")
+async def write_file(write_file_data: Writefile, user_id: UUID) -> str:
     if user_id not in clients:
         raise fastapi.HTTPException(
             status_code=404, detail="User with the provided id not found"
@@ -77,7 +76,33 @@ async def chatgpt_server(json_data: Mdata) -> str:
 
     gpts[user_id] = put_results
 
-    await clients[user_id](json_data)
+    await clients[user_id](Mdata(data=write_file_data, user_id=user_id))
+
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        if results is not None:
+            return results
+        await asyncio.sleep(0.1)
+
+    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+
+@app.post("/execute_bash/{uuid}")
+async def execute_bash(excute_bash_data: ExecuteBash, user_id: UUID) -> str:
+    if user_id not in clients:
+        raise fastapi.HTTPException(
+            status_code=404, detail="User with the provided id not found"
+        )
+
+    results: Optional[str] = None
+
+    def put_results(result: str) -> None:
+        nonlocal results
+        results = result
+
+    gpts[user_id] = put_results
+
+    await clients[user_id](Mdata(data=excute_bash_data, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:

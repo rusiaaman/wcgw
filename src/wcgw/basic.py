@@ -18,7 +18,7 @@ import uuid
 from .common import Models, discard_input
 from .common import CostData, History
 from .openai_utils import get_input_cost, get_output_cost
-from .tools import ExecuteBash, GetShellOutputLastCommand
+from .tools import ExecuteBash
 
 from .tools import (
     BASH_CLF_OUTPUT,
@@ -134,14 +134,10 @@ Execute a bash script. Stateful (beware with subsequent calls).
 Execute commands using `execute_command` attribute.
 Do not use interactive commands like nano. Prefer writing simpler commands.
 Last line will always be `(exit <int code>)` except if
-the last line is `(waiting for input)` which will be the case if you've run any interactive command (which you shouldn't run) by mistake. You can then send input using `send_ascii` attributes.
+the last line is `(pending)` if the program is still running or waiting for user inputs. You can then send input using `send_ascii` attributes. You get status by sending `send_ascii: [10]`.
 Optionally the last line is `(won't exit)` in which case you need to kill the process if you want to run a new command.
 Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 The first line might be `(...truncated)` if the output is too long.""",
-        ),
-        openai.pydantic_function_tool(
-            GetShellOutputLastCommand,
-            description="Get output of the last command run in the shell. Use this in case you want to know status of a running program.",
         ),
         openai.pydantic_function_tool(
             Writefile,

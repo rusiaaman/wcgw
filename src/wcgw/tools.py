@@ -82,11 +82,26 @@ def start_shell():
 SHELL = start_shell()
 
 
+def _is_int(mystr: str) -> bool:
+    try:
+        int(mystr)
+        return True
+    except ValueError:
+        return False
+
+
 def _get_exit_code() -> int:
     SHELL.sendline("echo $?")
-    SHELL.expect("#@@")
-    assert isinstance(SHELL.before, str)
-    return int((SHELL.before))
+    before = ""
+    while not _is_int(before):  # Consume all previous output
+        SHELL.expect("#@@")
+        assert isinstance(SHELL.before, str)
+        before = SHELL.before
+
+    try:
+        return int((before))
+    except ValueError:
+        raise ValueError(f"Malformed output: {before}")
 
 
 Specials = Literal["Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl-c"]
@@ -95,10 +110,6 @@ Specials = Literal["Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl
 class ExecuteBash(BaseModel):
     execute_command: Optional[str] = None
     send_ascii: Optional[Sequence[int | Specials]] = None
-
-
-class GetShellOutputLastCommand(BaseModel):
-    type: Literal["get_output_of_last_command"] = "get_output_of_last_command"
 
 
 BASH_CLF_OUTPUT = Literal["running", "waiting_for_input", "wont_exit"]
@@ -116,9 +127,9 @@ def get_output_of_last_command(enc: tiktoken.Encoding) -> str:
     return output
 
 
-WETTING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
-1. Get its output using `GetShellOutputLastCommand` OR
-2. Use  `send_ascii` to give inputs to the running program, don't use `execute_command` OR
+WAITING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
+1. Get its output using `send_ascii: [10]`
+2. Use `send_ascii` to give inputs to the running program, don't use `execute_command` OR
 3. kill the previous program by sending ctrl+c first using `send_ascii`"""
 
 
@@ -131,7 +142,7 @@ def execute_bash(
     try:
         if bash_arg.execute_command:
             if BASH_STATE == "waiting_for_input":
-                raise ValueError(WETTING_INPUT_MESSAGE)
+                raise ValueError(WAITING_INPUT_MESSAGE)
             elif BASH_STATE == "wont_exit":
                 raise ValueError(
                     """A command is already running that hasn't exited. NOTE: You can't run multiple shell sessions, likely a previous program is in infinite loop.
@@ -192,9 +203,7 @@ def execute_bash(
                 text = "...(truncated)\n" + enc.decode(tokens[-2047:])
 
             last_line = (
-                "(waiting for input)"
-                if BASH_STATE == "waiting_for_input"
-                else "(won't exit)"
+                "(pending)" if BASH_STATE == "waiting_for_input" else "(won't exit)"
             )
             return text + f"\n{last_line}", cost
         index = SHELL.expect(["#@@", pexpect.TIMEOUT], timeout=wait)
@@ -211,7 +220,9 @@ def execute_bash(
         exit_code = _get_exit_code()
         output += f"\n(exit {exit_code})"
 
-    except ValueError:
+    except ValueError as e:
+        console.print(output)
+        traceback.print_exc()
         console.print("Malformed output, restarting shell", style="red")
         # Malformed output, restart shell
         SHELL.close(True)
@@ -229,7 +240,7 @@ def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
         global BASH_STATE
         if BASH_STATE == "waiting_for_input":
-            raise ValueError(WETTING_INPUT_MESSAGE)
+            raise ValueError(WAITING_INPUT_MESSAGE)
         elif BASH_STATE == "wont_exit":
             raise ValueError(
                 "A command is already running that hasn't exited. NOTE: You can't run multiple shell sessions, likely the previous program is in infinite loop. Please kill the previous program by sending ctrl+c first."
@@ -280,23 +291,6 @@ def take_help_of_ai_assistant(
     return output, cost
 
 
-class AddTasks(BaseModel):
-    task_statement: str
-
-
-def add_task(addtask: AddTasks) -> str:
-    petname_id = petname.Generate(2, "-")
-    return petname_id
-
-
-class RemoveTask(BaseModel):
-    task_id: str
-
-
-def remove_task(removetask: RemoveTask) -> str:
-    return "removed"
-
-
 def which_tool(args: str) -> BaseModel:
     adapter = TypeAdapter[
         Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag
@@ -334,9 +328,6 @@ def get_tool_output(
     elif isinstance(arg, AIAssistant):
         console.print("Calling AI assistant tool")
         output = take_help_of_ai_assistant(arg, limit, loop_call)
-    elif isinstance(arg, AddTasks):
-        console.print("Calling add task tool")
-        output = add_task(arg), 0
     elif isinstance(arg, get_output_of_last_command):
         console.print("Calling get output of last program tool")
         output = get_output_of_last_command(enc), 0
@@ -353,9 +344,9 @@ History = list[ChatCompletionMessageParam]
 def get_is_waiting_user_input(model: Models, cost_data: CostData):
     enc = tiktoken.encoding_for_model(model if not model.startswith("o1") else "gpt-4o")
     system_prompt = """You need to classify if a bash program is waiting for user input based on its stdout, or if it won't exit. You'll be given the output of any program.
-    Return `waiting_for_input` if the program is waiting for INTERACTIVE input only, Return false if it's waiting for external resources or just waiting to finish.
+    Return `waiting_for_input` if the program is waiting for INTERACTIVE input only, Return 'running' if it's waiting for external resources or just waiting to finish.
     Return `wont_exit` if the program won't exit, for example if it's a server.
-    Return `normal` otherwise.
+    Return `running` otherwise.
     """
     history: History = [{"role": "system", "content": system_prompt}]
     client = OpenAI()
@@ -402,27 +393,27 @@ def execute_user_input() -> None:
     while True:
         discard_input()
         user_input = input()
-        if user_input:
-            with execution_lock:
-                try:
-                    console.log(
-                        execute_bash(
-                            default_enc,
-                            ExecuteBash(
-                                send_ascii=[ord(x) for x in user_input] + [ord("\n")]
-                            ),
-                            lambda x: ("wont_exit", 0),
-                        )[0]
-                    )
-                except Exception as e:
-                    traceback.print_exc()
-                    console.log(f"Error: {e}")
+        with execution_lock:
+            try:
+                console.log(
+                    execute_bash(
+                        default_enc,
+                        ExecuteBash(
+                            send_ascii=[ord(x) for x in user_input] + [ord("\n")]
+                        ),
+                        lambda x: ("wont_exit", 0),
+                    )[0]
+                )
+            except Exception as e:
+                traceback.print_exc()
+                console.log(f"Error: {e}")
 
 
-async def register_client(server_url: str) -> None:
+async def register_client(server_url: str, client_uuid: str = "") -> None:
     global default_enc, default_model, curr_cost
     # Generate a unique UUID for this client
-    client_uuid = str(uuid.uuid4())
+    if not client_uuid:
+        client_uuid = str(uuid.uuid4())
     print(f"Connecting with UUID: {client_uuid}")
 
     # Create the WebSocket connection
@@ -455,7 +446,8 @@ async def register_client(server_url: str) -> None:
                     await websocket.send(output)
 
         except websockets.ConnectionClosed:
-            print(f"Connection closed for UUID: {client_uuid}")
+            print(f"Connection closed for UUID: {client_uuid}, retrying")
+            await register_client(server_url, client_uuid)
 
 
 def run() -> None:
@@ -463,4 +455,12 @@ def run() -> None:
         server_url = sys.argv[1]
     else:
         server_url = "wss://wcgw.arcfu.com/register"
-    asyncio.run(register_client(server_url))
+
+    thread1 = threading.Thread(target=execute_user_input)
+    thread2 = threading.Thread(target=asyncio.run, args=(register_client(server_url),))
+
+    thread1.start()
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
