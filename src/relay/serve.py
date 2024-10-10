@@ -37,7 +37,7 @@ websockets: dict[UUID, WebSocket] = {}
 gpts: dict[UUID, Callable[[str], None]] = {}
 
 
-@app.websocket("/register")
+@app.websocket("/register/{uuid}")
 async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
     await websocket.accept()
 
