@@ -37,7 +37,7 @@ websockets: dict[UUID, WebSocket] = {}
 gpts: dict[UUID, Callable[[str], None]] = {}
 
 
-@app.websocket("/register/{uuid}")
+@app.websocket("/register")
 async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
     await websocket.accept()
 
@@ -61,7 +61,7 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         print(f"Client {uuid} disconnected")
 
 
-@app.post("/write_file/{uuid}")
+@app.post("/write_file")
 async def write_file(write_file_data: Writefile, user_id: UUID) -> str:
     if user_id not in clients:
         raise fastapi.HTTPException(
