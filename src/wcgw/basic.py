@@ -143,6 +143,9 @@ The first line might be `(...truncated)` if the output is too long.""",
             Writefile,
             description="Write content to a file. Provide file path and content. Use this instead of ExecuteBash for writing files.",
         ),
+        openai.pydantic_function_tool(
+            ReadImage, description="Read an image from the shell."
+        ),
     ]
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine

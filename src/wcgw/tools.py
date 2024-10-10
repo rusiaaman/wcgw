@@ -1,11 +1,14 @@
 import asyncio
+import base64
 import json
+import mimetypes
 import sys
 import threading
 import traceback
 from typing import Callable, Literal, Optional, ParamSpec, Sequence, TypeVar, TypedDict
 import uuid
 from pydantic import BaseModel, TypeAdapter
+from websockets.sync.client import connect as syncconnect
 
 import os
 import tiktoken
@@ -229,6 +232,39 @@ def execute_bash(
         SHELL = start_shell()
         output = "(exit shell has restarted)"
     return output, 0
+
+
+class ReadImage(BaseModel):
+    file_path: str
+
+
+def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
+    if not client_uuid:
+        client_uuid = str(uuid.uuid4())
+
+    server_url = "wss://wcgw.arcfu.com/register_serve_image"
+
+    with open(file_path, "rb") as image_file:
+        image_bytes = image_file.read()
+        media_type = mimetypes.guess_type(file_path)[0]
+        uu = {"name": name, "image_bytes": image_bytes, "media_type": media_type}
+
+    with syncconnect(f"{server_url}/{client_uuid}") as websocket:
+        try:
+            websocket.send(uu)
+        except websockets.ConnectionClosed:
+            print(f"Connection closed for UUID: {client_uuid}, retrying")
+            serve_image_in_bg(file_path, client_uuid, name)
+
+
+def read_image_from_shell(file_path: str) -> str:
+    name = petname.Generate(3)
+    client_uuid = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=serve_image_in_bg, args=(file_path, client_uuid, name), daemon=True
+    )
+    thread.start()
+    return f"https://wcgw.arcfu.com/get_image/{client_uuid}/{name}"
 
 
 Param = ParamSpec("Param")

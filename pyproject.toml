@@ -4,7 +4,7 @@ name = "wcgw"
 version = "0.0.6"
 description = "What could go wrong giving full shell access to chatgpt?"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dependencies = [
     "openai>=1.46.0",
     "mypy>=1.11.2",
@@ -37,8 +37,8 @@ wcgw = "wcgw:listen"
 
 [tool.uv]
 dev-dependencies = [
-    "ipython>=8.27.0",
     "mypy>=1.11.2",
     "types-toml>=0.10.8.20240310",
     "autoflake",
+    "ipython>=8.12.3",
 ]

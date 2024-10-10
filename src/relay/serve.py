@@ -1,7 +1,7 @@
 import asyncio
 import threading
 import time
-from typing import Callable, Coroutine, Literal, Optional, Sequence
+from typing import Any, Callable, Coroutine, DefaultDict, Literal, Optional, Sequence
 from uuid import UUID
 import fastapi
 from fastapi import WebSocket, WebSocketDisconnect
@@ -35,6 +35,27 @@ app = fastapi.FastAPI()
 clients: dict[UUID, Callable[[Mdata], Coroutine[None, None, None]]] = {}
 websockets: dict[UUID, WebSocket] = {}
 gpts: dict[UUID, Callable[[str], None]] = {}
+
+images: DefaultDict[UUID, dict[str, dict[str, Any]]] = DefaultDict(dict)
+
+
+@app.websocket("/register_serve_image/{uuid}")
+async def register_serve_image(websocket: WebSocket, uuid: UUID) -> None:
+    await websocket.accept()
+    received_data = await websocket.receive_json()
+    name = received_data["name"]
+    images[uuid][name] = {
+        "content": received_data["image_bytes"],
+        "media_type": received_data["media_type"],
+    }
+
+
+@app.get("/get_image/{uuid}/{name}")
+async def get_image(uuid: UUID, name: str) -> fastapi.responses.Response:
+    return fastapi.responses.Response(
+        content=images[uuid][name]["content"],
+        media_type=images[uuid][name]["media_type"],
+    )
 
 
 @app.websocket("/register/{uuid}")
