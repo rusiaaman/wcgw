@@ -422,7 +422,6 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
             while True:
                 # Wait to receive data from the server
                 message = await websocket.recv()
-                print(message, type(message))
                 mdata = Mdata.model_validate_json(message)
                 with execution_lock:
                     # is_waiting_user_input = get_is_waiting_user_input(
