@@ -87,7 +87,7 @@ async def write_file(write_file_data: Writefile, user_id: UUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-@app.post("/execute_bash/{uuid}")
+@app.post("/execute_bash")
 async def execute_bash(excute_bash_data: ExecuteBash, user_id: UUID) -> str:
     if user_id not in clients:
         raise fastapi.HTTPException(
