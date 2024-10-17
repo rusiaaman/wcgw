@@ -42,6 +42,7 @@ images: DefaultDict[UUID, dict[str, dict[str, Any]]] = DefaultDict(dict)
 
 @app.websocket("/register_serve_image/{uuid}")
 async def register_serve_image(websocket: WebSocket, uuid: UUID) -> None:
+    raise Exception("Disabled")
     await websocket.accept()
     received_data = await websocket.receive_json()
     name = received_data["name"]

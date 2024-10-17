@@ -1,4 +1,6 @@
+import base64
 import json
+import mimetypes
 from pathlib import Path
 import sys
 import traceback
@@ -8,17 +10,20 @@ from openai import OpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionAssistantMessageParam,
+    ChatCompletionUserMessageParam,
+    ChatCompletionContentPartParam,
     ChatCompletionMessage,
     ParsedChatCompletionMessage,
 )
 import rich
+import petname
 from typer import Typer
 import uuid
 
 from .common import Models, discard_input
 from .common import CostData, History
 from .openai_utils import get_input_cost, get_output_cost
-from .tools import ExecuteBash
+from .tools import ExecuteBash, ReadImage, ImageData
 
 from .tools import (
     BASH_CLF_OUTPUT,
@@ -80,6 +85,38 @@ def save_history(history: History, session_id: str) -> None:
         json.dump(history, f, indent=3)
 
 
+def parse_user_message_special(msg: str) -> ChatCompletionUserMessageParam:
+    # Search for lines starting with `%` and treat them as special commands
+    parts: list[ChatCompletionContentPartParam] = []
+    for line in msg.split("\n"):
+        if line.startswith("%"):
+            args = line[1:].strip().split(" ")
+            command = args[0]
+            assert command == 'image'
+            image_path = args[1]
+            with open(image_path, 'rb') as f:
+                image_bytes = f.read()
+                image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+                image_type = mimetypes.guess_type(image_path)[0]
+                dataurl=f'data:{image_type};base64,{image_b64}'
+            parts.append({
+                'type': 'image_url',
+                'image_url': {
+                    'url': dataurl,
+                    'detail': 'auto'
+                }
+            })
+        else:
+            if len(parts) > 0 and parts[-1]['type'] == 'text':
+                parts[-1]['text'] += '\n' + line
+            else:
+                parts.append({'type': 'text', 'text': line})
+    return {
+        'role': 'user',
+        'content': parts
+    }
+
+
 app = Typer(pretty_exceptions_show_locals=False)
 
 
@@ -94,6 +131,7 @@ def loop(
     session_id = str(uuid.uuid4())[:6]
 
     history: History = []
+    waiting_for_assistant = False
     if resume:
         if resume == "latest":
             resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
@@ -108,6 +146,7 @@ def loop(
         if history[1]["role"] != "user":
             raise ValueError("Invalid history file, second message should be user")
         first_message = ""
+        waiting_for_assistant = history[-1]['role'] != 'assistant'
 
     my_dir = os.path.dirname(__file__)
     config_file = os.path.join(my_dir, "..", "..", "config.toml")
@@ -164,12 +203,11 @@ System information:
     - Machine: {uname_machine}
 """
 
-    has_tool_output = False
     if not history:
         history = [{"role": "system", "content": system}]
     else:
         if history[-1]["role"] == "tool":
-            has_tool_output = True
+            waiting_for_assistant = True
 
     client = OpenAI()
 
@@ -188,16 +226,16 @@ System information:
             )
             break
 
-        if not has_tool_output:
+        if not waiting_for_assistant:
             if first_message:
                 msg = first_message
                 first_message = ""
             else:
                 msg = text_from_editor(user_console)
 
-            history.append({"role": "user", "content": msg})
+            history.append(parse_user_message_special(msg))
         else:
-            has_tool_output = False
+            waiting_for_assistant = False
 
         cost_, input_toks_ = get_input_cost(
             config.cost_file[config.model], enc, history
@@ -222,6 +260,7 @@ System information:
         _histories: History = []
         item: ChatCompletionMessageParam
         full_response: str = ""
+        image_histories: History = []
         try:
             for chunk in stream:
                 if chunk.choices[0].finish_reason == "tool_calls":
@@ -235,7 +274,7 @@ System information:
                                 "type": "function",
                                 "function": {
                                     "arguments": tool_args,
-                                    "name": "execute_bash",
+                                    "name": type(which_tool(tool_args)).__name__,
                                 },
                             }
                             for tool_call_id, toolcallargs in tool_call_args_by_id.items()
@@ -251,7 +290,7 @@ System information:
                     )
                     system_console.print(f"\nTotal cost: {config.cost_unit}{cost:.3f}")
                     output_toks += output_toks_
-
+                    
                     _histories.append(item)
                     for tool_call_id, toolcallargs in tool_call_args_by_id.items():
                         for toolindex, tool_args in toolcallargs.items():
@@ -283,13 +322,50 @@ System information:
                                     f"\nTotal cost: {config.cost_unit}{cost:.3f}"
                                 )
                                 return output_or_done.task_output, cost
+                                
                             output = output_or_done
 
-                            item = {
-                                "role": "tool",
-                                "content": str(output),
-                                "tool_call_id": tool_call_id + str(toolindex),
-                            }
+                            if isinstance(output, ImageData):
+                                randomId = petname.Generate(2, "-")
+                                if not image_histories:
+                                    image_histories.extend([
+                                        {
+                                            'role': 'assistant',
+                                            'content': f'Share images with ids: {randomId}'
+
+                                        },
+                                        {
+                                            'role': 'user',
+                                            'content': [{
+                                                'type': 'image_url',
+                                                'image_url': {
+                                                    'url': output.dataurl,
+                                                    'detail': 'auto'
+                                                }
+                                            }]
+                                        }]
+                                    )
+                                else:
+                                    image_histories[0]['content'] += ', ' + randomId
+                                    image_histories[1]["content"].append({ # type: ignore
+                                        'type': 'image_url',
+                                        'image_url': {
+                                            'url': output.dataurl,
+                                            'detail': 'auto'
+                                        }
+                                    })
+
+                                item = {
+                                    "role": "tool",
+                                    "content": f'Ask user for image id: {randomId}',
+                                    "tool_call_id": tool_call_id + str(toolindex),
+                                }
+                            else:
+                                item = {
+                                    "role": "tool",
+                                    "content": str(output),
+                                    "tool_call_id": tool_call_id + str(toolindex),
+                                }
                             cost_, output_toks_ = get_output_cost(
                                 config.cost_file[config.model], enc, item
                             )
@@ -297,7 +373,7 @@ System information:
                             output_toks += output_toks_
 
                             _histories.append(item)
-                    has_tool_output = True
+                    waiting_for_assistant = True
                     break
                 elif chunk.choices[0].finish_reason:
                     assistant_console.print("")
@@ -326,11 +402,11 @@ System information:
                 assistant_console.print(chunk_str, end="")
                 full_response += chunk_str
         except KeyboardInterrupt:
-            has_tool_output = False
+            waiting_for_assistant = False
             input("Interrupted...enter to redo the current turn")
         else:
             history.extend(_histories)
-
+            history.extend(image_histories)
             save_history(history, session_id)
 
     return "Couldn't finish the task", cost

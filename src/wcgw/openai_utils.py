@@ -28,9 +28,19 @@ def get_input_cost(
     input_tokens = 0
     for msg in history:
         content = msg["content"]
-        if not isinstance(content, str):
+        refusal = msg.get("refusal")
+        if isinstance(content, list):
+            for part in content:
+                if 'text' in part:
+                    input_tokens += len(enc.encode(part['text']))
+        elif content is None:
+            if refusal is None:
+                raise ValueError("Expected content or refusal to be present")
+            input_tokens += len(enc.encode(str(refusal)))
+        elif not isinstance(content, str):
             raise ValueError(f"Expected content to be string, got {type(content)}")
-        input_tokens += len(enc.encode(content))
+        else:
+            input_tokens += len(enc.encode(content))
     cost = input_tokens * cost_map.cost_per_1m_input_tokens / 1_000_000
     return cost, input_tokens
 

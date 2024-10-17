@@ -5,7 +5,7 @@ import mimetypes
 import sys
 import threading
 import traceback
-from typing import Callable, Literal, Optional, ParamSpec, Sequence, TypeVar, TypedDict
+from typing import Callable, Literal, NewType, Optional, ParamSpec, Sequence, TypeVar, TypedDict
 import uuid
 from pydantic import BaseModel, TypeAdapter
 from websockets.sync.client import connect as syncconnect
@@ -70,7 +70,7 @@ class Writefile(BaseModel):
 
 def start_shell():
     SHELL = pexpect.spawn(
-        "/bin/bash",
+        "/bin/bash --noprofile --norc",
         env={**os.environ, **{"PS1": "#@@"}},
         echo=False,
         encoding="utf-8",
@@ -236,6 +236,7 @@ def execute_bash(
 
 class ReadImage(BaseModel):
     file_path: str
+    type: Literal['ReadImage'] = 'ReadImage'
 
 
 def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
@@ -257,15 +258,9 @@ def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
             print(f"Connection closed for UUID: {client_uuid}, retrying")
             serve_image_in_bg(file_path, client_uuid, name)
 
+class ImageData(BaseModel):
+    dataurl: str
 
-def read_image_from_shell(file_path: str) -> str:
-    name = petname.Generate(3)
-    client_uuid = str(uuid.uuid4())
-    thread = threading.Thread(
-        target=serve_image_in_bg, args=(file_path, client_uuid, name), daemon=True
-    )
-    thread.start()
-    return f"https://wcgw.arcfu.com/get_image/{client_uuid}/{name}"
 
 
 Param = ParamSpec("Param")
@@ -286,6 +281,24 @@ def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
 
     return wrapper
 
+@ensure_no_previous_output
+def read_image_from_shell(file_path: str) -> ImageData:
+    if not os.path.isabs(file_path):
+        SHELL.sendline("pwd")
+        SHELL.expect("#@@")
+        assert isinstance(SHELL.before, str)
+        current_dir = SHELL.before.strip()
+        file_path = os.path.join(current_dir, file_path)
+
+    if not os.path.exists(file_path):
+        raise ValueError(f"File {file_path} does not exist")
+
+    with open(file_path, "rb") as image_file:
+        image_bytes = image_file.read()
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        image_type = mimetypes.guess_type(file_path)[0]
+        return ImageData(dataurl=f'data:{image_type};base64,{image_b64}')
+    
 
 @ensure_no_previous_output
 def write_file(writefile: Writefile) -> str:
@@ -330,22 +343,22 @@ def take_help_of_ai_assistant(
 
 def which_tool(args: str) -> BaseModel:
     adapter = TypeAdapter[
-        Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag
-    ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag)
+        Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage
+    ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage)
     return adapter.validate_python(json.loads(args))
 
 
 def get_tool_output(
-    args: dict | Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag,
+    args: dict | Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage,
     enc: tiktoken.Encoding,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     is_waiting_user_input: Callable[[str], tuple[BASH_CLF_OUTPUT, float]],
-) -> tuple[str | DoneFlag, float]:
+) -> tuple[str | ImageData | DoneFlag, float]:
     if isinstance(args, dict):
         adapter = TypeAdapter[
-            Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag
-        ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag)
+            Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage
+        ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage)
         arg = adapter.validate_python(args)
     else:
         arg = args
@@ -365,9 +378,9 @@ def get_tool_output(
     elif isinstance(arg, AIAssistant):
         console.print("Calling AI assistant tool")
         output = take_help_of_ai_assistant(arg, limit, loop_call)
-    elif isinstance(arg, get_output_of_last_command):
-        console.print("Calling get output of last program tool")
-        output = get_output_of_last_command(enc), 0
+    elif isinstance(arg, ReadImage):
+        console.print("Calling read image tool")
+        output = read_image_from_shell(arg.file_path), 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
 
@@ -438,7 +451,7 @@ def execute_user_input() -> None:
                         ExecuteBash(
                             send_ascii=[ord(x) for x in user_input] + [ord("\n")]
                         ),
-                        lambda x: ("wont_exit", 0),
+                        lambda x: ("waiting_for_input", 0),
                     )[0]
                 )
             except Exception as e:
@@ -451,10 +464,10 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
     # Generate a unique UUID for this client
     if not client_uuid:
         client_uuid = str(uuid.uuid4())
-    print(f"Connecting with UUID: {client_uuid}")
 
     # Create the WebSocket connection
     async with websockets.connect(f"{server_url}/{client_uuid}") as websocket:
+        print(f"Connected. Share this user id with the chatbot: {client_uuid}")
         try:
             while True:
                 # Wait to receive data from the server
@@ -481,7 +494,7 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
                     assert not isinstance(output, DoneFlag)
                     await websocket.send(output)
 
-        except websockets.ConnectionClosed:
+        except (websockets.ConnectionClosed, ConnectionError):
             print(f"Connection closed for UUID: {client_uuid}, retrying")
             await register_client(server_url, client_uuid)
 
