@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'wcgw'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=wcgw",
+                    "--package=wcgw"
+                ],
+                "filter": {
+                    "name": "wcgw",
+                    "kind": "bin"
+                }
+            },
+            "args": ["--shell", "ls"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'wcgw'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=wcgw",
+                    "--package=wcgw"
+                ],
+                "filter": {
+                    "name": "wcgw",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

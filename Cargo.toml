@@ -4,5 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+vte = "0.11"
+crossterm = "0.20"
 clap = "4.0"
+colored = "2.1.0"
 rexpect = "0.4"
+tempfile = "3.13.0"
+tiktoken-rs = "0.6.0"
