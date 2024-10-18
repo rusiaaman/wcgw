@@ -22,7 +22,7 @@ $ wcgw
 ### Option 2: using uv
 ```sh
 $ curl -LsSf https://astral.sh/uv/install.sh | sh
-$ uv tool run wcgw
+$ uv tool run --python 3.12 wcgw
 ```
 
 This will print a UUID that you need to share with the gpt.
