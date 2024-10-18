@@ -20,8 +20,9 @@ import petname
 from typer import Typer
 import uuid
 
-from .common import Models, discard_input
-from .common import CostData, History
+from wcgw.common import Config, text_from_editor
+
+from .common import Models
 from .openai_utils import get_input_cost, get_output_cost
 from .tools import ExecuteBash, ReadImage, ImageData
 
@@ -39,40 +40,14 @@ from .tools import (
 import tiktoken
 
 from urllib import parse
-import subprocess
 import os
-import tempfile
 
 import toml
-from pydantic import BaseModel
 
 
 from dotenv import load_dotenv
 
-
-class Config(BaseModel):
-    model: Models
-    secondary_model: Models
-    cost_limit: float
-    cost_file: dict[Models, CostData]
-    cost_unit: str = "$"
-
-
-def text_from_editor(console: rich.console.Console) -> str:
-    # First consume all the input till now
-    discard_input()
-    console.print("\n---------------------------------------\n# User message")
-    data = input()
-    if data:
-        return data
-    editor = os.environ.get("EDITOR", "vim")
-    with tempfile.NamedTemporaryFile(suffix=".tmp") as tf:
-        subprocess.run([editor, tf.name], check=True)
-        with open(tf.name, "r") as f:
-            data = f.read()
-            console.print(data)
-            return data
-
+History = list[ChatCompletionMessageParam]
 
 def save_history(history: History, session_id: str) -> None:
     myid = str(history[1]["content"]).replace("/", "_").replace(" ", "_").lower()[:60]

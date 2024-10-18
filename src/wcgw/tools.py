@@ -467,7 +467,7 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
 
     # Create the WebSocket connection
     async with websockets.connect(f"{server_url}/{client_uuid}") as websocket:
-        print(f"Connected. Share this user id with the chatbot: {client_uuid}")
+        print(f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access")
         try:
             while True:
                 # Wait to receive data from the server
