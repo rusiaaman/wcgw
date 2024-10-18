@@ -1,0 +1,8 @@
+[package]
+name = "wcgw"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = "4.0"
+rexpect = "0.4"
