@@ -1,7 +1,15 @@
-# Giving full shell access to Chatgpt web (What could go wrong?)
-Steps: 
-1. First run the client in any directory of choice
-2. Use this custom gpt `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access` to let it interact with your shell.
+# Shell access to chatgpt.com
+
+### 🚀 Highlights
+- ⚡ **Full Shell Access**: No restrictions, complete control.
+- ⚡ **Create, Execute, Iterate**: Seamless workflow for development and execution.
+- ⚡ **Interactive Command Handling**: Supports interactive commands with ease.
+
+
+###  🪜 Steps: 
+1. Run the [cli client](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#client) in any directory of choice.
+2. Share the generated id with the GPT: `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access`
+3. The custom GPT can now run any command on your cli
 
 ## Client
 
@@ -25,7 +33,7 @@ https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access
 
 Add user id the client generated to the first message along with the instructions.
 
-# How does it work?
+# How it works
 Your commands are relayed through a server I've hosted at https://wcgw.arcfu.com. The code for that is at `src/relay/serve.py`. 
 
 The user id that you share with chatgpt is added in the request it sents to the relay server which holds a websocket with the terminal client.
