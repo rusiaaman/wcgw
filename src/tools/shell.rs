@@ -186,9 +186,7 @@ impl Shell {
             },
             Ok(output) => {
                 self.state = BashState::Idle;
-                println!("output: {:?}", output);
                 let output = self.truncate_output(render_terminal_output(output))?;
-                println!("output: {}", output);
                 let err_code = self.get_exit_code()?;
                 let output = format!("{}\n(exit {})", output, err_code);
                 return Ok(output);
@@ -216,7 +214,6 @@ impl Shell {
         loop {
             match before.trim().parse::<i32>() {
                 Err(_) => {
-                    println!("before: {:?}", before);
                     before = render_terminal_output(self.session.wait_for_prompt()?);
                 }
                 Ok(val) => return Ok(val),

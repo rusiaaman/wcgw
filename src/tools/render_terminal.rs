@@ -84,6 +84,8 @@ impl Perform for TerminalEmulator {
 }
 
 pub fn render_terminal_output(text: String) -> String {
+    // replace all \t with 4 spaces as it's not being rendered by the terminal emulator
+    let text = text.replace("\t", "    ");
     let mut emulator = TerminalEmulator::new(160, 500);
     emulator.feed(&text);
     let output = emulator.render();
