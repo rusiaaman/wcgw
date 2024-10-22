@@ -1,4 +1,5 @@
-# Shell access to chatgpt.com
+# Enable shell access on chatgpt.com
+A custom gpt on chatgpt web app to interact with your local shell.
 
 ### 🚀 Highlights
 - ⚡ **Full Shell Access**: No restrictions, complete control.
@@ -14,8 +15,9 @@
 ## Client
 
 ### Option 1: using pip
+Supports python >=3.8 and <3.13
 ```sh
-$ pip install wcgw
+$ pip3 install wcgw
 $ wcgw
 ```
 
@@ -33,7 +35,35 @@ https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access
 
 Add user id the client generated to the first message along with the instructions.
 
+You can resume a broken connection 
+`wcgw --client-uuid $previous_uuid`
+
 # How it works
 Your commands are relayed through a server I've hosted at https://wcgw.arcfu.com. The code for that is at `src/relay/serve.py`. 
 
-The user id that you share with chatgpt is added in the request it sents to the relay server which holds a websocket with the terminal client.
+Chat gpt sends a request to the relay server using the user id that you share with it. The relay server holds a websocket with the terminal cilent against the user id and acts as a proxy to pass the request.
+
+It's secure in both the directions. Either a malicious actor or a malicious Chatgpt has to correctly guess your UUID for any security breach. 
+
+# Showcase
+
+## Create a todo app using react + typescript + vite
+https://chatgpt.com/share/6717d94d-756c-8005-98a6-d021c7b586aa
+
+## Write unit tests for all files in my current repo
+[Todo]
+
+
+# [Optional] Local shell access with openai API key
+
+Add `OPENAI_API_KEY` and `OPENAI_ORG_ID` env variables.
+
+Clone the repo and run to install `wcgw_local` command
+
+`pip install .`
+
+Then run 
+
+`wcgw_local  --limit 0.1` # Cost limit $0.1 
+
+You can now directly write messages or press enter key to open vim for multiline message and text pasting.
