@@ -3,9 +3,8 @@ A custom gpt on chatgpt web app to interact with your local shell.
 
 ### 🚀 Highlights
 - ⚡ **Full Shell Access**: No restrictions, complete control.
-- ⚡ **Create, Execute, Iterate**: Seamless workflow for development and execution.
-- ⚡ **Interactive Command Handling**: Supports interactive commands with ease.
-
+- ⚡ **Create, Execute, Iterate**: Ask the gpt to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
+- ⚡ **Interactive Command Handling**: [beta] Supports interactive commands using arrow keys, interrupt, and ansi escape sequences. 
 
 ###  🪜 Steps: 
 1. Run the [cli client](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#client) in any directory of choice.
