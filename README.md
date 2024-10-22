@@ -51,7 +51,8 @@ NOTE: the relay server doesn't store any data. If you don't trust it then you ma
 # Showcase
 
 ## Create a todo app using react + typescript + vite
-https://chatgpt.com/share/6717d94d-756c-8005-98a6-d021c7b586aa
+![Screenshot](https://github.com/rusiaaman/wcgw/blob/main/static/ss1.png?raw=true)
+
 
 ## Write unit tests for all files in my current repo
 [Todo]
