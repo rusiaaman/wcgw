@@ -50,12 +50,12 @@ NOTE: the relay server doesn't store any data. If you don't trust it then you ma
 
 # Showcase
 
+## Unit tests and github actions
+[The first version of unit tests and github workflow to test on multiple python versions were written by the custom chatgpt](https://chatgpt.com/share/6717f922-8998-8005-b825-45d4b348b4dd)
+
 ## Create a todo app using react + typescript + vite
 ![Screenshot](https://github.com/rusiaaman/wcgw/blob/main/static/ss1.png?raw=true)
 
-
-## Write unit tests for all files in my current repo
-[Todo]
 
 
 # [Optional] Local shell access with openai API key
