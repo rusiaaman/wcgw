@@ -1023,7 +1023,7 @@ wheels = [
 
 [[package]]
 name = "wcgw"
-version = "0.0.9"
+version = "0.0.10"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -1031,6 +1031,7 @@ dependencies = [
     { name = "openai" },
     { name = "petname" },
     { name = "pexpect" },
+    { name = "pydantic" },
     { name = "pyte" },
     { name = "python-dotenv" },
     { name = "rich" },
@@ -1058,6 +1059,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.46.0" },
     { name = "petname", specifier = ">=2.6" },
     { name = "pexpect", specifier = ">=4.9.0" },
+    { name = "pydantic", specifier = ">=2.9.2" },
     { name = "pyte", specifier = ">=0.8.2" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "rich", specifier = ">=13.8.1" },
