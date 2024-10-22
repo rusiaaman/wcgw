@@ -1,6 +1,9 @@
 # Enable shell access on chatgpt.com
 A custom gpt on chatgpt web app to interact with your local shell.
 
+[![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
+[![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
+
 ### 🚀 Highlights
 - ⚡ **Full Shell Access**: No restrictions, complete control.
 - ⚡ **Create, Execute, Iterate**: Ask the gpt to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
@@ -10,6 +13,7 @@ A custom gpt on chatgpt web app to interact with your local shell.
 1. Run the [cli client](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#client) in any directory of choice.
 2. Share the generated id with this GPT: `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access`
 3. The custom GPT can now run any command on your cli
+
 
 ## Client
 
