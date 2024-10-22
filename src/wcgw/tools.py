@@ -43,7 +43,7 @@ from .common import CostData, Models, discard_input
 
 from .openai_utils import get_input_cost, get_output_cost
 
-console = rich.console.Console(style="magenta", highlight=False)
+console = rich.console.Console(style="magenta", highlight=False, markup=False)
 
 TIMEOUT = 30
 

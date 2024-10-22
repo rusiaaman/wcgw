@@ -4,7 +4,7 @@ name = "wcgw"
 version = "0.0.10"
 description = "What could go wrong giving full shell access to chatgpt?"
 readme = "README.md"
-requires-python = ">=3.8, <3.13"
+requires-python = ">=3.10, <3.13"
 dependencies = [
     "openai>=1.46.0",
     "mypy>=1.11.2",
@@ -26,7 +26,6 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/rusiaaman/wcgw"
-
 
 [build-system]
 requires = ["hatchling"]
