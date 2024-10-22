@@ -8,7 +8,7 @@ A custom gpt on chatgpt web app to interact with your local shell.
 
 ###  🪜 Steps: 
 1. Run the [cli client](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#client) in any directory of choice.
-2. Share the generated id with the GPT: `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access`
+2. Share the generated id with this GPT: `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access`
 3. The custom GPT can now run any command on your cli
 
 ## Client
@@ -30,11 +30,13 @@ This will print a UUID that you need to share with the gpt.
 
 
 ## Chat
+Open the following link or search the "wcgw" custom gpt using "Explore GPTs" on chatgpt.com
+
 https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access
 
-Add user id the client generated to the first message along with the instructions.
+Finally, let the chatgpt know your user id in any format. E.g., "user_id=<your uuid>" followed by rest of your instructions.
 
-You can resume a broken connection 
+NOTE: you can resume a broken connection 
 `wcgw --client-uuid $previous_uuid`
 
 # How it works
