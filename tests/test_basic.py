@@ -16,7 +16,8 @@ class TestBasic(unittest.TestCase):
 
     @patch('tempfile.NamedTemporaryFile')
     @patch('subprocess.run')
-    def test_text_from_editor_editor_input(self, mock_run, mock_tempfile):
+    @patch('builtins.input', return_value='')
+    def test_text_from_editor_editor_input(self, mock_input, mock_run, mock_tempfile):
         # Setup tempfile mock
         mock_tempfile.return_value.__enter__.return_value.name = 'testfile.tmp'
         with patch('builtins.open', mock_open(read_data='Editor content')) as mock_file:
