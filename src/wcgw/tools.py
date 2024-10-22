@@ -5,14 +5,23 @@ import mimetypes
 import sys
 import threading
 import traceback
-from typing import Callable, Literal, NewType, Optional, ParamSpec, Sequence, TypeVar, TypedDict
+from typing import (
+    Callable,
+    Literal,
+    NewType,
+    Optional,
+    ParamSpec,
+    Sequence,
+    TypeVar,
+    TypedDict,
+)
 import uuid
 from pydantic import BaseModel, TypeAdapter
 from websockets.sync.client import connect as syncconnect
 
 import os
 import tiktoken
-import petname  # type: ignore[import]
+import petname  # type: ignore[import-untyped]
 import pexpect
 from typer import Typer
 import websockets
@@ -68,14 +77,14 @@ class Writefile(BaseModel):
     file_content: str
 
 
-def start_shell():
+def start_shell() -> pexpect.spawn:
     SHELL = pexpect.spawn(
         "/bin/bash --noprofile --norc",
-        env={**os.environ, **{"PS1": "#@@"}},
+        env={**os.environ, **{"PS1": "#@@"}},  # type: ignore[arg-type]
         echo=False,
         encoding="utf-8",
         timeout=TIMEOUT,
-    )  # type: ignore[arg-type]
+    )
     SHELL.expect("#@@")
     SHELL.sendline("stty -icanon -echo")
     SHELL.expect("#@@")
@@ -119,17 +128,6 @@ BASH_CLF_OUTPUT = Literal["running", "waiting_for_input", "wont_exit"]
 BASH_STATE: BASH_CLF_OUTPUT = "running"
 
 
-def get_output_of_last_command(enc: tiktoken.Encoding) -> str:
-    global SHELL, BASH_STATE
-    output = render_terminal_output(SHELL.before)
-
-    tokens = enc.encode(output)
-    if len(tokens) >= 2048:
-        output = "...(truncated)\n" + enc.decode(tokens[-2047:])
-
-    return output
-
-
 WAITING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
 1. Get its output using `send_ascii: [10]`
 2. Use `send_ascii` to give inputs to the running program, don't use `execute_command` OR
@@ -137,9 +135,7 @@ WAITING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE:
 
 
 def execute_bash(
-    enc: tiktoken.Encoding,
-    bash_arg: ExecuteBash,
-    is_waiting_user_input: Callable[[str], tuple[BASH_CLF_OUTPUT, float]],
+    enc: tiktoken.Encoding, bash_arg: ExecuteBash, max_tokens: Optional[int]
 ) -> tuple[str, float]:
     global SHELL, BASH_STATE
     try:
@@ -186,38 +182,33 @@ def execute_bash(
         SHELL = start_shell()
         raise
 
-    wait = timeout = 5
+    wait = 5
     index = SHELL.expect(["#@@", pexpect.TIMEOUT], timeout=wait)
     running = ""
     while index == 1:
         if wait > TIMEOUT:
             raise TimeoutError("Timeout while waiting for shell prompt")
 
-        text = SHELL.before
+        BASH_STATE = "waiting_for_input"
+        text = SHELL.before or ""
         print(text[len(running) :])
         running = text
 
         text = render_terminal_output(text)
-        BASH_STATE, cost = is_waiting_user_input(text)
-        if BASH_STATE == "waiting_for_input" or BASH_STATE == "wont_exit":
-            tokens = enc.encode(text)
+        tokens = enc.encode(text)
 
-            if len(tokens) >= 2048:
-                text = "...(truncated)\n" + enc.decode(tokens[-2047:])
+        if max_tokens and len(tokens) >= max_tokens:
+            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
-            last_line = (
-                "(pending)" if BASH_STATE == "waiting_for_input" else "(won't exit)"
-            )
-            return text + f"\n{last_line}", cost
-        index = SHELL.expect(["#@@", pexpect.TIMEOUT], timeout=wait)
-        wait += timeout
+        last_line = "(pending)"
+        return text + f"\n{last_line}", 0
 
     assert isinstance(SHELL.before, str)
     output = render_terminal_output(SHELL.before)
 
     tokens = enc.encode(output)
-    if len(tokens) >= 2048:
-        output = "...(truncated)\n" + enc.decode(tokens[-2047:])
+    if max_tokens and len(tokens) >= max_tokens:
+        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
     try:
         exit_code = _get_exit_code()
@@ -236,7 +227,7 @@ def execute_bash(
 
 class ReadImage(BaseModel):
     file_path: str
-    type: Literal['ReadImage'] = 'ReadImage'
+    type: Literal["ReadImage"] = "ReadImage"
 
 
 def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
@@ -258,9 +249,9 @@ def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
             print(f"Connection closed for UUID: {client_uuid}, retrying")
             serve_image_in_bg(file_path, client_uuid, name)
 
+
 class ImageData(BaseModel):
     dataurl: str
-
 
 
 Param = ParamSpec("Param")
@@ -281,6 +272,7 @@ def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
 
     return wrapper
 
+
 @ensure_no_previous_output
 def read_image_from_shell(file_path: str) -> ImageData:
     if not os.path.isabs(file_path):
@@ -297,8 +289,8 @@ def read_image_from_shell(file_path: str) -> ImageData:
         image_bytes = image_file.read()
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
         image_type = mimetypes.guess_type(file_path)[0]
-        return ImageData(dataurl=f'data:{image_type};base64,{image_b64}')
-    
+        return ImageData(dataurl=f"data:{image_type};base64,{image_b64}")
+
 
 @ensure_no_previous_output
 def write_file(writefile: Writefile) -> str:
@@ -349,11 +341,17 @@ def which_tool(args: str) -> BaseModel:
 
 
 def get_tool_output(
-    args: dict | Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage,
+    args: dict[object, object]
+    | Confirmation
+    | ExecuteBash
+    | Writefile
+    | AIAssistant
+    | DoneFlag
+    | ReadImage,
     enc: tiktoken.Encoding,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
-    is_waiting_user_input: Callable[[str], tuple[BASH_CLF_OUTPUT, float]],
+    max_tokens: Optional[int],
 ) -> tuple[str | ImageData | DoneFlag, float]:
     if isinstance(args, dict):
         adapter = TypeAdapter[
@@ -362,13 +360,13 @@ def get_tool_output(
         arg = adapter.validate_python(args)
     else:
         arg = args
-    output: tuple[str | DoneFlag, float]
+    output: tuple[str | DoneFlag | ImageData, float]
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
     elif isinstance(arg, ExecuteBash):
         console.print("Calling execute bash tool")
-        output = execute_bash(enc, arg, is_waiting_user_input)
+        output = execute_bash(enc, arg, max_tokens)
     elif isinstance(arg, Writefile):
         console.print("Calling write file tool")
         output = write_file(arg), 0
@@ -391,7 +389,9 @@ def get_tool_output(
 History = list[ChatCompletionMessageParam]
 
 
-def get_is_waiting_user_input(model: Models, cost_data: CostData):
+def get_is_waiting_user_input(
+    model: Models, cost_data: CostData
+) -> Callable[[str], tuple[BASH_CLF_OUTPUT, float]]:
     enc = tiktoken.encoding_for_model(model if not model.startswith("o1") else "gpt-4o")
     system_prompt = """You need to classify if a bash program is waiting for user input based on its stdout, or if it won't exit. You'll be given the output of any program.
     Return `waiting_for_input` if the program is waiting for INTERACTIVE input only, Return 'running' if it's waiting for external resources or just waiting to finish.
@@ -451,7 +451,7 @@ def execute_user_input() -> None:
                         ExecuteBash(
                             send_ascii=[ord(x) for x in user_input] + [ord("\n")]
                         ),
-                        lambda x: ("waiting_for_input", 0),
+                        max_tokens=None,
                     )[0]
                 )
             except Exception as e:
@@ -467,31 +467,25 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
 
     # Create the WebSocket connection
     async with websockets.connect(f"{server_url}/{client_uuid}") as websocket:
-        print(f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access")
+        print(
+            f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
+        )
         try:
             while True:
                 # Wait to receive data from the server
                 message = await websocket.recv()
                 mdata = Mdata.model_validate_json(message)
                 with execution_lock:
-                    # is_waiting_user_input = get_is_waiting_user_input(
-                    #     default_model, default_cost
-                    # )
-                    is_waiting_user_input = lambda x: ("waiting_for_input", 0)
                     try:
                         output, cost = get_tool_output(
-                            mdata.data,
-                            default_enc,
-                            0.0,
-                            lambda x, y: ("", 0),
-                            is_waiting_user_input,
+                            mdata.data, default_enc, 0.0, lambda x, y: ("", 0), None
                         )
                         curr_cost += cost
                         print(f"{curr_cost=}")
                     except Exception as e:
                         output = f"GOT EXCEPTION while calling tool. Error: {e}"
                         traceback.print_exc()
-                    assert not isinstance(output, DoneFlag)
+                    assert isinstance(output, str)
                     await websocket.send(output)
 
         except (websockets.ConnectionClosed, ConnectionError):
@@ -499,14 +493,17 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
             await register_client(server_url, client_uuid)
 
 
-def run() -> None:
-    if len(sys.argv) > 1:
-        server_url = sys.argv[1]
-    else:
-        server_url = "wss://wcgw.arcfu.com/register"
+run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
 
+
+@run.command()
+def app(
+    server_url: str = "wss://wcgw.arcfu.com/register", client_uuid: Optional[str] = None
+) -> None:
     thread1 = threading.Thread(target=execute_user_input)
-    thread2 = threading.Thread(target=asyncio.run, args=(register_client(server_url),))
+    thread2 = threading.Thread(
+        target=asyncio.run, args=(register_client(server_url, client_uuid or ""),)
+    )
 
     thread1.start()
     thread2.start()

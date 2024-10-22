@@ -16,7 +16,7 @@ from openai.types.chat import (
     ParsedChatCompletionMessage,
 )
 import rich
-import petname
+import petname  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
@@ -30,7 +30,6 @@ from .tools import (
     Confirmation,
     DoneFlag,
     Writefile,
-    get_is_waiting_user_input,
     get_tool_output,
     SHELL,
     start_shell,
@@ -92,29 +91,22 @@ def parse_user_message_special(msg: str) -> ChatCompletionUserMessageParam:
         if line.startswith("%"):
             args = line[1:].strip().split(" ")
             command = args[0]
-            assert command == 'image'
+            assert command == "image"
             image_path = args[1]
-            with open(image_path, 'rb') as f:
+            with open(image_path, "rb") as f:
                 image_bytes = f.read()
                 image_b64 = base64.b64encode(image_bytes).decode("utf-8")
                 image_type = mimetypes.guess_type(image_path)[0]
-                dataurl=f'data:{image_type};base64,{image_b64}'
-            parts.append({
-                'type': 'image_url',
-                'image_url': {
-                    'url': dataurl,
-                    'detail': 'auto'
-                }
-            })
+                dataurl = f"data:{image_type};base64,{image_b64}"
+            parts.append(
+                {"type": "image_url", "image_url": {"url": dataurl, "detail": "auto"}}
+            )
         else:
-            if len(parts) > 0 and parts[-1]['type'] == 'text':
-                parts[-1]['text'] += '\n' + line
+            if len(parts) > 0 and parts[-1]["type"] == "text":
+                parts[-1]["text"] += "\n" + line
             else:
-                parts.append({'type': 'text', 'text': line})
-    return {
-        'role': 'user',
-        'content': parts
-    }
+                parts.append({"type": "text", "text": line})
+    return {"role": "user", "content": parts}
 
 
 app = Typer(pretty_exceptions_show_locals=False)
@@ -146,7 +138,7 @@ def loop(
         if history[1]["role"] != "user":
             raise ValueError("Invalid history file, second message should be user")
         first_message = ""
-        waiting_for_assistant = history[-1]['role'] != 'assistant'
+        waiting_for_assistant = history[-1]["role"] != "assistant"
 
     my_dir = os.path.dirname(__file__)
     config_file = os.path.join(my_dir, "..", "..", "config.toml")
@@ -160,9 +152,6 @@ def loop(
 
     enc = tiktoken.encoding_for_model(
         config.model if not config.model.startswith("o1") else "gpt-4o"
-    )
-    is_waiting_user_input = get_is_waiting_user_input(
-        config.model, config.cost_file[config.model]
     )
 
     tools = [
@@ -290,7 +279,7 @@ System information:
                     )
                     system_console.print(f"\nTotal cost: {config.cost_unit}{cost:.3f}")
                     output_toks += output_toks_
-                    
+
                     _histories.append(item)
                     for tool_call_id, toolcallargs in tool_call_args_by_id.items():
                         for toolindex, tool_args in toolcallargs.items():
@@ -300,7 +289,7 @@ System information:
                                     enc,
                                     limit - cost,
                                     loop,
-                                    is_waiting_user_input,
+                                    max_tokens=2048,
                                 )
                             except Exception as e:
                                 output_or_done = (
@@ -322,42 +311,49 @@ System information:
                                     f"\nTotal cost: {config.cost_unit}{cost:.3f}"
                                 )
                                 return output_or_done.task_output, cost
-                                
+
                             output = output_or_done
 
                             if isinstance(output, ImageData):
                                 randomId = petname.Generate(2, "-")
                                 if not image_histories:
-                                    image_histories.extend([
-                                        {
-                                            'role': 'assistant',
-                                            'content': f'Share images with ids: {randomId}'
-
-                                        },
-                                        {
-                                            'role': 'user',
-                                            'content': [{
-                                                'type': 'image_url',
-                                                'image_url': {
-                                                    'url': output.dataurl,
-                                                    'detail': 'auto'
-                                                }
-                                            }]
-                                        }]
+                                    image_histories.extend(
+                                        [
+                                            {
+                                                "role": "assistant",
+                                                "content": f"Share images with ids: {randomId}",
+                                            },
+                                            {
+                                                "role": "user",
+                                                "content": [
+                                                    {
+                                                        "type": "image_url",
+                                                        "image_url": {
+                                                            "url": output.dataurl,
+                                                            "detail": "auto",
+                                                        },
+                                                    }
+                                                ],
+                                            },
+                                        ]
                                     )
                                 else:
-                                    image_histories[0]['content'] += ', ' + randomId
-                                    image_histories[1]["content"].append({ # type: ignore
-                                        'type': 'image_url',
-                                        'image_url': {
-                                            'url': output.dataurl,
-                                            'detail': 'auto'
+                                    image_histories[0]["content"] += ", " + randomId
+                                    second_content = image_histories[1]["content"]
+                                    assert isinstance(second_content, list)
+                                    second_content.append(
+                                        {
+                                            "type": "image_url",
+                                            "image_url": {
+                                                "url": output.dataurl,
+                                                "detail": "auto",
+                                            },
                                         }
-                                    })
+                                    )
 
                                 item = {
                                     "role": "tool",
-                                    "content": f'Ask user for image id: {randomId}',
+                                    "content": f"Ask user for image id: {randomId}",
                                     "tool_call_id": tool_call_id + str(toolindex),
                                 }
                             else:
