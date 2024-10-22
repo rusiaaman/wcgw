@@ -46,6 +46,8 @@ Chat gpt sends a request to the relay server using the user id that you share wi
 
 It's secure in both the directions. Either a malicious actor or a malicious Chatgpt has to correctly guess your UUID for any security breach. 
 
+NOTE: the relay server doesn't store any data. If you don't trust it then you may host the server on your own and create a custom gpt. Create an issue and I'll be happy to share the full instructions and schema I've given in the custom GPT configuration. 
+
 # Showcase
 
 ## Create a todo app using react + typescript + vite
