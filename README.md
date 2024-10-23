@@ -16,19 +16,21 @@ A custom gpt on chatgpt web app to interact with your local shell.
 
 
 ## Client
+You need to keep running this client for GPT to access your shell. Run it in a version controlled project's root.
 
-### Option 1: using pip
+### Option 1: using uv [Recommended]
+```sh
+$ curl -LsSf https://astral.sh/uv/install.sh | sh
+$ uv tool run --python 3.12 wcgw@latest
+```
+
+### Option 2: using pip
 Supports python >=3.10 and <3.13
 ```sh
 $ pip3 install wcgw
 $ wcgw
 ```
 
-### Option 2: using uv
-```sh
-$ curl -LsSf https://astral.sh/uv/install.sh | sh
-$ uv tool run --python 3.12 wcgw@latest
-```
 
 This will print a UUID that you need to share with the gpt.
 
