@@ -18,7 +18,7 @@ A custom gpt on chatgpt web app to interact with your local shell.
 ## Client
 
 ### Option 1: using pip
-Supports python >=3.8 and <3.13
+Supports python >=3.10 and <3.13
 ```sh
 $ pip3 install wcgw
 $ wcgw
