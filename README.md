@@ -52,6 +52,15 @@ Chat gpt sends a request to the relay server using the user id that you share wi
 
 It's secure in both the directions. Either a malicious actor or a malicious Chatgpt has to correctly guess your UUID for any security breach. 
 
+# Showcase
+
+## Unit tests and github actions
+[The first version of unit tests and github workflow to test on multiple python versions were written by the custom chatgpt](https://chatgpt.com/share/6717f922-8998-8005-b825-45d4b348b4dd)
+
+## Create a todo app using react + typescript + vite
+![Screenshot](https://github.com/rusiaaman/wcgw/blob/main/static/ss1.png?raw=true)
+
+
 # Privacy
 The relay server doesn't store any data. I can't access any information passing through it and only secure channels are used to communicate.
 
@@ -67,15 +76,6 @@ Run the server
 `gunicorn --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:443 src.relay.serve:app  --certfile fullchain.pem  --keyfile  privkey.pem`
 
 If you don't have public ip and domain name, you can use `ngrok` or similar services to get a https address to the api.
-
-# Showcase
-
-## Unit tests and github actions
-[The first version of unit tests and github workflow to test on multiple python versions were written by the custom chatgpt](https://chatgpt.com/share/6717f922-8998-8005-b825-45d4b348b4dd)
-
-## Create a todo app using react + typescript + vite
-![Screenshot](https://github.com/rusiaaman/wcgw/blob/main/static/ss1.png?raw=true)
-
 
 
 # [Optional] Local shell access with openai API key
