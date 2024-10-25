@@ -77,6 +77,8 @@ Run the server
 
 If you don't have public ip and domain name, you can use `ngrok` or similar services to get a https address to the api.
 
+The specify the server url in the `wcgw` command like so
+`wcgw --server-url https://your-url/register`
 
 # [Optional] Local shell access with openai API key
 
