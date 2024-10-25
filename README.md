@@ -52,7 +52,21 @@ Chat gpt sends a request to the relay server using the user id that you share wi
 
 It's secure in both the directions. Either a malicious actor or a malicious Chatgpt has to correctly guess your UUID for any security breach. 
 
-NOTE: the relay server doesn't store any data. If you don't trust it then you may host the server on your own and create a custom gpt. Create an issue and I'll be happy to share the full instructions and schema I've given in the custom GPT configuration. 
+# Privacy
+The relay server doesn't store any data. I can't access any information passing through it and only secure channels are used to communicate.
+
+You may host the server on your own and create a custom gpt using the following section.
+
+# Creating your own custom gpt and the relay server.
+I've used the following instructions and action json schema to create the custom GPT. (Replace wcgw.arcfu.com with the address to your server)
+
+https://github.com/rusiaaman/wcgw/blob/main/gpt_instructions.txt
+https://github.com/rusiaaman/wcgw/blob/main/gpt_action_json_schema.json
+
+Run the server 
+`gunicorn --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:443 src.relay.serve:app  --certfile fullchain.pem  --keyfile  privkey.pem`
+
+If you don't have public ip and domain name, you can use `ngrok` or similar services to get a https address to the api.
 
 # Showcase
 
