@@ -114,7 +114,8 @@ def _get_exit_code() -> int:
     while not _is_int(before):  # Consume all previous output
         SHELL.expect("#@@")
         assert isinstance(SHELL.before, str)
-        before = SHELL.before
+        # Render because there could be some anscii escape sequences still set like in google colab env
+        before = render_terminal_output(SHELL.before).strip()
 
     try:
         return int((before))
@@ -285,7 +286,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
         SHELL.sendline("pwd")
         SHELL.expect("#@@")
         assert isinstance(SHELL.before, str)
-        current_dir = SHELL.before.strip()
+        current_dir = render_terminal_output(SHELL.before).strip()
         file_path = os.path.join(current_dir, file_path)
 
     if not os.path.exists(file_path):
@@ -304,7 +305,7 @@ def write_file(writefile: Writefile) -> str:
         SHELL.sendline("pwd")
         SHELL.expect("#@@")
         assert isinstance(SHELL.before, str)
-        current_dir = SHELL.before.strip()
+        current_dir = render_terminal_output(SHELL.before).strip()
         return f"Failure: Use absolute path only. FYI current working directory is '{current_dir}'"
     os.makedirs(os.path.dirname(writefile.file_path), exist_ok=True)
     try:
