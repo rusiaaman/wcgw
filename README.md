@@ -46,9 +46,9 @@ NOTE: you can resume a broken connection
 `wcgw --client-uuid $previous_uuid`
 
 # How it works
-Your commands are relayed through a server I've hosted at https://wcgw.arcfu.com. The code for that is at `src/relay/serve.py`. 
+Your commands are relayed through a server that to the terminal client. [You could host the server on your own](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#creating-your-own-custom-gpt-and-the-relay-server). For public convenience I've hosted one at https://wcgw.arcfu.com thanks to the gcloud free tier plan.
 
-Chat gpt sends a request to the relay server using the user id that you share with it. The relay server holds a websocket with the terminal client against the user id and acts as a proxy to pass the request.
+Chatgpt sends a request to the relay server using the user id that you share with it. The relay server holds a websocket with the terminal client against the user id and acts as a proxy to pass the request.
 
 It's secure in both the directions. Either a malicious actor or a malicious Chatgpt has to correctly guess your UUID for any security breach. 
 
