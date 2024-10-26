@@ -48,7 +48,7 @@ NOTE: you can resume a broken connection
 # How it works
 Your commands are relayed through a server I've hosted at https://wcgw.arcfu.com. The code for that is at `src/relay/serve.py`. 
 
-Chat gpt sends a request to the relay server using the user id that you share with it. The relay server holds a websocket with the terminal cilent against the user id and acts as a proxy to pass the request.
+Chat gpt sends a request to the relay server using the user id that you share with it. The relay server holds a websocket with the terminal client against the user id and acts as a proxy to pass the request.
 
 It's secure in both the directions. Either a malicious actor or a malicious Chatgpt has to correctly guess your UUID for any security breach. 
 
