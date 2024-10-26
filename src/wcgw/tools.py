@@ -103,6 +103,12 @@ def _is_int(mystr: str) -> bool:
 
 
 def _get_exit_code() -> int:
+    # First reset the prompt in case venv was sourced or other reasons.
+    SHELL.sendline('export PS1="#@@"')
+    SHELL.expect("#@@")
+    # Reset echo also if it was enabled
+    SHELL.sendline("stty -icanon -echo")
+    SHELL.expect("#@@")
     SHELL.sendline("echo $?")
     before = ""
     while not _is_int(before):  # Consume all previous output
@@ -299,7 +305,7 @@ def write_file(writefile: Writefile) -> str:
         SHELL.expect("#@@")
         assert isinstance(SHELL.before, str)
         current_dir = SHELL.before.strip()
-        writefile.file_path = os.path.join(current_dir, writefile.file_path)
+        return f"Failure: Use absolute path only. FYI current working directory is '{current_dir}'"
     os.makedirs(os.path.dirname(writefile.file_path), exist_ok=True)
     try:
         with open(writefile.file_path, "w") as f:
