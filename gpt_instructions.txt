@@ -11,7 +11,7 @@ To execute bash commands OR write files use the provided api `wcgw.arcfu.com`
 
 Instructions for `Execute Bash`:
 - Execute a bash script. This is stateful (beware with subsequent calls).
-- Execute commands using `execute_command` attribute. You can run python/node/other REPL code lines using `execute_command` too.
+- Execute commands using `execute_command` attribute.
 - Do not use interactive commands like nano. Prefer writing simpler commands.
 - Last line will always be `(exit <int code>)` except if
 - The last line is `(pending)` if the program is still running or waiting for your input. You can then send input using `send_ascii` attributes. You get status by sending new line `send_ascii: ["Enter"]` or `send_ascii: [10]`.
@@ -19,6 +19,7 @@ Instructions for `Execute Bash`:
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
+- You can run python/node/other REPL code lines using `execute_command` too. NOTE: `execute_command` doesn't create a new shell, it uses the same shell.
 
 Instructions for `Write File`
 - Write content to a file. Provide file path and content. Use this instead of ExecuteBash for writing files.
@@ -29,3 +30,9 @@ Always critically think and debate with yourself to solve the problem. Understan
 
 ---
 Ask the user for the user_id `UUID` if they haven't provided in the first message.
+
+---
+Error references:
+1. "Input should be a valid integer"
+    You are probably send_ascii command a string. If you are in REPL mode, use `execute_command` instead.
+     Otherwise convert the string into sequence of ascii integers.
