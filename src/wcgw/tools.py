@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import mimetypes
+import re
 import sys
 import threading
 import traceback
@@ -77,17 +78,20 @@ class Writefile(BaseModel):
     file_content: str
 
 
+PROMPT = "#@@"
+
+
 def start_shell() -> pexpect.spawn:
     SHELL = pexpect.spawn(
         "/bin/bash --noprofile --norc",
-        env={**os.environ, **{"PS1": "#@@"}},  # type: ignore[arg-type]
+        env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
         echo=False,
         encoding="utf-8",
         timeout=TIMEOUT,
     )
-    SHELL.expect("#@@")
+    SHELL.expect(PROMPT)
     SHELL.sendline("stty -icanon -echo")
-    SHELL.expect("#@@")
+    SHELL.expect(PROMPT)
     return SHELL
 
 
@@ -103,16 +107,22 @@ def _is_int(mystr: str) -> bool:
 
 
 def _get_exit_code() -> int:
+    if PROMPT != "#@@":
+        return 0
     # First reset the prompt in case venv was sourced or other reasons.
-    SHELL.sendline('export PS1="#@@"')
-    SHELL.expect("#@@")
+    SHELL.sendline(f"export PS1={PROMPT}")
+    SHELL.expect(PROMPT)
     # Reset echo also if it was enabled
     SHELL.sendline("stty -icanon -echo")
-    SHELL.expect("#@@")
+    SHELL.expect(PROMPT)
     SHELL.sendline("echo $?")
     before = ""
     while not _is_int(before):  # Consume all previous output
-        SHELL.expect("#@@")
+        try:
+            SHELL.expect(PROMPT)
+        except pexpect.TIMEOUT:
+            print(f"Couldn't get exit code, before: {before}")
+            raise
         assert isinstance(SHELL.before, str)
         # Render because there could be some anscii escape sequences still set like in google colab env
         before = render_terminal_output(SHELL.before).strip()
@@ -136,9 +146,31 @@ BASH_STATE: BASH_CLF_OUTPUT = "running"
 
 
 WAITING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
-1. Get its output using `send_ascii: [10]`
+1. Get its output using `send_ascii: [10] or send_ascii: ["Enter"]`
 2. Use `send_ascii` to give inputs to the running program, don't use `execute_command` OR
 3. kill the previous program by sending ctrl+c first using `send_ascii`"""
+
+
+def update_repl_prompt(command: str) -> bool:
+    global PROMPT
+    if re.match(r"^wcgw_update_prompt\(\)$", command.strip()):
+        SHELL.sendintr()
+        index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
+        if index == 0:
+            return False
+        before = SHELL.before or ""
+        assert before, "Something went wrong updating repl prompt"
+        PROMPT = before.split("\n")[-1].strip()
+        # Escape all regex
+        PROMPT = re.escape(PROMPT)
+        print(f"Trying to update prompt to: {PROMPT.encode()!r}")
+        index = 0
+        while index == 0:
+            # Consume all REPL prompts till now
+            index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
+        print(f"Prompt updated to: {PROMPT}")
+        return True
+    return False
 
 
 def execute_bash(
@@ -146,7 +178,19 @@ def execute_bash(
 ) -> tuple[str, float]:
     global SHELL, BASH_STATE
     try:
+        is_interrupt = False
         if bash_arg.execute_command:
+            updated_repl_mode = update_repl_prompt(bash_arg.execute_command)
+            if updated_repl_mode:
+                BASH_STATE = "running"
+                response = "Prompt updated, you can execute REPL lines using execute_command now"
+                console.print(response)
+                return (
+                    response,
+                    0,
+                )
+
+            console.print(f"$ {bash_arg.execute_command}")
             if BASH_STATE == "waiting_for_input":
                 raise ValueError(WAITING_INPUT_MESSAGE)
             elif BASH_STATE == "wont_exit":
@@ -160,14 +204,14 @@ def execute_bash(
                 raise ValueError(
                     "Command should not contain newline character in middle. Run only one command at a time."
                 )
-
-            console.print(f"$ {command}")
             SHELL.sendline(command)
         elif bash_arg.send_ascii:
             console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
             for char in bash_arg.send_ascii:
                 if isinstance(char, int):
                     SHELL.send(chr(char))
+                    if char == 3:
+                        is_interrupt = True
                 if char == "Key-up":
                     SHELL.send("\033[A")
                 elif char == "Key-down":
@@ -180,6 +224,7 @@ def execute_bash(
                     SHELL.send("\n")
                 elif char == "Ctrl-c":
                     SHELL.sendintr()
+                    is_interrupt = True
         else:
             raise Exception("Nothing to send")
         BASH_STATE = "running"
@@ -190,16 +235,11 @@ def execute_bash(
         raise
 
     wait = 5
-    index = SHELL.expect(["#@@", pexpect.TIMEOUT], timeout=wait)
-    running = ""
-    while index == 1:
-        if wait > TIMEOUT:
-            raise TimeoutError("Timeout while waiting for shell prompt")
-
+    index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
+    if index == 1:
         BASH_STATE = "waiting_for_input"
         text = SHELL.before or ""
-        print(text[len(running) :])
-        running = text
+        print(text)
 
         text = render_terminal_output(text)
         tokens = enc.encode(text)
@@ -208,7 +248,21 @@ def execute_bash(
             text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
         last_line = "(pending)"
-        return text + f"\n{last_line}", 0
+        text = text + f"\n{last_line}"
+
+        if is_interrupt:
+            text = (
+                text
+                + """
+Failure interrupting. Have you entered a new REPL like python, node, ipython, etc.? Or have you exited from a previous REPL program?
+If yes:
+    Run execute_command: "wcgw_update_prompt()" to enter the new REPL mode.
+If no:
+    Try Ctrl-c or Ctrl-d again.
+"""
+            )
+
+        return text, 0
 
     assert isinstance(SHELL.before, str)
     output = render_terminal_output(SHELL.before)
@@ -284,7 +338,7 @@ def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
 def read_image_from_shell(file_path: str) -> ImageData:
     if not os.path.isabs(file_path):
         SHELL.sendline("pwd")
-        SHELL.expect("#@@")
+        SHELL.expect(PROMPT)
         assert isinstance(SHELL.before, str)
         current_dir = render_terminal_output(SHELL.before).strip()
         file_path = os.path.join(current_dir, file_path)
@@ -303,7 +357,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
 def write_file(writefile: Writefile) -> str:
     if not os.path.isabs(writefile.file_path):
         SHELL.sendline("pwd")
-        SHELL.expect("#@@")
+        SHELL.expect(PROMPT)
         assert isinstance(SHELL.before, str)
         current_dir = render_terminal_output(SHELL.before).strip()
         return f"Failure: Use absolute path only. FYI current working directory is '{current_dir}'"

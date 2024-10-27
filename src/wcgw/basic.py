@@ -159,7 +159,7 @@ def loop(
             ExecuteBash,
             description="""
 - Execute a bash script. This is stateful (beware with subsequent calls).
-- Execute commands using `execute_command` attribute.
+- Execute commands using `execute_command` attribute. You can run python/node/other REPL code lines using `execute_command` too.
 - Do not use interactive commands like nano. Prefer writing simpler commands.
 - Last line will always be `(exit <int code>)` except if
 - The last line is `(pending)` if the program is still running or waiting for your input. You can then send input using `send_ascii` attributes. You get status by sending new line `send_ascii: ["Enter"]` or `send_ascii: [10]`.
@@ -167,6 +167,7 @@ def loop(
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
+- You can run python/node/other REPL code lines using `execute_command` too. NOTE: `execute_command` doesn't create a new shell, it uses the same shell.
 """,
         ),
         openai.pydantic_function_tool(
