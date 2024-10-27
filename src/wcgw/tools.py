@@ -162,6 +162,8 @@ def update_repl_prompt(command: str) -> bool:
         before = SHELL.before or ""
         assert before, "Something went wrong updating repl prompt"
         PROMPT = before.split("\n")[-1].strip()
+        # Escape all regex
+        PROMPT = re.escape(PROMPT)
         print(f"Trying to update prompt to: {PROMPT.encode()!r}")
         index = 0
         while index == 0:
