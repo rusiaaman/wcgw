@@ -162,12 +162,11 @@ def update_repl_prompt(command: str) -> bool:
         before = SHELL.before or ""
         assert before, "Something went wrong updating repl prompt"
         PROMPT = before.split("\n")[-1].strip()
-
+        print(f"Trying to update prompt to: {PROMPT.encode()!r}")
         index = 0
         while index == 0:
             # Consume all REPL prompts till now
             index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
-
         print(f"Prompt updated to: {PROMPT}")
         REPL_MODE = True
         return True

@@ -876,7 +876,7 @@ wheels = [
 
 [[package]]
 name = "wcgw"
-version = "0.0.10"
+version = "0.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
