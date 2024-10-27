@@ -79,7 +79,6 @@ class Writefile(BaseModel):
 
 
 PROMPT = "#@@"
-REPL_MODE = False
 
 
 def start_shell() -> pexpect.spawn:
@@ -108,7 +107,7 @@ def _is_int(mystr: str) -> bool:
 
 
 def _get_exit_code() -> int:
-    if REPL_MODE:
+    if PROMPT != "#@@":
         return 0
     # First reset the prompt in case venv was sourced or other reasons.
     SHELL.sendline(f"export PS1={PROMPT}")
@@ -153,7 +152,7 @@ WAITING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE:
 
 
 def update_repl_prompt(command: str) -> bool:
-    global PROMPT, REPL_MODE
+    global PROMPT
     if re.match(r"^wcgw_update_prompt\(\)$", command.strip()):
         SHELL.sendintr()
         index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
@@ -170,7 +169,6 @@ def update_repl_prompt(command: str) -> bool:
             # Consume all REPL prompts till now
             index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
         print(f"Prompt updated to: {PROMPT}")
-        REPL_MODE = True
         return True
     return False
 
