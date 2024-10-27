@@ -159,7 +159,7 @@ def loop(
             ExecuteBash,
             description="""
 - Execute a bash script. This is stateful (beware with subsequent calls).
-- Execute commands using `execute_command` attribute.
+- Execute commands using `execute_command` attribute. You can run python/node/other REPL code lines using `execute_command` too.
 - Do not use interactive commands like nano. Prefer writing simpler commands.
 - Last line will always be `(exit <int code>)` except if
 - The last line is `(pending)` if the program is still running or waiting for your input. You can then send input using `send_ascii` attributes. You get status by sending new line `send_ascii: ["Enter"]` or `send_ascii: [10]`.
