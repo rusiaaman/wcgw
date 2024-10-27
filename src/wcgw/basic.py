@@ -167,6 +167,7 @@ def loop(
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
+- You can run python/node/other REPL code lines using `execute_command` too. NOTE: `execute_command` doesn't create a new shell, it uses the same shell.
 """,
         ),
         openai.pydantic_function_tool(
