@@ -23,7 +23,7 @@ import uuid
 from .common import Models, discard_input
 from .common import CostData, History
 from .openai_utils import get_input_cost, get_output_cost
-from .tools import ExecuteBash, ReadImage, ImageData
+from .tools import BashCommand, BashInteraction, ReadImage, ImageData
 
 from .tools import (
     BASH_CLF_OUTPUT,
@@ -156,21 +156,24 @@ def loop(
 
     tools = [
         openai.pydantic_function_tool(
-            ExecuteBash,
+            BashCommand,
             description="""
-- Execute a bash script. This is stateful (beware with subsequent calls).
-- Execute commands using `execute_command` attribute. You can run python/node/other REPL code lines using `execute_command` too.
+- Execute a bash command. This is stateful (beware with subsequent calls).
 - Do not use interactive commands like nano. Prefer writing simpler commands.
-- Last line will always be `(exit <int code>)` except if
-- The last line is `(pending)` if the program is still running or waiting for your input. You can then send input using `send_ascii` attributes. You get status by sending new line `send_ascii: ["Enter"]` or `send_ascii: [10]`.
+- Status of the command and the current working directory will always be returned at the end.
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 """,
         ),
         openai.pydantic_function_tool(
+            BashInteraction,
+            description="""
+- Interact with running program using this tool.""",
+        ),
+        openai.pydantic_function_tool(
             Writefile,
-            description="Write content to a file. Provide file path and content. Use this instead of ExecuteBash for writing files.",
+            description="Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.",
         ),
         openai.pydantic_function_tool(
             ReadImage, description="Read an image from the shell."

@@ -135,12 +135,19 @@ def _get_exit_code() -> int:
         raise ValueError(f"Malformed output: {before}")
 
 
-Specials = Literal["Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl-c"]
+Specials = Literal[
+    "Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl-c", "Ctrl-d", "Ctrl-z"
+]
 
 
-class ExecuteBash(BaseModel):
-    execute_command: Optional[str] = None
-    send_ascii: Optional[Sequence[int | Specials]] = None
+class BashCommand(BaseModel):
+    command: str
+
+
+class BashInteraction(BaseModel):
+    send_text: Optional[str] = None
+    send_specials: Optional[Sequence[Specials]] = None
+    send_ascii: Optional[Sequence[int]] = None
 
 
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
@@ -149,9 +156,9 @@ CWD = os.getcwd()
 
 
 WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
-1. Get its output using `send_ascii: [10] or send_ascii: ["Enter"]`
-2. Use `send_ascii` to give inputs to the running program, don't use `execute_command` OR
-3. kill the previous program by sending ctrl+c first using `send_ascii`"""
+1. Get its output using `send_ascii: [10] or send_specials: ["Enter"]`
+2. Use `send_ascii` or `send_specials` to give inputs to the running program, don't use `BashCommand` OR
+3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`"""
 
 
 def update_repl_prompt(command: str) -> bool:
@@ -188,7 +195,7 @@ def get_status() -> str:
     global CWD
     exit_code: Optional[int] = None
 
-    status = "---\n"
+    status = "\n\n---\n\n"
     if BASH_STATE == "pending":
         status += "status = still running\n"
         status += "cwd = " + CWD + "\n"
@@ -198,30 +205,34 @@ def get_status() -> str:
         CWD = get_cwd()
         status += "cwd = " + CWD + "\n"
 
-    return ""
+    return status.rstrip()
 
 
 def execute_bash(
-    enc: tiktoken.Encoding, bash_arg: ExecuteBash, max_tokens: Optional[int]
+    enc: tiktoken.Encoding,
+    bash_arg: BashCommand | BashInteraction,
+    max_tokens: Optional[int],
 ) -> tuple[str, float]:
     global SHELL, BASH_STATE, CWD
     try:
         is_interrupt = False
-        if bash_arg.execute_command:
-            updated_repl_mode = update_repl_prompt(bash_arg.execute_command)
+        if isinstance(bash_arg, BashCommand):
+            updated_repl_mode = update_repl_prompt(bash_arg.command)
             if updated_repl_mode:
                 BASH_STATE = "repl"
-                response = "Prompt updated, you can execute REPL lines using execute_command now"
+                response = (
+                    "Prompt updated, you can execute REPL lines using BashCommand now"
+                )
                 console.print(response)
                 return (
                     response,
                     0,
                 )
 
-            console.print(f"$ {bash_arg.execute_command}")
+            console.print(f"$ {bash_arg.command}")
             if BASH_STATE == "pending":
                 raise ValueError(WAITING_INPUT_MESSAGE)
-            command = bash_arg.execute_command.strip()
+            command = bash_arg.command.strip()
 
             if "\n" in command:
                 raise ValueError(
@@ -229,13 +240,9 @@ def execute_bash(
                 )
 
             SHELL.sendline(command)
-        elif bash_arg.send_ascii:
-            console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
-            for char in bash_arg.send_ascii:
-                if isinstance(char, int):
-                    SHELL.send(chr(char))
-                    if char == 3:
-                        is_interrupt = True
+        elif bash_arg.send_specials:
+            console.print(f"Sending ASCII sequence: {bash_arg.send_specials}")
+            for char in bash_arg.send_specials:
                 if char == "Key-up":
                     SHELL.send("\033[A")
                 elif char == "Key-down":
@@ -249,14 +256,45 @@ def execute_bash(
                 elif char == "Ctrl-c":
                     SHELL.sendintr()
                     is_interrupt = True
+                elif char == "Ctrl-d":
+                    SHELL.sendintr()
+                    is_interrupt = True
+                elif char == "Ctrl-z":
+                    SHELL.send("\x1a")
+                else:
+                    raise Exception(f"Unknown special character: {char}")
+        elif bash_arg.send_ascii:
+            for ascii_char in bash_arg.send_ascii:
+                SHELL.send(chr(ascii_char))
+                if ascii_char == 3:
+                    is_interrupt = True
         else:
-            raise Exception("Nothing to send")
+            if bash_arg.send_text is None:
+                return (
+                    "Failure: at least one of send_text, send_specials or send_ascii should be provided",
+                    0.0,
+                )
+
+            updated_repl_mode = update_repl_prompt(bash_arg.send_text)
+            if updated_repl_mode:
+                BASH_STATE = "repl"
+                response = (
+                    "Prompt updated, you can execute REPL lines using BashCommand now"
+                )
+                console.print(response)
+                return (
+                    response,
+                    0,
+                )
+
+            SHELL.sendline(bash_arg.send_text)
+
         BASH_STATE = "repl"
 
     except KeyboardInterrupt:
         SHELL.sendintr()
         SHELL.expect(PROMPT)
-        return "---\n---\nFailure: user interrupted the execution", 0.0
+        return "---\n\nFailure: user interrupted the execution", 0.0
 
     wait = 5
     index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
@@ -270,18 +308,19 @@ def execute_bash(
         if max_tokens and len(tokens) >= max_tokens:
             text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
-        last_line = "(pending)"
-        text = text + f"\n{last_line}"
-
         if is_interrupt:
             text = (
                 text
-                + """
+                + """---
+----
 Failure interrupting.
 If no program is running:
-    Run execute_command: "wcgw_update_prompt()" to reset the PS1 prompt.
+    Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
 """
             )
+
+        exit_status = get_status()
+        text += exit_status
 
         return text, 0
 
@@ -296,9 +335,8 @@ If no program is running:
         output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
     try:
-        exit_code = _get_exit_code()
-        output += f"\n(exit {exit_code})"
-
+        exit_status = get_status()
+        output += exit_status
     except ValueError as e:
         console.print(output)
         traceback.print_exc()
@@ -374,15 +412,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
         return ImageData(dataurl=f"data:{image_type};base64,{image_b64}")
 
 
-@ensure_no_previous_output
 def write_file(writefile: Writefile) -> str:
-    if not os.path.isabs(writefile.file_path):
-        SHELL.sendline("pwd")
-        SHELL.expect(PROMPT)
-        assert isinstance(SHELL.before, str)
-        current_dir = render_terminal_output(SHELL.before).strip()
-        return f"Failure: Use absolute path only. FYI current working directory is '{current_dir}'"
-    os.makedirs(os.path.dirname(writefile.file_path), exist_ok=True)
     try:
         with open(writefile.file_path, "w") as f:
             f.write(writefile.file_content)
@@ -417,15 +447,30 @@ def take_help_of_ai_assistant(
 
 def which_tool(args: str) -> BaseModel:
     adapter = TypeAdapter[
-        Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage
-    ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage)
+        Confirmation
+        | BashCommand
+        | BashInteraction
+        | Writefile
+        | AIAssistant
+        | DoneFlag
+        | ReadImage
+    ](
+        Confirmation
+        | BashCommand
+        | BashInteraction
+        | Writefile
+        | AIAssistant
+        | DoneFlag
+        | ReadImage
+    )
     return adapter.validate_python(json.loads(args))
 
 
 def get_tool_output(
     args: dict[object, object]
     | Confirmation
-    | ExecuteBash
+    | BashCommand
+    | BashInteraction
     | Writefile
     | AIAssistant
     | DoneFlag
@@ -437,8 +482,22 @@ def get_tool_output(
 ) -> tuple[str | ImageData | DoneFlag, float]:
     if isinstance(args, dict):
         adapter = TypeAdapter[
-            Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage
-        ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage)
+            Confirmation
+            | BashCommand
+            | BashInteraction
+            | Writefile
+            | AIAssistant
+            | DoneFlag
+            | ReadImage
+        ](
+            Confirmation
+            | BashCommand
+            | BashInteraction
+            | Writefile
+            | AIAssistant
+            | DoneFlag
+            | ReadImage
+        )
         arg = adapter.validate_python(args)
     else:
         arg = args
@@ -446,7 +505,7 @@ def get_tool_output(
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
-    elif isinstance(arg, ExecuteBash):
+    elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
         output = execute_bash(enc, arg, max_tokens)
     elif isinstance(arg, Writefile):
@@ -477,7 +536,7 @@ curr_cost = 0.0
 
 
 class Mdata(BaseModel):
-    data: ExecuteBash | Writefile
+    data: BashCommand | BashInteraction | Writefile
 
 
 execution_lock = threading.Lock()
@@ -492,7 +551,7 @@ def execute_user_input() -> None:
                 console.log(
                     execute_bash(
                         default_enc,
-                        ExecuteBash(
+                        BashInteraction(
                             send_ascii=[ord(x) for x in user_input] + [ord("\n")]
                         ),
                         max_tokens=None,
