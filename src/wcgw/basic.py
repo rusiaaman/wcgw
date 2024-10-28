@@ -20,16 +20,15 @@ import petname  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
+from ..types_ import BashCommand, BashInteraction, ReadImage, Writefile
+
 from .common import Models, discard_input
 from .common import CostData, History
 from .openai_utils import get_input_cost, get_output_cost
-from .tools import BashCommand, BashInteraction, ReadImage, ImageData
+from .tools import ImageData
 
 from .tools import (
-    BASH_CLF_OUTPUT,
-    Confirmation,
     DoneFlag,
-    Writefile,
     get_tool_output,
     SHELL,
     start_shell,

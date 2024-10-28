@@ -13,7 +13,6 @@ from typing import (
     NewType,
     Optional,
     ParamSpec,
-    Sequence,
     TypeVar,
     TypedDict,
 )
@@ -41,6 +40,14 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ParsedChatCompletionMessage,
 )
+
+from ..types_ import Writefile
+
+from ..types_ import BashCommand
+
+from ..types_ import BashInteraction
+
+from ..types_ import ReadImage
 
 from .common import CostData, Models, discard_input
 
@@ -73,11 +80,6 @@ class Confirmation(BaseModel):
 def ask_confirmation(prompt: Confirmation) -> str:
     response = input(prompt.prompt + " [y/n] ")
     return "Yes" if response.lower() == "y" else "No"
-
-
-class Writefile(BaseModel):
-    file_path: str
-    file_content: str
 
 
 PROMPT = "#@@"
@@ -133,21 +135,6 @@ def _get_exit_code() -> int:
         return int((before))
     except ValueError:
         raise ValueError(f"Malformed output: {before}")
-
-
-Specials = Literal[
-    "Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl-c", "Ctrl-d", "Ctrl-z"
-]
-
-
-class BashCommand(BaseModel):
-    command: str
-
-
-class BashInteraction(BaseModel):
-    send_text: Optional[str] = None
-    send_specials: Optional[Sequence[Specials]] = None
-    send_ascii: Optional[Sequence[int]] = None
 
 
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
@@ -346,11 +333,6 @@ If no program is running:
         SHELL = start_shell()
         output = "(exit shell has restarted)"
     return output, 0
-
-
-class ReadImage(BaseModel):
-    file_path: str
-    type: Literal["ReadImage"] = "ReadImage"
 
 
 def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:

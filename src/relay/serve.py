@@ -5,29 +5,18 @@ import time
 from typing import Any, Callable, Coroutine, DefaultDict, Literal, Optional, Sequence
 from uuid import UUID
 import fastapi
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import uvicorn
 from fastapi.staticfiles import StaticFiles
 
 from dotenv import load_dotenv
 
-
-class Writefile(BaseModel):
-    file_path: str
-    file_content: str
-
-
-Specials = Literal["Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl-c"]
-
-
-class ExecuteBash(BaseModel):
-    execute_command: Optional[str] = None
-    send_ascii: Optional[Sequence[int | Specials]] = None
+from ..types_ import BashCommand, BashInteraction, Writefile, Specials
 
 
 class Mdata(BaseModel):
-    data: ExecuteBash | Writefile
+    data: BashCommand | BashInteraction | Writefile
     user_id: UUID
 
 
@@ -63,6 +52,19 @@ async def get_image(uuid: UUID, name: str) -> fastapi.responses.Response:
 
 
 @app.websocket("/register/{uuid}")
+async def register_websocket_deprecated(websocket: WebSocket, uuid: UUID) -> None:
+    await websocket.accept()
+
+    await websocket.receive_text()
+
+    await websocket.send_text(
+        "This version of the API is deprecated. Please upgrade your client."
+    )
+
+    raise fastapi.HTTPException(status_code=400, detail="Deprecated API version")
+
+
+@app.websocket("/v1/register/{uuid}")
 async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
     await websocket.accept()
 
@@ -87,6 +89,14 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
 
 
 @app.post("/write_file")
+async def write_file_deprecated(write_file_data: Writefile, user_id: UUID) -> Response:
+    return Response(
+        content="This version of the API is deprecated. Please upgrade your client.",
+        status_code=400,
+    )
+
+
+@app.post("/v1/write_file")
 async def write_file(write_file_data: Writefile, user_id: UUID) -> str:
     if user_id not in clients:
         raise fastapi.HTTPException(
@@ -113,7 +123,15 @@ async def write_file(write_file_data: Writefile, user_id: UUID) -> str:
 
 
 @app.post("/execute_bash")
-async def execute_bash(excute_bash_data: ExecuteBash, user_id: UUID) -> str:
+async def execute_bash_deprecated(excute_bash_data: Any, user_id: UUID) -> Response:
+    return Response(
+        content="This version of the API is deprecated. Please upgrade your client.",
+        status_code=400,
+    )
+
+
+@app.post("/v1/bash_command")
+async def bash_command(command: str, user_id: UUID) -> str:
     if user_id not in clients:
         raise fastapi.HTTPException(
             status_code=404, detail="User with the provided id not found"
@@ -127,7 +145,45 @@ async def execute_bash(excute_bash_data: ExecuteBash, user_id: UUID) -> str:
 
     gpts[user_id] = put_results
 
-    await clients[user_id](Mdata(data=excute_bash_data, user_id=user_id))
+    await clients[user_id](Mdata(data=BashCommand(command=command), user_id=user_id))
+
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        if results is not None:
+            return results
+        await asyncio.sleep(0.1)
+
+    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+
+@app.post("/v1/bash_interaction")
+async def bash_interaction(
+    user_id: UUID,
+    send_text: Optional[str] = None,
+    send_specials: Optional[list[Specials]] = None,
+    send_ascii: Optional[list[int]] = None,
+) -> str:
+    if user_id not in clients:
+        raise fastapi.HTTPException(
+            status_code=404, detail="User with the provided id not found"
+        )
+
+    results: Optional[str] = None
+
+    def put_results(result: str) -> None:
+        nonlocal results
+        results = result
+
+    gpts[user_id] = put_results
+
+    await clients[user_id](
+        Mdata(
+            data=BashInteraction(
+                send_text=send_text, send_specials=send_specials, send_ascii=send_ascii
+            ),
+            user_id=user_id,
+        )
+    )
 
     start_time = time.time()
     while time.time() - start_time < 30:
