@@ -5,6 +5,7 @@ import mimetypes
 import re
 import sys
 import threading
+import importlib.metadata
 import traceback
 from typing import (
     Callable,
@@ -18,6 +19,7 @@ from typing import (
 )
 import uuid
 from pydantic import BaseModel, TypeAdapter
+import typer
 from websockets.sync.client import connect as syncconnect
 
 import os
@@ -230,16 +232,15 @@ def execute_bash(
         BASH_STATE = "running"
 
     except KeyboardInterrupt:
-        SHELL.close(True)
-        SHELL = start_shell()
-        raise
+        SHELL.sendintr()
+        SHELL.expect(PROMPT)
+        return "Failure: user interrupted the execution", 0.0
 
     wait = 5
     index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
         BASH_STATE = "waiting_for_input"
         text = SHELL.before or ""
-        print(text)
 
         text = render_terminal_output(text)
         tokens = enc.encode(text)
@@ -257,12 +258,13 @@ def execute_bash(
 Failure interrupting. Have you entered a new REPL like python, node, ipython, etc.? Or have you exited from a previous REPL program?
 If yes:
     Run execute_command: "wcgw_update_prompt()" to enter the new REPL mode.
-If no:
-    Try Ctrl-c or Ctrl-d again.
 """
             )
 
         return text, 0
+
+    if is_interrupt:
+        return "Interrupt successful", 0.0
 
     assert isinstance(SHELL.before, str)
     output = render_terminal_output(SHELL.before)
@@ -559,8 +561,14 @@ run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
 
 @run.command()
 def app(
-    server_url: str = "wss://wcgw.arcfu.com/register", client_uuid: Optional[str] = None
+    server_url: str = "wss://wcgw.arcfu.com/register",
+    client_uuid: Optional[str] = None,
+    version: bool = typer.Option(False, "--version", "-v"),
 ) -> None:
+    if version:
+        version_ = importlib.metadata.version("wcgw")
+        print(f"wcgw version: {version_}")
+
     thread1 = threading.Thread(target=execute_user_input)
     thread2 = threading.Thread(
         target=asyncio.run, args=(register_client(server_url, client_uuid or ""),)
