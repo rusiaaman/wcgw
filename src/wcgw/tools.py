@@ -83,7 +83,7 @@ class Writefile(BaseModel):
 PROMPT = "#@@"
 
 
-def start_shell() -> pexpect.spawn:
+def start_shell() -> pexpect.spawn:  # type: ignore
     SHELL = pexpect.spawn(
         "/bin/bash --noprofile --norc",
         env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
@@ -143,11 +143,12 @@ class ExecuteBash(BaseModel):
     send_ascii: Optional[Sequence[int | Specials]] = None
 
 
-BASH_CLF_OUTPUT = Literal["running", "waiting_for_input", "wont_exit"]
-BASH_STATE: BASH_CLF_OUTPUT = "running"
+BASH_CLF_OUTPUT = Literal["repl", "pending"]
+BASH_STATE: BASH_CLF_OUTPUT = "repl"
+CWD = os.getcwd()
 
 
-WAITING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
+WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
 1. Get its output using `send_ascii: [10] or send_ascii: ["Enter"]`
 2. Use `send_ascii` to give inputs to the running program, don't use `execute_command` OR
 3. kill the previous program by sending ctrl+c first using `send_ascii`"""
@@ -175,16 +176,41 @@ def update_repl_prompt(command: str) -> bool:
     return False
 
 
+def get_cwd() -> str:
+    SHELL.sendline("pwd")
+    SHELL.expect(PROMPT)
+    assert isinstance(SHELL.before, str)
+    current_dir = render_terminal_output(SHELL.before).strip()
+    return current_dir
+
+
+def get_status() -> str:
+    global CWD
+    exit_code: Optional[int] = None
+
+    status = "---\n"
+    if BASH_STATE == "pending":
+        status += "status = still running\n"
+        status += "cwd = " + CWD + "\n"
+    else:
+        exit_code = _get_exit_code()
+        status += f"status = exited with code {exit_code}\n"
+        CWD = get_cwd()
+        status += "cwd = " + CWD + "\n"
+
+    return ""
+
+
 def execute_bash(
     enc: tiktoken.Encoding, bash_arg: ExecuteBash, max_tokens: Optional[int]
 ) -> tuple[str, float]:
-    global SHELL, BASH_STATE
+    global SHELL, BASH_STATE, CWD
     try:
         is_interrupt = False
         if bash_arg.execute_command:
             updated_repl_mode = update_repl_prompt(bash_arg.execute_command)
             if updated_repl_mode:
-                BASH_STATE = "running"
+                BASH_STATE = "repl"
                 response = "Prompt updated, you can execute REPL lines using execute_command now"
                 console.print(response)
                 return (
@@ -193,19 +219,15 @@ def execute_bash(
                 )
 
             console.print(f"$ {bash_arg.execute_command}")
-            if BASH_STATE == "waiting_for_input":
+            if BASH_STATE == "pending":
                 raise ValueError(WAITING_INPUT_MESSAGE)
-            elif BASH_STATE == "wont_exit":
-                raise ValueError(
-                    """A command is already running that hasn't exited. NOTE: You can't run multiple shell sessions, likely a previous program is in infinite loop.
-                    Kill the previous program by sending ctrl+c first using `send_ascii`"""
-                )
             command = bash_arg.execute_command.strip()
 
             if "\n" in command:
                 raise ValueError(
                     "Command should not contain newline character in middle. Run only one command at a time."
                 )
+
             SHELL.sendline(command)
         elif bash_arg.send_ascii:
             console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
@@ -229,17 +251,17 @@ def execute_bash(
                     is_interrupt = True
         else:
             raise Exception("Nothing to send")
-        BASH_STATE = "running"
+        BASH_STATE = "repl"
 
     except KeyboardInterrupt:
         SHELL.sendintr()
         SHELL.expect(PROMPT)
-        return "Failure: user interrupted the execution", 0.0
+        return "---\n---\nFailure: user interrupted the execution", 0.0
 
     wait = 5
     index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
-        BASH_STATE = "waiting_for_input"
+        BASH_STATE = "pending"
         text = SHELL.before or ""
 
         text = render_terminal_output(text)
@@ -255,9 +277,9 @@ def execute_bash(
             text = (
                 text
                 + """
-Failure interrupting. Have you entered a new REPL like python, node, ipython, etc.? Or have you exited from a previous REPL program?
-If yes:
-    Run execute_command: "wcgw_update_prompt()" to enter the new REPL mode.
+Failure interrupting.
+If no program is running:
+    Run execute_command: "wcgw_update_prompt()" to reset the PS1 prompt.
 """
             )
 
@@ -325,12 +347,9 @@ T = TypeVar("T")
 def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
         global BASH_STATE
-        if BASH_STATE == "waiting_for_input":
+        if BASH_STATE == "pending":
             raise ValueError(WAITING_INPUT_MESSAGE)
-        elif BASH_STATE == "wont_exit":
-            raise ValueError(
-                "A command is already running that hasn't exited. NOTE: You can't run multiple shell sessions, likely the previous program is in infinite loop. Please kill the previous program by sending ctrl+c first."
-            )
+
         return func(*args, **kwargs)
 
     return wrapper
@@ -450,44 +469,6 @@ def get_tool_output(
 
 
 History = list[ChatCompletionMessageParam]
-
-
-def get_is_waiting_user_input(
-    model: Models, cost_data: CostData
-) -> Callable[[str], tuple[BASH_CLF_OUTPUT, float]]:
-    enc = tiktoken.encoding_for_model(model if not model.startswith("o1") else "gpt-4o")
-    system_prompt = """You need to classify if a bash program is waiting for user input based on its stdout, or if it won't exit. You'll be given the output of any program.
-    Return `waiting_for_input` if the program is waiting for INTERACTIVE input only, Return 'running' if it's waiting for external resources or just waiting to finish.
-    Return `wont_exit` if the program won't exit, for example if it's a server.
-    Return `running` otherwise.
-    """
-    history: History = [{"role": "system", "content": system_prompt}]
-    client = OpenAI()
-
-    class ExpectedOutput(BaseModel):
-        output_classified: BASH_CLF_OUTPUT
-
-    def is_waiting_user_input(output: str) -> tuple[BASH_CLF_OUTPUT, float]:
-        # Send only last 30 lines
-        output = "\n".join(output.split("\n")[-30:])
-        # Send only max last 200 tokens
-        output = enc.decode(enc.encode(output)[-200:])
-
-        history.append({"role": "user", "content": output})
-        response = client.beta.chat.completions.parse(
-            model=model, messages=history, response_format=ExpectedOutput
-        )
-        parsed = response.choices[0].message.parsed
-        if parsed is None:
-            raise ValueError("No parsed output")
-        cost = (
-            get_input_cost(cost_data, enc, history)[0]
-            + get_output_cost(cost_data, enc, response.choices[0].message)[0]
-        )
-        return parsed.output_classified, cost
-
-    return is_waiting_user_input
-
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
 default_model: Models = "gpt-4o-2024-08-06"

@@ -163,7 +163,6 @@ def loop(
 - Do not use interactive commands like nano. Prefer writing simpler commands.
 - Last line will always be `(exit <int code>)` except if
 - The last line is `(pending)` if the program is still running or waiting for your input. You can then send input using `send_ascii` attributes. You get status by sending new line `send_ascii: ["Enter"]` or `send_ascii: [10]`.
-- Optionally the last line is `(won't exit)` in which case you need to kill the process if you want to run a new command.
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
