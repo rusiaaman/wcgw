@@ -15,27 +15,15 @@
         "x-openai-isConsequential": false,
         "summary": "Write File",
         "operationId": "write_file_v1_write_file_post",
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "User Id"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Writefile"
+                "$ref": "#/components/schemas/WritefileWithUUID"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -67,27 +55,16 @@
         "x-openai-isConsequential": false,
         "summary": "Bash Command",
         "operationId": "bash_command_v1_bash_command_post",
-        "parameters": [
-          {
-            "name": "command",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Command"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandWithUUID"
+              }
             }
           },
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "User Id"
-            }
-          }
-        ],
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -118,42 +95,15 @@
         "x-openai-isConsequential": false,
         "summary": "Bash Interaction",
         "operationId": "bash_interaction_v1_bash_interaction_post",
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "User Id"
-            }
-          },
-          {
-            "name": "send_text",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Send Text"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_bash_interaction_v1_bash_interaction_post"
+                "$ref": "#/components/schemas/BashInteractionWithUUID"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -183,8 +133,19 @@
   },
   "components": {
     "schemas": {
-      "Body_bash_interaction_v1_bash_interaction_post": {
+      "BashInteractionWithUUID": {
         "properties": {
+          "send_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Send Text"
+          },
           "send_specials": {
             "anyOf": [
               {
@@ -222,10 +183,37 @@
               }
             ],
             "title": "Send Ascii"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
           }
         },
         "type": "object",
-        "title": "Body_bash_interaction_v1_bash_interaction_post"
+        "required": [
+          "user_id"
+        ],
+        "title": "BashInteractionWithUUID"
+      },
+      "CommandWithUUID": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "command",
+          "user_id"
+        ],
+        "title": "CommandWithUUID"
       },
       "HTTPValidationError": {
         "properties": {
@@ -290,6 +278,30 @@
           "file_content"
         ],
         "title": "Writefile"
+      },
+      "WritefileWithUUID": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "file_content": {
+            "type": "string",
+            "title": "File Content"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "file_content",
+          "user_id"
+        ],
+        "title": "WritefileWithUUID"
       }
     }
   }

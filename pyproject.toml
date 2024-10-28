@@ -22,6 +22,7 @@ dependencies = [
     "uvicorn>=0.31.0",
     "websockets>=13.1",
     "pydantic>=2.9.2",
+    "semantic-version>=2.10.0",
 ]
 
 [project.urls]

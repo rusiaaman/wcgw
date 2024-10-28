@@ -18,6 +18,7 @@ from typing import (
 )
 import uuid
 from pydantic import BaseModel, TypeAdapter
+import semantic_version
 import typer
 from websockets.sync.client import connect as syncconnect
 
@@ -302,8 +303,9 @@ def execute_bash(
                 + """---
 ----
 Failure interrupting.
-If no program is running:
+If any REPL session was previously running or if bashrc was sourced, or if there is issue to other REPL related reasons:
     Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
+Otherwise, you may want to try Ctrl-c again or program specific exit interactive commands.
 """
             )
 
@@ -404,7 +406,6 @@ def write_file(writefile: Writefile) -> str:
         with open(path_, "w") as f:
             f.write(writefile.file_content)
     except OSError as e:
-        console.print(f"Error: {e}", style="red")
         return f"Error: {e}"
     console.print(f"File written to {path_}")
     return "Success"
@@ -557,6 +558,11 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
 
     # Create the WebSocket connection
     async with websockets.connect(f"{server_url}/{client_uuid}") as websocket:
+        server_version = str(await websocket.recv())
+        print(f"Server version: {server_version}")
+        client_version = importlib.metadata.version("wcgw")
+        await websocket.send(client_version)
+
         print(
             f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
         )

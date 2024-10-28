@@ -1,5 +1,7 @@
 import asyncio
 import base64
+from importlib import metadata
+import semantic_version  # type: ignore[import-untyped]
 import threading
 import time
 from typing import Any, Callable, Coroutine, DefaultDict, Literal, Optional, Sequence
@@ -62,9 +64,30 @@ async def register_websocket_deprecated(websocket: WebSocket, uuid: UUID) -> Non
     )
 
 
+CLIENT_VERSION_MINIMUM = "1.0.0"
+
+
 @app.websocket("/v1/register/{uuid}")
 async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
     await websocket.accept()
+
+    # send server version
+    version = metadata.version("wcgw")
+    await websocket.send_text(version)
+
+    # receive client version
+    client_version = await websocket.receive_text()
+    sem_version_client = semantic_version.Version.coerce(client_version)
+    sem_version_server = semantic_version.Version.coerce(CLIENT_VERSION_MINIMUM)
+    if sem_version_client < sem_version_server:
+        await websocket.send_text(
+            f"Client version {client_version} is outdated. Please upgrade to {CLIENT_VERSION_MINIMUM} or higher."
+        )
+        await websocket.close(
+            reason="Client version outdated. Please upgrade to the latest version.",
+            code=1002,
+        )
+        return
 
     # Register the callback for this client UUID
     async def send_data_callback(data: Mdata) -> None:
@@ -94,8 +117,13 @@ async def write_file_deprecated(write_file_data: Writefile, user_id: UUID) -> Re
     )
 
 
+class WritefileWithUUID(Writefile):
+    user_id: UUID
+
+
 @app.post("/v1/write_file")
-async def write_file(write_file_data: Writefile, user_id: UUID) -> str:
+async def write_file(write_file_data: WritefileWithUUID) -> str:
+    user_id = write_file_data.user_id
     if user_id not in clients:
         raise fastapi.HTTPException(
             status_code=404, detail="User with the provided id not found"
@@ -128,8 +156,14 @@ async def execute_bash_deprecated(excute_bash_data: Any, user_id: UUID) -> Respo
     )
 
 
+class CommandWithUUID(BaseModel):
+    command: str
+    user_id: UUID
+
+
 @app.post("/v1/bash_command")
-async def bash_command(command: str, user_id: UUID) -> str:
+async def bash_command(command: CommandWithUUID) -> str:
+    user_id = command.user_id
     if user_id not in clients:
         raise fastapi.HTTPException(
             status_code=404, detail="User with the provided id not found"
@@ -143,7 +177,9 @@ async def bash_command(command: str, user_id: UUID) -> str:
 
     gpts[user_id] = put_results
 
-    await clients[user_id](Mdata(data=BashCommand(command=command), user_id=user_id))
+    await clients[user_id](
+        Mdata(data=BashCommand(command=command.command), user_id=user_id)
+    )
 
     start_time = time.time()
     while time.time() - start_time < 30:
@@ -154,13 +190,13 @@ async def bash_command(command: str, user_id: UUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
+class BashInteractionWithUUID(BashInteraction):
+    user_id: UUID
+
+
 @app.post("/v1/bash_interaction")
-async def bash_interaction(
-    user_id: UUID,
-    send_text: Optional[str] = None,
-    send_specials: Optional[list[Specials]] = None,
-    send_ascii: Optional[list[int]] = None,
-) -> str:
+async def bash_interaction(bash_interaction: BashInteractionWithUUID) -> str:
+    user_id = bash_interaction.user_id
     if user_id not in clients:
         raise fastapi.HTTPException(
             status_code=404, detail="User with the provided id not found"
@@ -176,9 +212,7 @@ async def bash_interaction(
 
     await clients[user_id](
         Mdata(
-            data=BashInteraction(
-                send_text=send_text, send_specials=send_specials, send_ascii=send_ascii
-            ),
+            data=bash_interaction,
             user_id=user_id,
         )
     )
@@ -199,7 +233,14 @@ def run() -> None:
     load_dotenv()
 
     uvicorn_thread = threading.Thread(
-        target=uvicorn.run, args=(app,), kwargs={"host": "0.0.0.0", "port": 8000}
+        target=uvicorn.run,
+        args=(app,),
+        kwargs={
+            "host": "0.0.0.0",
+            "port": 8000,
+            "log_level": "info",
+            "access_log": True,
+        },
     )
     uvicorn_thread.start()
     uvicorn_thread.join()
