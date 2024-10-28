@@ -54,14 +54,12 @@ async def get_image(uuid: UUID, name: str) -> fastapi.responses.Response:
 @app.websocket("/register/{uuid}")
 async def register_websocket_deprecated(websocket: WebSocket, uuid: UUID) -> None:
     await websocket.accept()
-
-    await websocket.receive_text()
-
     await websocket.send_text(
-        "This version of the API is deprecated. Please upgrade your client."
+        "Outdated client used. Deprecated api is being used. Upgrade the wcgw app."
     )
-
-    raise fastapi.HTTPException(status_code=400, detail="Deprecated API version")
+    await websocket.close(
+        reason="This endpoint is deprecated. Please use /v1/register/{uuid}", code=1002
+    )
 
 
 @app.websocket("/v1/register/{uuid}")

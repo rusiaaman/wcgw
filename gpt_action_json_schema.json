@@ -1,4 +1,3 @@
-
 {
   "openapi": "3.1.0",
   "info": {
@@ -6,14 +5,16 @@
     "version": "0.1.0"
   },
   "servers": [
-    {"url": "https://wcgw.arcfu.com"}
+    {
+      "url": "https://604f-2401-4900-1c8e-e61d-40fc-eab7-f5c2-c8ad.ngrok-free.app"
+    }
   ],
   "paths": {
-    "/write_file": {
+    "/v1/write_file": {
       "post": {
         "x-openai-isConsequential": false,
         "summary": "Write File",
-        "operationId": "write_file_write_file__uuid__post",
+        "operationId": "write_file_v1_write_file_post",
         "parameters": [
           {
             "name": "user_id",
@@ -43,7 +44,7 @@
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "title": "Response Write File Write File  Uuid  Post"
+                  "title": "Response Write File V1 Write File Post"
                 }
               }
             }
@@ -61,12 +62,21 @@
         }
       }
     },
-    "/execute_bash": {
+    "/v1/bash_command": {
       "post": {
         "x-openai-isConsequential": false,
-        "summary": "Execute Bash",
-        "operationId": "execute_bash_execute_bash__uuid__post",
+        "summary": "Bash Command",
+        "operationId": "bash_command_v1_bash_command_post",
         "parameters": [
+          {
+            "name": "command",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Command"
+            }
+          },
           {
             "name": "user_id",
             "in": "query",
@@ -78,12 +88,69 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "title": "Response Bash Command V1 Bash Command Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bash_interaction": {
+      "post": {
+        "x-openai-isConsequential": false,
+        "summary": "Bash Interaction",
+        "operationId": "bash_interaction_v1_bash_interaction_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "send_text",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Send Text"
+            }
+          }
+        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExecuteBash"
+                "$ref": "#/components/schemas/Body_bash_interaction_v1_bash_interaction_post"
               }
             }
           }
@@ -95,7 +162,7 @@
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "title": "Response Execute Bash Execute Bash  Uuid  Post"
+                  "title": "Response Bash Interaction V1 Bash Interaction Post"
                 }
               }
             }
@@ -116,39 +183,37 @@
   },
   "components": {
     "schemas": {
-      "ExecuteBash": {
+      "Body_bash_interaction_v1_bash_interaction_post": {
         "properties": {
-          "execute_command": {
+          "send_specials": {
             "anyOf": [
               {
-                "type": "string"
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "Key-up",
+                    "Key-down",
+                    "Key-left",
+                    "Key-right",
+                    "Enter",
+                    "Ctrl-c",
+                    "Ctrl-d",
+                    "Ctrl-z"
+                  ]
+                },
+                "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Execute Command"
+            "title": "Send Specials"
           },
           "send_ascii": {
             "anyOf": [
               {
                 "items": {
-                  "anyOf": [
-                    {
-                      "type": "integer"
-                    },
-                    {
-                      "type": "string",
-                      "enum": [
-                        "Key-up",
-                        "Key-down",
-                        "Key-left",
-                        "Key-right",
-                        "Enter",
-                        "Ctrl-c"
-                      ]
-                    }
-                  ]
+                  "type": "integer"
                 },
                 "type": "array"
               },
@@ -160,7 +225,7 @@
           }
         },
         "type": "object",
-        "title": "ExecuteBash"
+        "title": "Body_bash_interaction_v1_bash_interaction_post"
       },
       "HTTPValidationError": {
         "properties": {

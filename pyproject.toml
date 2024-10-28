@@ -32,8 +32,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-wcgw_local = "wcgw:local_app"
-wcgw = "wcgw:wcgw_tools_app"
+wcgw_local = "wcgw:app"
+wcgw = "wcgw:listen"
+wcgw_relay = "wcgw.relay.serve:run"
 
 [tool.uv]
 dev-dependencies = [
@@ -41,4 +42,5 @@ dev-dependencies = [
     "types-toml>=0.10.8.20240310",
     "autoflake",
     "ipython>=8.12.3",
+    "gunicorn>=23.0.0",
 ]

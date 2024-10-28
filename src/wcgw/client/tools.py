@@ -228,7 +228,7 @@ def execute_bash(
 
             SHELL.sendline(command)
         elif bash_arg.send_specials:
-            console.print(f"Sending ASCII sequence: {bash_arg.send_specials}")
+            console.print(f"Sending special sequence: {bash_arg.send_specials}")
             for char in bash_arg.send_specials:
                 if char == "Key-up":
                     SHELL.send("\033[A")
@@ -251,6 +251,7 @@ def execute_bash(
                 else:
                     raise Exception(f"Unknown special character: {char}")
         elif bash_arg.send_ascii:
+            console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
             for ascii_char in bash_arg.send_ascii:
                 SHELL.send(chr(ascii_char))
                 if ascii_char == 3:
@@ -273,7 +274,7 @@ def execute_bash(
                     response,
                     0,
                 )
-
+            console.print(f"Interact text: {bash_arg.send_text}")
             SHELL.sendline(bash_arg.send_text)
 
         BASH_STATE = "repl"
@@ -395,13 +396,17 @@ def read_image_from_shell(file_path: str) -> ImageData:
 
 
 def write_file(writefile: Writefile) -> str:
+    if not os.path.isabs(writefile.file_path):
+        path_ = os.path.join(CWD, writefile.file_path)
+    else:
+        path_ = writefile.file_path
     try:
-        with open(writefile.file_path, "w") as f:
+        with open(path_, "w") as f:
             f.write(writefile.file_content)
     except OSError as e:
         console.print(f"Error: {e}", style="red")
         return f"Error: {e}"
-    console.print(f"File written to {writefile.file_path}")
+    console.print(f"File written to {path_}")
     return "Success"
 
 
@@ -583,13 +588,14 @@ run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
 
 @run.command()
 def app(
-    server_url: str = "wss://wcgw.arcfu.com/register",
+    server_url: str = "wss://wcgw.arcfu.com/v1/register",
     client_uuid: Optional[str] = None,
     version: bool = typer.Option(False, "--version", "-v"),
 ) -> None:
     if version:
         version_ = importlib.metadata.version("wcgw")
         print(f"wcgw version: {version_}")
+        exit()
 
     thread1 = threading.Thread(target=execute_user_input)
     thread2 = threading.Thread(
