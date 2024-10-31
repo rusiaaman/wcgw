@@ -20,7 +20,7 @@ import petname  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
-from ..types_ import BashCommand, BashInteraction, ReadImage, Writefile
+from ..types_ import BashCommand, BashInteraction, ReadImage, Writefile, ResetShell
 
 from .common import Models, discard_input
 from .common import CostData, History
@@ -176,6 +176,10 @@ def loop(
         ),
         openai.pydantic_function_tool(
             ReadImage, description="Read an image from the shell."
+        ),
+        openai.pydantic_function_tool(
+            ResetShell,
+            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
     ]
     uname_sysname = os.uname().sysname

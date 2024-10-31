@@ -14,11 +14,18 @@ from fastapi.staticfiles import StaticFiles
 
 from dotenv import load_dotenv
 
-from ..types_ import BashCommand, BashInteraction, Writefile, Specials
+from ..types_ import (
+    BashCommand,
+    BashInteraction,
+    FileEditFindReplace,
+    ResetShell,
+    Writefile,
+    Specials,
+)
 
 
 class Mdata(BaseModel):
-    data: BashCommand | BashInteraction | Writefile
+    data: BashCommand | BashInteraction | Writefile | ResetShell | FileEditFindReplace
     user_id: UUID
 
 
@@ -138,6 +145,75 @@ async def write_file(write_file_data: WritefileWithUUID) -> str:
     gpts[user_id] = put_results
 
     await clients[user_id](Mdata(data=write_file_data, user_id=user_id))
+
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        if results is not None:
+            return results
+        await asyncio.sleep(0.1)
+
+    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+
+class FileEditFindReplaceWithUUID(FileEditFindReplace):
+    user_id: UUID
+
+
+@app.post("/v1/file_edit_find_replace")
+async def file_edit_find_replace(
+    file_edit_find_replace: FileEditFindReplaceWithUUID,
+) -> str:
+    user_id = file_edit_find_replace.user_id
+    if user_id not in clients:
+        raise fastapi.HTTPException(
+            status_code=404, detail="User with the provided id not found"
+        )
+
+    results: Optional[str] = None
+
+    def put_results(result: str) -> None:
+        nonlocal results
+        results = result
+
+    gpts[user_id] = put_results
+
+    await clients[user_id](
+        Mdata(
+            data=file_edit_find_replace,
+            user_id=user_id,
+        )
+    )
+
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        if results is not None:
+            return results
+        await asyncio.sleep(0.1)
+
+    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+
+class ResetShellWithUUID(ResetShell):
+    user_id: UUID
+
+
+@app.post("/v1/reset_shell")
+async def reset_shell(reset_shell: ResetShellWithUUID) -> str:
+    user_id = reset_shell.user_id
+    if user_id not in clients:
+        raise fastapi.HTTPException(
+            status_code=404, detail="User with the provided id not found"
+        )
+
+    results: Optional[str] = None
+
+    def put_results(result: str) -> None:
+        nonlocal results
+        results = result
+
+    gpts[user_id] = put_results
+
+    await clients[user_id](Mdata(data=reset_shell, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:

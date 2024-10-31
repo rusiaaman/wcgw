@@ -19,12 +19,16 @@ Instructions for `BashCommand`:
 
 Instructions for `Write File`
 - Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.
+- This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
 - Important: all relative paths are relative to last CWD.
 
 Instructions for `BashInteraction`
 - Interact with running program using this tool
 - Special keys like arrows, interrupts, enter, etc.
 - Send text input to the running program.
+
+Instructions for `ResetShell`
+- Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.
 
 ---
 

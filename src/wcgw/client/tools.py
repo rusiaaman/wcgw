@@ -18,7 +18,6 @@ from typing import (
 )
 import uuid
 from pydantic import BaseModel, TypeAdapter
-import semantic_version
 import typer
 from websockets.sync.client import connect as syncconnect
 
@@ -41,8 +40,8 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ParsedChatCompletionMessage,
 )
-
-from ..types_ import Writefile
+from nltk.metrics.distance import edit_distance
+from ..types_ import FileEditFindReplace, ResetShell, Writefile
 
 from ..types_ import BashCommand
 
@@ -143,10 +142,21 @@ BASH_STATE: BASH_CLF_OUTPUT = "repl"
 CWD = os.getcwd()
 
 
+def reset_shell() -> str:
+    global SHELL, BASH_STATE, CWD
+    SHELL.close(True)
+    SHELL = start_shell()
+    BASH_STATE = "repl"
+    CWD = os.getcwd()
+    return "Reset successful" + get_status()
+
+
 WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
 1. Get its output using `send_ascii: [10] or send_specials: ["Enter"]`
 2. Use `send_ascii` or `send_specials` to give inputs to the running program, don't use `BashCommand` OR
-3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`"""
+3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`
+4. Send the process in background using `send_specials: ["Ctrl-z"]` followed by BashCommand: `bg`
+"""
 
 
 def update_repl_prompt(command: str) -> bool:
@@ -378,14 +388,9 @@ def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     return wrapper
 
 
-@ensure_no_previous_output
 def read_image_from_shell(file_path: str) -> ImageData:
     if not os.path.isabs(file_path):
-        SHELL.sendline("pwd")
-        SHELL.expect(PROMPT)
-        assert isinstance(SHELL.before, str)
-        current_dir = render_terminal_output(SHELL.before).strip()
-        file_path = os.path.join(current_dir, file_path)
+        file_path = os.path.join(CWD, file_path)
 
     if not os.path.exists(file_path):
         raise ValueError(f"File {file_path} does not exist")
@@ -405,6 +410,54 @@ def write_file(writefile: Writefile) -> str:
     try:
         with open(path_, "w") as f:
             f.write(writefile.file_content)
+    except OSError as e:
+        return f"Error: {e}"
+    console.print(f"File written to {path_}")
+    return "Success"
+
+
+def find_least_edit_distance_substring(content: str, find_str: str) -> str:
+    content_lines = content.split("\n")
+    find_lines = find_str.split("\n")
+    # Slide window and find one with sum of edit distance least
+    min_edit_distance = float("inf")
+    min_edit_distance_lines = []
+    for i in range(len(content_lines) - len(find_lines) + 1):
+        edit_distance_sum = 0
+        for j in range(len(find_lines)):
+            edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
+        if edit_distance_sum < min_edit_distance:
+            min_edit_distance = edit_distance_sum
+            min_edit_distance_lines = content_lines[i : i + len(find_lines)]
+    return "\n".join(min_edit_distance_lines)
+
+
+def file_edit(file_edit: FileEditFindReplace) -> str:
+    if not os.path.isabs(file_edit.file_path):
+        path_ = os.path.join(CWD, file_edit.file_path)
+    else:
+        path_ = file_edit.file_path
+
+    out_string = "\n".join("> " + line for line in file_edit.find_lines.split("\n"))
+    in_string = "\n".join(
+        "< " + line for line in file_edit.replace_with_lines.split("\n")
+    )
+    console.log(f"Editing file: {path_}---\n{out_string}\n---{in_string}\n---")
+    try:
+        with open(path_) as f:
+            content = f.read()
+        # First find counts
+        count = content.count(file_edit.find_lines)
+
+        if count == 0:
+            closest_match = find_least_edit_distance_substring(
+                content, file_edit.find_lines
+            )
+            return f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
+
+        content = content.replace(file_edit.find_lines, file_edit.replace_with_lines)
+        with open(path_, "w") as f:
+            f.write(content)
     except OSError as e:
         return f"Error: {e}"
     console.print(f"File written to {path_}")
@@ -438,7 +491,9 @@ def which_tool(args: str) -> BaseModel:
         Confirmation
         | BashCommand
         | BashInteraction
+        | ResetShell
         | Writefile
+        | FileEditFindReplace
         | AIAssistant
         | DoneFlag
         | ReadImage
@@ -446,7 +501,9 @@ def which_tool(args: str) -> BaseModel:
         Confirmation
         | BashCommand
         | BashInteraction
+        | ResetShell
         | Writefile
+        | FileEditFindReplace
         | AIAssistant
         | DoneFlag
         | ReadImage
@@ -459,7 +516,9 @@ def get_tool_output(
     | Confirmation
     | BashCommand
     | BashInteraction
+    | ResetShell
     | Writefile
+    | FileEditFindReplace
     | AIAssistant
     | DoneFlag
     | ReadImage,
@@ -473,7 +532,9 @@ def get_tool_output(
             Confirmation
             | BashCommand
             | BashInteraction
+            | ResetShell
             | Writefile
+            | FileEditFindReplace
             | AIAssistant
             | DoneFlag
             | ReadImage
@@ -481,7 +542,9 @@ def get_tool_output(
             Confirmation
             | BashCommand
             | BashInteraction
+            | ResetShell
             | Writefile
+            | FileEditFindReplace
             | AIAssistant
             | DoneFlag
             | ReadImage
@@ -499,6 +562,9 @@ def get_tool_output(
     elif isinstance(arg, Writefile):
         console.print("Calling write file tool")
         output = write_file(arg), 0
+    elif isinstance(arg, FileEditFindReplace):
+        console.print("Calling file edit tool")
+        output = file_edit(arg), 0.0
     elif isinstance(arg, DoneFlag):
         console.print("Calling mark finish tool")
         output = mark_finish(arg), 0.0
@@ -508,6 +574,9 @@ def get_tool_output(
     elif isinstance(arg, ReadImage):
         console.print("Calling read image tool")
         output = read_image_from_shell(arg.file_path), 0.0
+    elif isinstance(arg, ResetShell):
+        console.print("Calling reset shell tool")
+        output = reset_shell(), 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
 
@@ -524,7 +593,7 @@ curr_cost = 0.0
 
 
 class Mdata(BaseModel):
-    data: BashCommand | BashInteraction | Writefile
+    data: BashCommand | BashInteraction | Writefile | ResetShell | FileEditFindReplace
 
 
 execution_lock = threading.Lock()

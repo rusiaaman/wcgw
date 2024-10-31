@@ -25,3 +25,13 @@ class ReadImage(BaseModel):
 class Writefile(BaseModel):
     file_path: str
     file_content: str
+
+
+class FileEditFindReplace(BaseModel):
+    file_path: str
+    find_lines: str
+    replace_with_lines: str
+
+
+class ResetShell(BaseModel):
+    should_reset: Literal[True] = True

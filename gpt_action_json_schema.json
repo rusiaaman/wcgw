@@ -50,6 +50,46 @@
         }
       }
     },
+    "/v1/reset_shell": {
+      "post": {
+        "x-openai-isConsequential": false,
+        "summary": "Reset Shell",
+        "operationId": "reset_shell_v1_reset_shell_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetShellWithUUID"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "title": "Response Reset Shell V1 Reset Shell Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/bash_command": {
       "post": {
         "x-openai-isConsequential": false,
@@ -227,6 +267,29 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ResetShellWithUUID": {
+        "properties": {
+          "should_reset": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "const": true,
+            "title": "Should Reset",
+            "default": true
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "title": "ResetShellWithUUID"
       },
       "ValidationError": {
         "properties": {
