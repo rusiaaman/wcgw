@@ -442,7 +442,7 @@ def file_edit(file_edit: FileEditFindReplace) -> str:
     in_string = "\n".join(
         "< " + line for line in file_edit.replace_with_lines.split("\n")
     )
-    console.log(f"Editing file: {path_}---\n{out_string}\n---{in_string}\n---")
+    console.log(f"Editing file: {path_}\n---\n{out_string}\n---\n{in_string}\n---")
     try:
         with open(path_) as f:
             content = f.read()
