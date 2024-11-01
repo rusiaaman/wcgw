@@ -324,24 +324,6 @@
         ],
         "title": "ValidationError"
       },
-      "Writefile": {
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
-          },
-          "file_content": {
-            "type": "string",
-            "title": "File Content"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file_path",
-          "file_content"
-        ],
-        "title": "Writefile"
-      },
       "WritefileWithUUID": {
         "properties": {
           "file_path": {

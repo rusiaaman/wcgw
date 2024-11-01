@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
-from src.wcgw.tools import render_terminal_output, ask_confirmation, Confirmation
-from types_ import Writefile
+from src.wcgw.client.tools import render_terminal_output, ask_confirmation, Confirmation
+from src.wcgw.types_ import Writefile
 
 
 class TestTools(unittest.TestCase):

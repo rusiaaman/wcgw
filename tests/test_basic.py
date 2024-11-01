@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, mock_open
-from src.wcgw.basic import text_from_editor, save_history, parse_user_message_special, Config
+from src.wcgw.client.basic import text_from_editor, save_history, parse_user_message_special, Config
 import os
 import tempfile
 import json
