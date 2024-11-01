@@ -5,6 +5,7 @@ import mimetypes
 import re
 import sys
 import threading
+import importlib.metadata
 import traceback
 from typing import (
     Callable,
@@ -12,12 +13,12 @@ from typing import (
     NewType,
     Optional,
     ParamSpec,
-    Sequence,
     TypeVar,
     TypedDict,
 )
 import uuid
 from pydantic import BaseModel, TypeAdapter
+import typer
 from websockets.sync.client import connect as syncconnect
 
 import os
@@ -39,6 +40,14 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ParsedChatCompletionMessage,
 )
+from nltk.metrics.distance import edit_distance
+from ..types_ import FileEditFindReplace, ResetShell, Writefile
+
+from ..types_ import BashCommand
+
+from ..types_ import BashInteraction
+
+from ..types_ import ReadImage
 
 from .common import CostData, Models, discard_input
 
@@ -73,15 +82,10 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-class Writefile(BaseModel):
-    file_path: str
-    file_content: str
-
-
 PROMPT = "#@@"
 
 
-def start_shell() -> pexpect.spawn:
+def start_shell() -> pexpect.spawn:  # type: ignore
     SHELL = pexpect.spawn(
         "/bin/bash --noprofile --norc",
         env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
@@ -133,22 +137,26 @@ def _get_exit_code() -> int:
         raise ValueError(f"Malformed output: {before}")
 
 
-Specials = Literal["Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl-c"]
+BASH_CLF_OUTPUT = Literal["repl", "pending"]
+BASH_STATE: BASH_CLF_OUTPUT = "repl"
+CWD = os.getcwd()
 
 
-class ExecuteBash(BaseModel):
-    execute_command: Optional[str] = None
-    send_ascii: Optional[Sequence[int | Specials]] = None
+def reset_shell() -> str:
+    global SHELL, BASH_STATE, CWD
+    SHELL.close(True)
+    SHELL = start_shell()
+    BASH_STATE = "repl"
+    CWD = os.getcwd()
+    return "Reset successful" + get_status()
 
 
-BASH_CLF_OUTPUT = Literal["running", "waiting_for_input", "wont_exit"]
-BASH_STATE: BASH_CLF_OUTPUT = "running"
-
-
-WAITING_INPUT_MESSAGE = """A command is already running waiting for input. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
-1. Get its output using `send_ascii: [10] or send_ascii: ["Enter"]`
-2. Use `send_ascii` to give inputs to the running program, don't use `execute_command` OR
-3. kill the previous program by sending ctrl+c first using `send_ascii`"""
+WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
+1. Get its output using `send_ascii: [10] or send_specials: ["Enter"]`
+2. Use `send_ascii` or `send_specials` to give inputs to the running program, don't use `BashCommand` OR
+3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`
+4. Send the process in background using `send_specials: ["Ctrl-z"]` followed by BashCommand: `bg`
+"""
 
 
 def update_repl_prompt(command: str) -> bool:
@@ -173,45 +181,66 @@ def update_repl_prompt(command: str) -> bool:
     return False
 
 
+def get_cwd() -> str:
+    SHELL.sendline("pwd")
+    SHELL.expect(PROMPT)
+    assert isinstance(SHELL.before, str)
+    current_dir = render_terminal_output(SHELL.before).strip()
+    return current_dir
+
+
+def get_status() -> str:
+    global CWD
+    exit_code: Optional[int] = None
+
+    status = "\n\n---\n\n"
+    if BASH_STATE == "pending":
+        status += "status = still running\n"
+        status += "cwd = " + CWD + "\n"
+    else:
+        exit_code = _get_exit_code()
+        status += f"status = exited with code {exit_code}\n"
+        CWD = get_cwd()
+        status += "cwd = " + CWD + "\n"
+
+    return status.rstrip()
+
+
 def execute_bash(
-    enc: tiktoken.Encoding, bash_arg: ExecuteBash, max_tokens: Optional[int]
+    enc: tiktoken.Encoding,
+    bash_arg: BashCommand | BashInteraction,
+    max_tokens: Optional[int],
 ) -> tuple[str, float]:
-    global SHELL, BASH_STATE
+    global SHELL, BASH_STATE, CWD
     try:
         is_interrupt = False
-        if bash_arg.execute_command:
-            updated_repl_mode = update_repl_prompt(bash_arg.execute_command)
+        if isinstance(bash_arg, BashCommand):
+            updated_repl_mode = update_repl_prompt(bash_arg.command)
             if updated_repl_mode:
-                BASH_STATE = "running"
-                response = "Prompt updated, you can execute REPL lines using execute_command now"
+                BASH_STATE = "repl"
+                response = (
+                    "Prompt updated, you can execute REPL lines using BashCommand now"
+                )
                 console.print(response)
                 return (
                     response,
                     0,
                 )
 
-            console.print(f"$ {bash_arg.execute_command}")
-            if BASH_STATE == "waiting_for_input":
+            console.print(f"$ {bash_arg.command}")
+            if BASH_STATE == "pending":
                 raise ValueError(WAITING_INPUT_MESSAGE)
-            elif BASH_STATE == "wont_exit":
-                raise ValueError(
-                    """A command is already running that hasn't exited. NOTE: You can't run multiple shell sessions, likely a previous program is in infinite loop.
-                    Kill the previous program by sending ctrl+c first using `send_ascii`"""
-                )
-            command = bash_arg.execute_command.strip()
+            command = bash_arg.command.strip()
 
             if "\n" in command:
                 raise ValueError(
                     "Command should not contain newline character in middle. Run only one command at a time."
                 )
+
             SHELL.sendline(command)
-        elif bash_arg.send_ascii:
-            console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
-            for char in bash_arg.send_ascii:
-                if isinstance(char, int):
-                    SHELL.send(chr(char))
-                    if char == 3:
-                        is_interrupt = True
+        elif bash_arg.send_specials:
+            console.print(f"Sending special sequence: {bash_arg.send_specials}")
+            for char in bash_arg.send_specials:
                 if char == "Key-up":
                     SHELL.send("\033[A")
                 elif char == "Key-down":
@@ -225,21 +254,52 @@ def execute_bash(
                 elif char == "Ctrl-c":
                     SHELL.sendintr()
                     is_interrupt = True
+                elif char == "Ctrl-d":
+                    SHELL.sendintr()
+                    is_interrupt = True
+                elif char == "Ctrl-z":
+                    SHELL.send("\x1a")
+                else:
+                    raise Exception(f"Unknown special character: {char}")
+        elif bash_arg.send_ascii:
+            console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
+            for ascii_char in bash_arg.send_ascii:
+                SHELL.send(chr(ascii_char))
+                if ascii_char == 3:
+                    is_interrupt = True
         else:
-            raise Exception("Nothing to send")
-        BASH_STATE = "running"
+            if bash_arg.send_text is None:
+                return (
+                    "Failure: at least one of send_text, send_specials or send_ascii should be provided",
+                    0.0,
+                )
+
+            updated_repl_mode = update_repl_prompt(bash_arg.send_text)
+            if updated_repl_mode:
+                BASH_STATE = "repl"
+                response = (
+                    "Prompt updated, you can execute REPL lines using BashCommand now"
+                )
+                console.print(response)
+                return (
+                    response,
+                    0,
+                )
+            console.print(f"Interact text: {bash_arg.send_text}")
+            SHELL.sendline(bash_arg.send_text)
+
+        BASH_STATE = "repl"
 
     except KeyboardInterrupt:
-        SHELL.close(True)
-        SHELL = start_shell()
-        raise
+        SHELL.sendintr()
+        SHELL.expect(PROMPT)
+        return "---\n\nFailure: user interrupted the execution", 0.0
 
     wait = 5
     index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
-        BASH_STATE = "waiting_for_input"
+        BASH_STATE = "pending"
         text = SHELL.before or ""
-        print(text)
 
         text = render_terminal_output(text)
         tokens = enc.encode(text)
@@ -247,22 +307,25 @@ def execute_bash(
         if max_tokens and len(tokens) >= max_tokens:
             text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
-        last_line = "(pending)"
-        text = text + f"\n{last_line}"
-
         if is_interrupt:
             text = (
                 text
-                + """
-Failure interrupting. Have you entered a new REPL like python, node, ipython, etc.? Or have you exited from a previous REPL program?
-If yes:
-    Run execute_command: "wcgw_update_prompt()" to enter the new REPL mode.
-If no:
-    Try Ctrl-c or Ctrl-d again.
+                + """---
+----
+Failure interrupting.
+If any REPL session was previously running or if bashrc was sourced, or if there is issue to other REPL related reasons:
+    Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
+Otherwise, you may want to try Ctrl-c again or program specific exit interactive commands.
 """
             )
 
+        exit_status = get_status()
+        text += exit_status
+
         return text, 0
+
+    if is_interrupt:
+        return "Interrupt successful", 0.0
 
     assert isinstance(SHELL.before, str)
     output = render_terminal_output(SHELL.before)
@@ -272,9 +335,8 @@ If no:
         output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
     try:
-        exit_code = _get_exit_code()
-        output += f"\n(exit {exit_code})"
-
+        exit_status = get_status()
+        output += exit_status
     except ValueError as e:
         console.print(output)
         traceback.print_exc()
@@ -284,11 +346,6 @@ If no:
         SHELL = start_shell()
         output = "(exit shell has restarted)"
     return output, 0
-
-
-class ReadImage(BaseModel):
-    file_path: str
-    type: Literal["ReadImage"] = "ReadImage"
 
 
 def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
@@ -323,25 +380,17 @@ T = TypeVar("T")
 def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
         global BASH_STATE
-        if BASH_STATE == "waiting_for_input":
+        if BASH_STATE == "pending":
             raise ValueError(WAITING_INPUT_MESSAGE)
-        elif BASH_STATE == "wont_exit":
-            raise ValueError(
-                "A command is already running that hasn't exited. NOTE: You can't run multiple shell sessions, likely the previous program is in infinite loop. Please kill the previous program by sending ctrl+c first."
-            )
+
         return func(*args, **kwargs)
 
     return wrapper
 
 
-@ensure_no_previous_output
 def read_image_from_shell(file_path: str) -> ImageData:
     if not os.path.isabs(file_path):
-        SHELL.sendline("pwd")
-        SHELL.expect(PROMPT)
-        assert isinstance(SHELL.before, str)
-        current_dir = render_terminal_output(SHELL.before).strip()
-        file_path = os.path.join(current_dir, file_path)
+        file_path = os.path.join(CWD, file_path)
 
     if not os.path.exists(file_path):
         raise ValueError(f"File {file_path} does not exist")
@@ -353,22 +402,65 @@ def read_image_from_shell(file_path: str) -> ImageData:
         return ImageData(dataurl=f"data:{image_type};base64,{image_b64}")
 
 
-@ensure_no_previous_output
 def write_file(writefile: Writefile) -> str:
     if not os.path.isabs(writefile.file_path):
-        SHELL.sendline("pwd")
-        SHELL.expect(PROMPT)
-        assert isinstance(SHELL.before, str)
-        current_dir = render_terminal_output(SHELL.before).strip()
-        return f"Failure: Use absolute path only. FYI current working directory is '{current_dir}'"
-    os.makedirs(os.path.dirname(writefile.file_path), exist_ok=True)
+        path_ = os.path.join(CWD, writefile.file_path)
+    else:
+        path_ = writefile.file_path
     try:
-        with open(writefile.file_path, "w") as f:
+        with open(path_, "w") as f:
             f.write(writefile.file_content)
     except OSError as e:
-        console.print(f"Error: {e}", style="red")
         return f"Error: {e}"
-    console.print(f"File written to {writefile.file_path}")
+    console.print(f"File written to {path_}")
+    return "Success"
+
+
+def find_least_edit_distance_substring(content: str, find_str: str) -> str:
+    content_lines = content.split("\n")
+    find_lines = find_str.split("\n")
+    # Slide window and find one with sum of edit distance least
+    min_edit_distance = float("inf")
+    min_edit_distance_lines = []
+    for i in range(len(content_lines) - len(find_lines) + 1):
+        edit_distance_sum = 0
+        for j in range(len(find_lines)):
+            edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
+        if edit_distance_sum < min_edit_distance:
+            min_edit_distance = edit_distance_sum
+            min_edit_distance_lines = content_lines[i : i + len(find_lines)]
+    return "\n".join(min_edit_distance_lines)
+
+
+def file_edit(file_edit: FileEditFindReplace) -> str:
+    if not os.path.isabs(file_edit.file_path):
+        path_ = os.path.join(CWD, file_edit.file_path)
+    else:
+        path_ = file_edit.file_path
+
+    out_string = "\n".join("> " + line for line in file_edit.find_lines.split("\n"))
+    in_string = "\n".join(
+        "< " + line for line in file_edit.replace_with_lines.split("\n")
+    )
+    console.log(f"Editing file: {path_}\n---\n{out_string}\n---\n{in_string}\n---")
+    try:
+        with open(path_) as f:
+            content = f.read()
+        # First find counts
+        count = content.count(file_edit.find_lines)
+
+        if count == 0:
+            closest_match = find_least_edit_distance_substring(
+                content, file_edit.find_lines
+            )
+            return f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
+
+        content = content.replace(file_edit.find_lines, file_edit.replace_with_lines)
+        with open(path_, "w") as f:
+            f.write(content)
+    except OSError as e:
+        return f"Error: {e}"
+    console.print(f"File written to {path_}")
     return "Success"
 
 
@@ -396,16 +488,37 @@ def take_help_of_ai_assistant(
 
 def which_tool(args: str) -> BaseModel:
     adapter = TypeAdapter[
-        Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage
-    ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage)
+        Confirmation
+        | BashCommand
+        | BashInteraction
+        | ResetShell
+        | Writefile
+        | FileEditFindReplace
+        | AIAssistant
+        | DoneFlag
+        | ReadImage
+    ](
+        Confirmation
+        | BashCommand
+        | BashInteraction
+        | ResetShell
+        | Writefile
+        | FileEditFindReplace
+        | AIAssistant
+        | DoneFlag
+        | ReadImage
+    )
     return adapter.validate_python(json.loads(args))
 
 
 def get_tool_output(
     args: dict[object, object]
     | Confirmation
-    | ExecuteBash
+    | BashCommand
+    | BashInteraction
+    | ResetShell
     | Writefile
+    | FileEditFindReplace
     | AIAssistant
     | DoneFlag
     | ReadImage,
@@ -416,8 +529,26 @@ def get_tool_output(
 ) -> tuple[str | ImageData | DoneFlag, float]:
     if isinstance(args, dict):
         adapter = TypeAdapter[
-            Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage
-        ](Confirmation | ExecuteBash | Writefile | AIAssistant | DoneFlag | ReadImage)
+            Confirmation
+            | BashCommand
+            | BashInteraction
+            | ResetShell
+            | Writefile
+            | FileEditFindReplace
+            | AIAssistant
+            | DoneFlag
+            | ReadImage
+        ](
+            Confirmation
+            | BashCommand
+            | BashInteraction
+            | ResetShell
+            | Writefile
+            | FileEditFindReplace
+            | AIAssistant
+            | DoneFlag
+            | ReadImage
+        )
         arg = adapter.validate_python(args)
     else:
         arg = args
@@ -425,12 +556,15 @@ def get_tool_output(
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
-    elif isinstance(arg, ExecuteBash):
+    elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
         output = execute_bash(enc, arg, max_tokens)
     elif isinstance(arg, Writefile):
         console.print("Calling write file tool")
         output = write_file(arg), 0
+    elif isinstance(arg, FileEditFindReplace):
+        console.print("Calling file edit tool")
+        output = file_edit(arg), 0.0
     elif isinstance(arg, DoneFlag):
         console.print("Calling mark finish tool")
         output = mark_finish(arg), 0.0
@@ -440,6 +574,9 @@ def get_tool_output(
     elif isinstance(arg, ReadImage):
         console.print("Calling read image tool")
         output = read_image_from_shell(arg.file_path), 0.0
+    elif isinstance(arg, ResetShell):
+        console.print("Calling reset shell tool")
+        output = reset_shell(), 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
 
@@ -449,44 +586,6 @@ def get_tool_output(
 
 History = list[ChatCompletionMessageParam]
 
-
-def get_is_waiting_user_input(
-    model: Models, cost_data: CostData
-) -> Callable[[str], tuple[BASH_CLF_OUTPUT, float]]:
-    enc = tiktoken.encoding_for_model(model if not model.startswith("o1") else "gpt-4o")
-    system_prompt = """You need to classify if a bash program is waiting for user input based on its stdout, or if it won't exit. You'll be given the output of any program.
-    Return `waiting_for_input` if the program is waiting for INTERACTIVE input only, Return 'running' if it's waiting for external resources or just waiting to finish.
-    Return `wont_exit` if the program won't exit, for example if it's a server.
-    Return `running` otherwise.
-    """
-    history: History = [{"role": "system", "content": system_prompt}]
-    client = OpenAI()
-
-    class ExpectedOutput(BaseModel):
-        output_classified: BASH_CLF_OUTPUT
-
-    def is_waiting_user_input(output: str) -> tuple[BASH_CLF_OUTPUT, float]:
-        # Send only last 30 lines
-        output = "\n".join(output.split("\n")[-30:])
-        # Send only max last 200 tokens
-        output = enc.decode(enc.encode(output)[-200:])
-
-        history.append({"role": "user", "content": output})
-        response = client.beta.chat.completions.parse(
-            model=model, messages=history, response_format=ExpectedOutput
-        )
-        parsed = response.choices[0].message.parsed
-        if parsed is None:
-            raise ValueError("No parsed output")
-        cost = (
-            get_input_cost(cost_data, enc, history)[0]
-            + get_output_cost(cost_data, enc, response.choices[0].message)[0]
-        )
-        return parsed.output_classified, cost
-
-    return is_waiting_user_input
-
-
 default_enc = tiktoken.encoding_for_model("gpt-4o")
 default_model: Models = "gpt-4o-2024-08-06"
 default_cost = CostData(cost_per_1m_input_tokens=0.15, cost_per_1m_output_tokens=0.6)
@@ -494,7 +593,7 @@ curr_cost = 0.0
 
 
 class Mdata(BaseModel):
-    data: ExecuteBash | Writefile
+    data: BashCommand | BashInteraction | Writefile | ResetShell | FileEditFindReplace
 
 
 execution_lock = threading.Lock()
@@ -509,7 +608,7 @@ def execute_user_input() -> None:
                 console.log(
                     execute_bash(
                         default_enc,
-                        ExecuteBash(
+                        BashInteraction(
                             send_ascii=[ord(x) for x in user_input] + [ord("\n")]
                         ),
                         max_tokens=None,
@@ -528,6 +627,11 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
 
     # Create the WebSocket connection
     async with websockets.connect(f"{server_url}/{client_uuid}") as websocket:
+        server_version = str(await websocket.recv())
+        print(f"Server version: {server_version}")
+        client_version = importlib.metadata.version("wcgw")
+        await websocket.send(client_version)
+
         print(
             f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
         )
@@ -559,8 +663,15 @@ run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
 
 @run.command()
 def app(
-    server_url: str = "wss://wcgw.arcfu.com/register", client_uuid: Optional[str] = None
+    server_url: str = "wss://wcgw.arcfu.com/v1/register",
+    client_uuid: Optional[str] = None,
+    version: bool = typer.Option(False, "--version", "-v"),
 ) -> None:
+    if version:
+        version_ = importlib.metadata.version("wcgw")
+        print(f"wcgw version: {version_}")
+        exit()
+
     thread1 = threading.Thread(target=execute_user_input)
     thread2 = threading.Thread(
         target=asyncio.run, args=(register_client(server_url, client_uuid or ""),)

@@ -20,16 +20,15 @@ import petname  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
+from ..types_ import BashCommand, BashInteraction, ReadImage, Writefile, ResetShell
+
 from .common import Models, discard_input
 from .common import CostData, History
 from .openai_utils import get_input_cost, get_output_cost
-from .tools import ExecuteBash, ReadImage, ImageData
+from .tools import ImageData
 
 from .tools import (
-    BASH_CLF_OUTPUT,
-    Confirmation,
     DoneFlag,
-    Writefile,
     get_tool_output,
     SHELL,
     start_shell,
@@ -156,26 +155,31 @@ def loop(
 
     tools = [
         openai.pydantic_function_tool(
-            ExecuteBash,
+            BashCommand,
             description="""
-- Execute a bash script. This is stateful (beware with subsequent calls).
-- Execute commands using `execute_command` attribute. You can run python/node/other REPL code lines using `execute_command` too.
+- Execute a bash command. This is stateful (beware with subsequent calls).
 - Do not use interactive commands like nano. Prefer writing simpler commands.
-- Last line will always be `(exit <int code>)` except if
-- The last line is `(pending)` if the program is still running or waiting for your input. You can then send input using `send_ascii` attributes. You get status by sending new line `send_ascii: ["Enter"]` or `send_ascii: [10]`.
-- Optionally the last line is `(won't exit)` in which case you need to kill the process if you want to run a new command.
+- Status of the command and the current working directory will always be returned at the end.
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
-- You can run python/node/other REPL code lines using `execute_command` too. NOTE: `execute_command` doesn't create a new shell, it uses the same shell.
 """,
         ),
         openai.pydantic_function_tool(
+            BashInteraction,
+            description="""
+- Interact with running program using this tool.""",
+        ),
+        openai.pydantic_function_tool(
             Writefile,
-            description="Write content to a file. Provide file path and content. Use this instead of ExecuteBash for writing files.",
+            description="Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.",
         ),
         openai.pydantic_function_tool(
             ReadImage, description="Read an image from the shell."
+        ),
+        openai.pydantic_function_tool(
+            ResetShell,
+            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
     ]
     uname_sysname = os.uname().sysname
