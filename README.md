@@ -74,7 +74,7 @@ https://github.com/rusiaaman/wcgw/blob/main/gpt_instructions.txt
 https://github.com/rusiaaman/wcgw/blob/main/gpt_action_json_schema.json
 
 Run the server 
-`gunicorn --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:443 src.relay.serve:app  --certfile fullchain.pem  --keyfile  privkey.pem`
+`gunicorn --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:443 src.wcgw.relay.serve:app  --certfile fullchain.pem  --keyfile  privkey.pem`
 
 If you don't have public ip and domain name, you can use `ngrok` or similar services to get a https address to the api.
 
