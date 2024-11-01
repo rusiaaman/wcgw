@@ -132,9 +132,7 @@ class WritefileWithUUID(Writefile):
 async def write_file(write_file_data: WritefileWithUUID) -> str:
     user_id = write_file_data.user_id
     if user_id not in clients:
-        raise fastapi.HTTPException(
-            status_code=404, detail="User with the provided id not found"
-        )
+        return "Failure: id not found, ask the user to check it."
 
     results: Optional[str] = None
 
@@ -165,9 +163,7 @@ async def file_edit_find_replace(
 ) -> str:
     user_id = file_edit_find_replace.user_id
     if user_id not in clients:
-        raise fastapi.HTTPException(
-            status_code=404, detail="User with the provided id not found"
-        )
+        return "Failure: id not found, ask the user to check it."
 
     results: Optional[str] = None
 
@@ -201,9 +197,7 @@ class ResetShellWithUUID(ResetShell):
 async def reset_shell(reset_shell: ResetShellWithUUID) -> str:
     user_id = reset_shell.user_id
     if user_id not in clients:
-        raise fastapi.HTTPException(
-            status_code=404, detail="User with the provided id not found"
-        )
+        return "Failure: id not found, ask the user to check it."
 
     results: Optional[str] = None
 
@@ -241,9 +235,7 @@ class CommandWithUUID(BaseModel):
 async def bash_command(command: CommandWithUUID) -> str:
     user_id = command.user_id
     if user_id not in clients:
-        raise fastapi.HTTPException(
-            status_code=404, detail="User with the provided id not found"
-        )
+        return "Failure: id not found, ask the user to check it."
 
     results: Optional[str] = None
 
@@ -274,9 +266,7 @@ class BashInteractionWithUUID(BashInteraction):
 async def bash_interaction(bash_interaction: BashInteractionWithUUID) -> str:
     user_id = bash_interaction.user_id
     if user_id not in clients:
-        raise fastapi.HTTPException(
-            status_code=404, detail="User with the provided id not found"
-        )
+        return "Failure: id not found, ask the user to check it."
 
     results: Optional[str] = None
 
