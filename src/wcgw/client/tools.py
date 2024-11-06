@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import mimetypes
+from pathlib import Path
 import re
 import sys
 import threading
@@ -404,11 +405,15 @@ def read_image_from_shell(file_path: str) -> ImageData:
 
 def write_file(writefile: Writefile) -> str:
     if not os.path.isabs(writefile.file_path):
-        path_ = os.path.join(CWD, writefile.file_path)
+        return "Failure: file_path should be absolute path"
     else:
         path_ = writefile.file_path
+
+    path = Path(path_)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
     try:
-        with open(path_, "w") as f:
+        with path.open("w") as f:
             f.write(writefile.file_content)
     except OSError as e:
         return f"Error: {e}"

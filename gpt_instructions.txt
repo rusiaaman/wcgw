@@ -7,7 +7,7 @@ Instructions:
     - Ask user for confirmation before running anything major
 
 
-To execute bash commands OR write files use the provided api `wcgw.arcfu.com`
+To execute bash commands OR write files use the provided api.
 
 Instructions for `BashCommand`:
 - Execute a bash command. This is stateful (beware with subsequent calls).
