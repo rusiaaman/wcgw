@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from io import BytesIO
 import json
 import mimetypes
 from pathlib import Path
@@ -369,8 +370,16 @@ def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
             serve_image_in_bg(file_path, client_uuid, name)
 
 
+MEDIA_TYPES = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+
 class ImageData(BaseModel):
-    dataurl: str
+    media_type: MEDIA_TYPES
+    data: str
+
+    @property
+    def dataurl(self) -> str:
+        return f"data:{self.media_type};base64," + self.data
 
 
 Param = ParamSpec("Param")
@@ -400,7 +409,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
         image_bytes = image_file.read()
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
         image_type = mimetypes.guess_type(file_path)[0]
-        return ImageData(dataurl=f"data:{image_type};base64,{image_b64}")
+        return ImageData(media_type=image_type, data=image_b64)
 
 
 def write_file(writefile: Writefile) -> str:
@@ -491,28 +500,21 @@ def take_help_of_ai_assistant(
     return output, cost
 
 
-def which_tool(args: str) -> BaseModel:
-    adapter = TypeAdapter[
-        Confirmation
-        | BashCommand
-        | BashInteraction
-        | ResetShell
-        | Writefile
-        | FileEditFindReplace
-        | AIAssistant
-        | DoneFlag
-        | ReadImage
-    ](
-        Confirmation
-        | BashCommand
-        | BashInteraction
-        | ResetShell
-        | Writefile
-        | FileEditFindReplace
-        | AIAssistant
-        | DoneFlag
-        | ReadImage
-    )
+TOOLS = (
+    Confirmation
+    | BashCommand
+    | BashInteraction
+    | ResetShell
+    | Writefile
+    | FileEditFindReplace
+    | AIAssistant
+    | DoneFlag
+    | ReadImage
+)
+
+
+def which_tool(args: str) -> TOOLS:
+    adapter = TypeAdapter[TOOLS](TOOLS)
     return adapter.validate_python(json.loads(args))
 
 

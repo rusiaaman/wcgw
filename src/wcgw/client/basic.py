@@ -140,7 +140,7 @@ def loop(
         waiting_for_assistant = history[-1]["role"] != "assistant"
 
     my_dir = os.path.dirname(__file__)
-    config_file = os.path.join(my_dir, "..", "..", "config.toml")
+    config_file = os.path.join(my_dir, "..", "..", "..", "config.toml")
     with open(config_file) as f:
         config_json = toml.load(f)
         config = Config.model_validate(config_json)
