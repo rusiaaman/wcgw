@@ -21,7 +21,14 @@ import petname  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
-from ..types_ import BashCommand, BashInteraction, ReadImage, Writefile, ResetShell
+from ..types_ import (
+    BashCommand,
+    BashInteraction,
+    FileEditFindReplace,
+    ReadImage,
+    Writefile,
+    ResetShell,
+)
 
 from .common import Models, discard_input
 from .common import CostData
@@ -163,12 +170,19 @@ def loop(
             input_schema=BashInteraction.model_json_schema(),
             name="BashInteraction",
             description="""
-- Interact with running program using this tool.""",
+- Interact with running program using this tool
+- Special keys like arrows, interrupts, enter, etc.
+- Send text input to the running program.
+- Send send_specials=["Enter"] to recheck status of a running program.
+""",
         ),
         ToolParam(
             input_schema=Writefile.model_json_schema(),
             name="WriteFile",
-            description="Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.",
+            description="""
+- Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.
+- This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
+- Provide absolute file path only.""",
         ),
         ToolParam(
             input_schema=ReadImage.model_json_schema(),
@@ -179,6 +193,11 @@ def loop(
             input_schema=ResetShell.model_json_schema(),
             name="ResetShell",
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
+        ),
+        ToolParam(
+            input_schema=FileEditFindReplace.model_json_schema(),
+            name="FileEditFindReplace",
+            description="Find and replace text in a file. Use absolute file path only.",
         ),
     ]
     uname_sysname = os.uname().sysname

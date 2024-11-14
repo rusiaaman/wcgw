@@ -448,7 +448,7 @@ def find_least_edit_distance_substring(content: str, find_str: str) -> str:
 
 def file_edit(file_edit: FileEditFindReplace) -> str:
     if not os.path.isabs(file_edit.file_path):
-        path_ = os.path.join(CWD, file_edit.file_path)
+        return "Failure: file_path should be absolute path"
     else:
         path_ = file_edit.file_path
 

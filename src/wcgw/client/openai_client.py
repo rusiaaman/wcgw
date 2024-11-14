@@ -168,11 +168,16 @@ def loop(
         openai.pydantic_function_tool(
             BashInteraction,
             description="""
-- Interact with running program using this tool.""",
+- Interact with running program using this tool
+- Special keys like arrows, interrupts, enter, etc.
+- Send text input to the running program.""",
         ),
         openai.pydantic_function_tool(
             Writefile,
-            description="Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.",
+            description="""
+- Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.
+- This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
+- Provide absolute file path only.""",
         ),
         openai.pydantic_function_tool(
             ReadImage, description="Read an image from the shell."
