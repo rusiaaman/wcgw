@@ -16,6 +16,22 @@ class BashInteraction(BaseModel):
     send_specials: Optional[Sequence[Specials]] = None
     send_ascii: Optional[Sequence[int]] = None
 
+    def model_post_init(self, __context: object) -> None:
+        # Ensure only one of the fields is set
+        if (
+            sum(
+                [
+                    int(bool(self.send_text)),
+                    int(bool(self.send_specials)),
+                    int(bool(self.send_ascii)),
+                ]
+            )
+            != 1
+        ):
+            raise ValueError(
+                "Exactly one of 'send_text', 'send_specials', or 'send_ascii' must be set"
+            )
+
 
 class ReadImage(BaseModel):
     file_path: str
