@@ -93,7 +93,7 @@ def parse_user_message_special(msg: str) -> MessageParam:
             args = line[1:].strip().split(" ")
             command = args[0]
             assert command == "image"
-            image_path = args[1]
+            image_path = " ".join(args[1:])
             with open(image_path, "rb") as f:
                 image_bytes = f.read()
                 image_b64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -174,6 +174,7 @@ def loop(
 - Special keys like arrows, interrupts, enter, etc.
 - Send text input to the running program.
 - Send send_specials=["Enter"] to recheck status of a running program.
+- Only one of send_text, send_specials, send_ascii should be provided.
 """,
         ),
         ToolParam(
@@ -232,10 +233,14 @@ System information:
     cost: float = 0
     input_toks = 0
     output_toks = 0
-    system_console = rich.console.Console(style="blue", highlight=False)
-    error_console = rich.console.Console(style="red", highlight=False)
-    user_console = rich.console.Console(style="bright_black", highlight=False)
-    assistant_console = rich.console.Console(style="white bold", highlight=False)
+    system_console = rich.console.Console(style="blue", highlight=False, markup=False)
+    error_console = rich.console.Console(style="red", highlight=False, markup=False)
+    user_console = rich.console.Console(
+        style="bright_black", highlight=False, markup=False
+    )
+    assistant_console = rich.console.Console(
+        style="white bold", highlight=False, markup=False
+    )
     while True:
         if cost > limit:
             system_console.print(
