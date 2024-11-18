@@ -443,7 +443,7 @@ def find_least_edit_distance_substring(
 ) -> tuple[str, float]:
     orig_content_lines = content.split("\n")
     content_lines = [
-        line.strip() for line in content_lines
+        line.strip() for line in orig_content_lines
     ]  # Remove trailing and leading space for calculating edit distance
     find_lines = find_str.split("\n")
     find_lines = [
