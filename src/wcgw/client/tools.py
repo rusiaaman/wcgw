@@ -43,7 +43,7 @@ from openai.types.chat import (
     ParsedChatCompletionMessage,
 )
 from nltk.metrics.distance import edit_distance
-from ..types_ import FileEditFindReplace, ResetShell, Writefile
+from ..types_ import CreateFileNew, FileEditFindReplace, ResetShell, Writefile
 
 from ..types_ import BashCommand
 
@@ -415,11 +415,16 @@ def read_image_from_shell(file_path: str) -> ImageData:
         return ImageData(media_type=image_type, data=image_b64)
 
 
-def write_file(writefile: Writefile) -> str:
+def write_file(writefile: Writefile | CreateFileNew, error_on_exist: bool) -> str:
     if not os.path.isabs(writefile.file_path):
         return "Failure: file_path should be absolute path"
     else:
         path_ = writefile.file_path
+
+    if error_on_exist and os.path.exists(path_):
+        file_data = Path(path_).read_text()
+        if file_data:
+            return f"Error: can't write to existing file {path_}, use other functions to edit the file"
 
     path = Path(path_)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -555,6 +560,7 @@ def get_tool_output(
     | BashInteraction
     | ResetShell
     | Writefile
+    | CreateFileNew
     | FileEditFindReplace
     | AIAssistant
     | DoneFlag
@@ -571,6 +577,7 @@ def get_tool_output(
             | BashInteraction
             | ResetShell
             | Writefile
+            | CreateFileNew
             | FileEditFindReplace
             | AIAssistant
             | DoneFlag
@@ -581,6 +588,7 @@ def get_tool_output(
             | BashInteraction
             | ResetShell
             | Writefile
+            | CreateFileNew
             | FileEditFindReplace
             | AIAssistant
             | DoneFlag
@@ -598,7 +606,10 @@ def get_tool_output(
         output = execute_bash(enc, arg, max_tokens)
     elif isinstance(arg, Writefile):
         console.print("Calling write file tool")
-        output = write_file(arg), 0
+        output = write_file(arg, False), 0
+    elif isinstance(arg, CreateFileNew):
+        console.print("Calling write file tool")
+        output = write_file(arg, True), 0
     elif isinstance(arg, FileEditFindReplace):
         console.print("Calling file edit tool")
         output = file_edit(arg), 0.0
@@ -630,7 +641,14 @@ curr_cost = 0.0
 
 
 class Mdata(BaseModel):
-    data: BashCommand | BashInteraction | Writefile | ResetShell | FileEditFindReplace
+    data: (
+        BashCommand
+        | BashInteraction
+        | Writefile
+        | CreateFileNew
+        | ResetShell
+        | FileEditFindReplace
+    )
 
 
 execution_lock = threading.Lock()

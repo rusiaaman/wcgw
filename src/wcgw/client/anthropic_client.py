@@ -24,6 +24,7 @@ import uuid
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    CreateFileNew,
     FileEditFindReplace,
     ReadImage,
     Writefile,
@@ -178,12 +179,14 @@ def loop(
 """,
         ),
         ToolParam(
-            input_schema=Writefile.model_json_schema(),
-            name="WriteFile",
+            input_schema=CreateFileNew.model_json_schema(),
+            name="CreateFileNew",
             description="""
-- Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.
+- Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
-- Provide absolute file path only.""",
+- Provide absolute file path only.
+- For editing existing files, use FileEditFindReplace.
+""",
         ),
         ToolParam(
             input_schema=ReadImage.model_json_schema(),
@@ -202,7 +205,6 @@ def loop(
 - Find and replace multiple lines in a file.
 - Use absolute file path only.
 - Replaces complete lines.
-- Prefer this over WriteFile if edits are to be made on large files.
 """,
         ),
     ]

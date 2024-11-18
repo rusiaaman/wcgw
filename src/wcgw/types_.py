@@ -43,6 +43,11 @@ class Writefile(BaseModel):
     file_content: str
 
 
+class CreateFileNew(BaseModel):
+    file_path: str
+    file_content: str
+
+
 class FileEditFindReplace(BaseModel):
     file_path: str
     find_lines: str
