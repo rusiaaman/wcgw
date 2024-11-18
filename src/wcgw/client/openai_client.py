@@ -20,7 +20,14 @@ import petname  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
-from ..types_ import BashCommand, BashInteraction, ReadImage, Writefile, ResetShell
+from ..types_ import (
+    BashCommand,
+    BashInteraction,
+    FileEditFindReplace,
+    ReadImage,
+    Writefile,
+    ResetShell,
+)
 
 from .common import Models, discard_input
 from .common import CostData, History
@@ -176,9 +183,10 @@ def loop(
         openai.pydantic_function_tool(
             Writefile,
             description="""
-- Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.
-- This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
-- Provide absolute file path only.""",
+- Find and replace multiple lines in a file.
+- Use absolute file path only.
+- Replaces complete lines.
+- Prefer this over WriteFile if edits are to be made on large files.""",
         ),
         openai.pydantic_function_tool(
             ReadImage, description="Read an image from the shell."
@@ -186,6 +194,12 @@ def loop(
         openai.pydantic_function_tool(
             ResetShell,
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
+        ),
+        openai.pydantic_function_tool(
+            FileEditFindReplace,
+            description="""
+- Find and replace multiple lines in a file. Use absolute file path only.
+- Replaces complete lines.""",
         ),
     ]
     uname_sysname = os.uname().sysname

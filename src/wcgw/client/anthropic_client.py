@@ -198,7 +198,12 @@ def loop(
         ToolParam(
             input_schema=FileEditFindReplace.model_json_schema(),
             name="FileEditFindReplace",
-            description="Find and replace text in a file. Use absolute file path only.",
+            description="""
+- Find and replace multiple lines in a file.
+- Use absolute file path only.
+- Replaces complete lines.
+- Prefer this over WriteFile if edits are to be made on large files.
+""",
         ),
     ]
     uname_sysname = os.uname().sysname
