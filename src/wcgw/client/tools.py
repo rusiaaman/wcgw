@@ -72,7 +72,10 @@ def render_terminal_output(text: str) -> str:
             break
     else:
         i = len(dsp)
-    return "\n".join(screen.display[: len(dsp) - i])
+    lines = screen.display[: len(dsp) - i]
+    # Strip trailing space
+    lines = [line.rstrip() for line in lines]
+    return "\n".join(lines)
 
 
 class Confirmation(BaseModel):
@@ -434,14 +437,23 @@ def find_least_edit_distance_substring(
     content: str, find_str: str
 ) -> tuple[str, float]:
     content_lines = content.split("\n")
+    content_lines = [
+        line.strip() for line in content_lines
+    ]  # Remove trailing and leading space for calculating edit distance
     find_lines = find_str.split("\n")
+    find_lines = [
+        line.strip() for line in find_lines
+    ]  # Remove trailing and leading space for calculating edit distance
     # Slide window and find one with sum of edit distance least
     min_edit_distance = float("inf")
     min_edit_distance_lines = []
-    for i in range(len(content_lines) - len(find_lines) + 1):
+    for i in range(max(1, len(content_lines) - len(find_lines) + 1)):
         edit_distance_sum = 0
         for j in range(len(find_lines)):
-            edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
+            if (i + j) < len(content_lines):
+                edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
+            else:
+                edit_distance_sum += len(find_lines[j])
         if edit_distance_sum < min_edit_distance:
             min_edit_distance = edit_distance_sum
             min_edit_distance_lines = content_lines[i : i + len(find_lines)]
