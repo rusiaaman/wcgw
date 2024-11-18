@@ -441,7 +441,7 @@ def write_file(writefile: Writefile | CreateFileNew, error_on_exist: bool) -> st
 def find_least_edit_distance_substring(
     content: str, find_str: str
 ) -> tuple[str, float]:
-    content_lines = content.split("\n")
+    orig_content_lines = content.split("\n")
     content_lines = [
         line.strip() for line in content_lines
     ]  # Remove trailing and leading space for calculating edit distance
@@ -461,7 +461,7 @@ def find_least_edit_distance_substring(
                 edit_distance_sum += len(find_lines[j])
         if edit_distance_sum < min_edit_distance:
             min_edit_distance = edit_distance_sum
-            min_edit_distance_lines = content_lines[i : i + len(find_lines)]
+            min_edit_distance_lines = orig_content_lines[i : i + len(find_lines)]
     return "\n".join(min_edit_distance_lines), min_edit_distance
 
 
