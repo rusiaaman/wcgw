@@ -84,7 +84,7 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-PROMPT = "sdflkjs"
+PROMPT = "#@@"
 
 
 def start_shell() -> pexpect.spawn:  # type: ignore
@@ -430,7 +430,9 @@ def write_file(writefile: Writefile) -> str:
     return "Success"
 
 
-def find_least_edit_distance_substring(content: str, find_str: str) -> str:
+def find_least_edit_distance_substring(
+    content: str, find_str: str
+) -> tuple[str, float]:
     content_lines = content.split("\n")
     find_lines = find_str.split("\n")
     # Slide window and find one with sum of edit distance least
@@ -443,33 +445,49 @@ def find_least_edit_distance_substring(content: str, find_str: str) -> str:
         if edit_distance_sum < min_edit_distance:
             min_edit_distance = edit_distance_sum
             min_edit_distance_lines = content_lines[i : i + len(find_lines)]
-    return "\n".join(min_edit_distance_lines)
+    return "\n".join(min_edit_distance_lines), min_edit_distance
 
 
-def file_edit(file_edit: FileEditFindReplace) -> str:
-    if not os.path.isabs(file_edit.file_path):
+def file_edit(fedit: FileEditFindReplace) -> str:
+    if not os.path.isabs(fedit.file_path):
         return "Failure: file_path should be absolute path"
     else:
-        path_ = file_edit.file_path
+        path_ = fedit.file_path
 
-    out_string = "\n".join("> " + line for line in file_edit.find_lines.split("\n"))
-    in_string = "\n".join(
-        "< " + line for line in file_edit.replace_with_lines.split("\n")
-    )
+    if not os.path.exists(path_):
+        return f"Error: file {path_} does not exist"
+
+    if not fedit.find_lines:
+        return "Error: `find_lines` cannot be empty"
+
+    out_string = "\n".join("> " + line for line in fedit.find_lines.split("\n"))
+    in_string = "\n".join("< " + line for line in fedit.replace_with_lines.split("\n"))
     console.log(f"Editing file: {path_}\n---\n{out_string}\n---\n{in_string}\n---")
     try:
         with open(path_) as f:
             content = f.read()
         # First find counts
-        count = content.count(file_edit.find_lines)
+        count = content.count(fedit.find_lines)
 
         if count == 0:
-            closest_match = find_least_edit_distance_substring(
-                content, file_edit.find_lines
+            closest_match, min_edit_distance = find_least_edit_distance_substring(
+                content, fedit.find_lines
             )
+            print(
+                f"Exact match not found, found with edit distance: {min_edit_distance}"
+            )
+            if min_edit_distance / len(fedit.find_lines) < 1 / 100:
+                print("Editing file with closest match")
+                return file_edit(
+                    FileEditFindReplace(
+                        file_path=fedit.file_path,
+                        find_lines=closest_match,
+                        replace_with_lines=fedit.replace_with_lines,
+                    )
+                )
             return f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
 
-        content = content.replace(file_edit.find_lines, file_edit.replace_with_lines)
+        content = content.replace(fedit.find_lines, fedit.replace_with_lines)
         with open(path_, "w") as f:
             f.write(content)
     except OSError as e:
