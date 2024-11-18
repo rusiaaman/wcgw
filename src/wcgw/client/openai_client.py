@@ -183,10 +183,9 @@ def loop(
         openai.pydantic_function_tool(
             Writefile,
             description="""
-- Find and replace multiple lines in a file.
-- Use absolute file path only.
-- Replaces complete lines.
-- Prefer this over WriteFile if edits are to be made on large files.""",
+- Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.
+- This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
+- Provide absolute file path only.""",
         ),
         openai.pydantic_function_tool(
             ReadImage, description="Read an image from the shell."
@@ -198,8 +197,10 @@ def loop(
         openai.pydantic_function_tool(
             FileEditFindReplace,
             description="""
-- Find and replace multiple lines in a file. Use absolute file path only.
-- Replaces complete lines.""",
+- Find and replace multiple lines in a file.
+- Use absolute file path only.
+- Replaces complete lines.
+- Prefer this over WriteFile if any edits are to be made.""",
         ),
     ]
     uname_sysname = os.uname().sysname

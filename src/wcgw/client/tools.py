@@ -84,7 +84,7 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-PROMPT = "#@@"
+PROMPT = "sdflkjs"
 
 
 def start_shell() -> pexpect.spawn:  # type: ignore
