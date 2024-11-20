@@ -15,6 +15,7 @@ from typing import (
     NewType,
     Optional,
     ParamSpec,
+    Type,
     TypeVar,
     TypedDict,
 )
@@ -541,6 +542,7 @@ TOOLS = (
     | BashInteraction
     | ResetShell
     | Writefile
+    | CreateFileNew
     | FileEditFindReplace
     | AIAssistant
     | DoneFlag
@@ -551,6 +553,31 @@ TOOLS = (
 def which_tool(args: str) -> TOOLS:
     adapter = TypeAdapter[TOOLS](TOOLS)
     return adapter.validate_python(json.loads(args))
+
+
+def which_tool_name(name: str) -> Type[TOOLS]:
+    if name == "Confirmation":
+        return Confirmation
+    elif name == "BashCommand":
+        return BashCommand
+    elif name == "BashInteraction":
+        return BashInteraction
+    elif name == "ResetShell":
+        return ResetShell
+    elif name == "Writefile":
+        return Writefile
+    elif name == "CreateFileNew":
+        return CreateFileNew
+    elif name == "FileEditFindReplace":
+        return FileEditFindReplace
+    elif name == "AIAssistant":
+        return AIAssistant
+    elif name == "DoneFlag":
+        return DoneFlag
+    elif name == "ReadImage":
+        return ReadImage
+    else:
+        raise ValueError(f"Unknown tool name: {name}")
 
 
 def get_tool_output(

@@ -28,12 +28,6 @@ Instructions for `BashInteraction`
 - Send text input to the running program.
 - Only one of send_text, send_specials, send_ascii should be provided.
 
-Instructions for `FileEditFindReplace`
-- Find and replace multiple lines in a file.
-- Use absolute file path only.
-- Replaces complete lines.
-- Prefer this over WriteFile if edits are to be made on large files.
-
 Instructions for `ResetShell`
 - Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.
 

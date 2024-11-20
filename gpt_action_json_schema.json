@@ -50,46 +50,6 @@
         }
       }
     },
-    "/v1/file_edit_find_replace": {
-      "post": {
-        "x-openai-isConsequential": false,
-        "summary": "File Edit Find Replace",
-        "operationId": "file_edit_find_replace_v1_file_edit_find_replace_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FileEditFindReplaceWithUUID"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string",
-                  "title": "Response File Edit Find Replace V1 File Edit Find Replace Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/reset_shell": {
       "post": {
         "x-openai-isConsequential": false,
@@ -294,35 +254,6 @@
           "user_id"
         ],
         "title": "CommandWithUUID"
-      },
-      "FileEditFindReplaceWithUUID": {
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
-          },
-          "find_lines": {
-            "type": "string",
-            "title": "Find Lines"
-          },
-          "replace_with_lines": {
-            "type": "string",
-            "title": "Replace With Lines"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file_path",
-          "find_lines",
-          "replace_with_lines",
-          "user_id"
-        ],
-        "title": "FileEditFindReplaceWithUUID"
       },
       "HTTPValidationError": {
         "properties": {

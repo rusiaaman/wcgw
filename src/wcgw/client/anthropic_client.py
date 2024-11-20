@@ -40,7 +40,7 @@ from .tools import (
     get_tool_output,
     SHELL,
     start_shell,
-    which_tool,
+    which_tool_name,
 )
 import tiktoken
 
@@ -326,7 +326,9 @@ System information:
                     elif type_ == "content_block_stop":
                         if tool_calls and not tool_calls[-1]["done"]:
                             tc = tool_calls[-1]
-                            tool_parsed = which_tool(tc["input"])
+                            tool_parsed = which_tool_name(
+                                tc["name"]
+                            ).model_validate_json(tc["input"])
                             system_console.print(
                                 f"\n---------------------------------------\n# Assistant invoked tool: {tool_parsed}"
                             )

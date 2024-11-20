@@ -194,14 +194,6 @@ def loop(
             ResetShell,
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
-        openai.pydantic_function_tool(
-            FileEditFindReplace,
-            description="""
-- Find and replace multiple lines in a file.
-- Use absolute file path only.
-- Replaces complete lines.
-- Prefer this over WriteFile if any edits are to be made.""",
-        ),
     ]
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
@@ -239,7 +231,6 @@ System information:
     assistant_console = rich.console.Console(
         style="white bold", highlight=False, markup=False
     )
-
     while True:
         if cost > limit:
             system_console.print(
