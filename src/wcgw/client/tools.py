@@ -510,7 +510,7 @@ def file_edit(fedit: FileEditFindReplace) -> str:
         with open(path_) as f:
             content = f.read()
 
-        edit_content = edit_content(content, fedit.find_lines, fedit.replace_with_lines)
+        content = edit_content(content, fedit.find_lines, fedit.replace_with_lines)
 
         with open(path_, "w") as f:
             f.write(content)
