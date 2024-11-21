@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 import json
 import mimetypes
@@ -48,9 +49,9 @@ from nltk.metrics.distance import edit_distance
 from ..types_ import (
     CreateFileNew,
     FileEditFindReplace,
+    FullFileEdit,
     ResetShell,
     Writefile,
-    FullFileDiff,
 )
 
 from ..types_ import BashCommand
@@ -479,7 +480,9 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
         closest_match, min_edit_distance = find_least_edit_distance_substring(
             content, find_lines
         )
-        print(f"Exact match not found, found with edit distance: {min_edit_distance}")
+        print(
+            f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
+        )
         if min_edit_distance / len(find_lines) < 1 / 100:
             print("Editing file with closest match")
             return edit_content(content, closest_match, replace_with_lines)
@@ -489,6 +492,56 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
 
     content = content.replace(find_lines, replace_with_lines, 1)
     return content
+
+
+def do_diff_edit(fedit: FullFileEdit) -> str:
+    console.log(f"Editing file: {fedit.file_path}")
+
+    if not os.path.isabs(fedit.file_path):
+        raise Exception("Failure: file_path should be absolute path")
+    else:
+        path_ = fedit.file_path
+
+    if not os.path.exists(path_):
+        raise Exception(f"Error: file {path_} does not exist")
+
+    with open(path_) as f:
+        apply_diff_to = f.read()
+
+    lines = fedit.file_edit_using_searh_replace_blocks.split("\n")
+    n_lines = len(lines)
+    i = 0
+    while i < n_lines:
+        if re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[i]):
+            search_block = []
+            i += 1
+            while i < n_lines and not re.match(r"^======*\s*$", lines[i]):
+                search_block.append(lines[i])
+                i += 1
+            i += 1
+            replace_block = []
+            while i < n_lines and not re.match(r"^>>>>>>+\s*REPLACE\s*$", lines[i]):
+                replace_block.append(lines[i])
+                i += 1
+            i += 1
+
+            for line in search_block:
+                console.log("> " + line)
+            console.log("---")
+            for line in replace_block:
+                console.log("< " + line)
+
+            search_block_ = "\n".join(search_block)
+            replace_block_ = "\n".join(replace_block)
+
+            apply_diff_to = edit_content(apply_diff_to, search_block_, replace_block_)
+        else:
+            i += 1
+
+    with open(path_, "w") as f:
+        f.write(apply_diff_to)
+
+    return "Success"
 
 
 def file_edit(fedit: FileEditFindReplace) -> str:
@@ -550,6 +603,7 @@ TOOLS = (
     | Writefile
     | CreateFileNew
     | FileEditFindReplace
+    | FullFileEdit
     | AIAssistant
     | DoneFlag
     | ReadImage
@@ -576,6 +630,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return CreateFileNew
     elif name == "FileEditFindReplace":
         return FileEditFindReplace
+    elif name == "FullFileEdit":
+        return FullFileEdit
     elif name == "AIAssistant":
         return AIAssistant
     elif name == "DoneFlag":
@@ -595,6 +651,7 @@ def get_tool_output(
     | Writefile
     | CreateFileNew
     | FileEditFindReplace
+    | FullFileEdit
     | AIAssistant
     | DoneFlag
     | ReadImage,
@@ -612,6 +669,7 @@ def get_tool_output(
             | Writefile
             | CreateFileNew
             | FileEditFindReplace
+            | FullFileEdit
             | AIAssistant
             | DoneFlag
             | ReadImage
@@ -623,6 +681,7 @@ def get_tool_output(
             | Writefile
             | CreateFileNew
             | FileEditFindReplace
+            | FullFileEdit
             | AIAssistant
             | DoneFlag
             | ReadImage
@@ -646,6 +705,9 @@ def get_tool_output(
     elif isinstance(arg, FileEditFindReplace):
         console.print("Calling file edit tool")
         output = file_edit(arg), 0.0
+    elif isinstance(arg, FullFileEdit):
+        console.print("Calling full file edit tool")
+        output = do_diff_edit(arg), 0.0
     elif isinstance(arg, DoneFlag):
         console.print("Calling mark finish tool")
         output = mark_finish(arg), 0.0
@@ -681,44 +743,22 @@ class Mdata(BaseModel):
         | CreateFileNew
         | ResetShell
         | FileEditFindReplace
+        | FullFileEdit
     )
 
 
-execution_lock = threading.Lock()
-
-
-def execute_user_input() -> None:
-    while True:
-        discard_input()
-        user_input = input()
-        with execution_lock:
-            try:
-                console.log(
-                    execute_bash(
-                        default_enc,
-                        BashInteraction(
-                            send_ascii=[ord(x) for x in user_input] + [ord("\n")]
-                        ),
-                        max_tokens=None,
-                    )[0]
-                )
-            except Exception as e:
-                traceback.print_exc()
-                console.log(f"Error: {e}")
-
-
-async def register_client(server_url: str, client_uuid: str = "") -> None:
+def register_client(server_url: str, client_uuid: str = "") -> None:
     global default_enc, default_model, curr_cost
     # Generate a unique UUID for this client
     if not client_uuid:
         client_uuid = str(uuid.uuid4())
 
     # Create the WebSocket connection
-    async with websockets.connect(f"{server_url}/{client_uuid}") as websocket:
-        server_version = str(await websocket.recv())
+    with syncconnect(f"{server_url}/{client_uuid}") as websocket:
+        server_version = str(websocket.recv())
         print(f"Server version: {server_version}")
         client_version = importlib.metadata.version("wcgw")
-        await websocket.send(client_version)
+        websocket.send(client_version)
 
         print(
             f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
@@ -726,24 +766,23 @@ async def register_client(server_url: str, client_uuid: str = "") -> None:
         try:
             while True:
                 # Wait to receive data from the server
-                message = await websocket.recv()
+                message = websocket.recv()
                 mdata = Mdata.model_validate_json(message)
-                with execution_lock:
-                    try:
-                        output, cost = get_tool_output(
-                            mdata.data, default_enc, 0.0, lambda x, y: ("", 0), None
-                        )
-                        curr_cost += cost
-                        print(f"{curr_cost=}")
-                    except Exception as e:
-                        output = f"GOT EXCEPTION while calling tool. Error: {e}"
-                        traceback.print_exc()
-                    assert isinstance(output, str)
-                    await websocket.send(output)
+                try:
+                    output, cost = get_tool_output(
+                        mdata.data, default_enc, 0.0, lambda x, y: ("", 0), None
+                    )
+                    curr_cost += cost
+                    print(f"{curr_cost=}")
+                except Exception as e:
+                    output = f"GOT EXCEPTION while calling tool. Error: {e}"
+                    traceback.print_exc()
+                assert isinstance(output, str)
+                websocket.send(output)
 
         except (websockets.ConnectionClosed, ConnectionError):
             print(f"Connection closed for UUID: {client_uuid}, retrying")
-            await register_client(server_url, client_uuid)
+            register_client(server_url, client_uuid)
 
 
 run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
@@ -760,13 +799,4 @@ def app(
         print(f"wcgw version: {version_}")
         exit()
 
-    thread1 = threading.Thread(target=execute_user_input)
-    thread2 = threading.Thread(
-        target=asyncio.run, args=(register_client(server_url, client_uuid or ""),)
-    )
-
-    thread1.start()
-    thread2.start()
-
-    thread1.join()
-    thread2.join()
+    register_client(server_url, client_uuid or "")

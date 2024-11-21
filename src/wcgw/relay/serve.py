@@ -17,7 +17,9 @@ from dotenv import load_dotenv
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    CreateFileNew,
     FileEditFindReplace,
+    FullFileEdit,
     ResetShell,
     Writefile,
     Specials,
@@ -25,7 +27,15 @@ from ..types_ import (
 
 
 class Mdata(BaseModel):
-    data: BashCommand | BashInteraction | Writefile | ResetShell | FileEditFindReplace
+    data: (
+        BashCommand
+        | BashInteraction
+        | Writefile
+        | CreateFileNew
+        | ResetShell
+        | FileEditFindReplace
+        | FullFileEdit
+    )
     user_id: UUID
 
 
@@ -36,39 +46,6 @@ websockets: dict[UUID, WebSocket] = {}
 gpts: dict[UUID, Callable[[str], None]] = {}
 
 images: DefaultDict[UUID, dict[str, dict[str, Any]]] = DefaultDict(dict)
-
-
-@app.websocket("/register_serve_image/{uuid}")
-async def register_serve_image(websocket: WebSocket, uuid: UUID) -> None:
-    raise Exception("Disabled")
-    await websocket.accept()
-    received_data = await websocket.receive_json()
-    name = received_data["name"]
-    image_b64 = received_data["image_b64"]
-    image_bytes = base64.b64decode(image_b64)
-    images[uuid][name] = {
-        "content": image_bytes,
-        "media_type": received_data["media_type"],
-    }
-
-
-@app.get("/get_image/{uuid}/{name}")
-async def get_image(uuid: UUID, name: str) -> fastapi.responses.Response:
-    return fastapi.responses.Response(
-        content=images[uuid][name]["content"],
-        media_type=images[uuid][name]["media_type"],
-    )
-
-
-@app.websocket("/register/{uuid}")
-async def register_websocket_deprecated(websocket: WebSocket, uuid: UUID) -> None:
-    await websocket.accept()
-    await websocket.send_text(
-        "Outdated client used. Deprecated api is being used. Upgrade the wcgw app."
-    )
-    await websocket.close(
-        reason="This endpoint is deprecated. Please use /v1/register/{uuid}", code=1002
-    )
 
 
 CLIENT_VERSION_MINIMUM = "1.0.0"
@@ -116,20 +93,12 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         print(f"Client {uuid} disconnected")
 
 
-@app.post("/write_file")
-async def write_file_deprecated(write_file_data: Writefile, user_id: UUID) -> Response:
-    return Response(
-        content="This version of the API is deprecated. Please upgrade your client.",
-        status_code=400,
-    )
-
-
-class WritefileWithUUID(Writefile):
+class CreateFileNewWithUUID(CreateFileNew):
     user_id: UUID
 
 
-@app.post("/v1/write_file")
-async def write_file(write_file_data: WritefileWithUUID) -> str:
+@app.post("/v1/create_file")
+async def create_file(write_file_data: CreateFileNewWithUUID) -> str:
     user_id = write_file_data.user_id
     if user_id not in clients:
         return "Failure: id not found, ask the user to check it."
@@ -153,13 +122,13 @@ async def write_file(write_file_data: WritefileWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class FileEditFindReplaceWithUUID(FileEditFindReplace):
+class FullFileEditWithUUID(FullFileEdit):
     user_id: UUID
 
 
-@app.post("/v1/file_edit_find_replace")
+@app.post("/v1/full_file_edit")
 async def file_edit_find_replace(
-    file_edit_find_replace: FileEditFindReplaceWithUUID,
+    file_edit_find_replace: FullFileEditWithUUID,
 ) -> str:
     user_id = file_edit_find_replace.user_id
     if user_id not in clients:
@@ -216,14 +185,6 @@ async def reset_shell(reset_shell: ResetShellWithUUID) -> str:
         await asyncio.sleep(0.1)
 
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
-
-
-@app.post("/execute_bash")
-async def execute_bash_deprecated(excute_bash_data: Any, user_id: UUID) -> Response:
-    return Response(
-        content="This version of the API is deprecated. Please upgrade your client.",
-        status_code=400,
-    )
 
 
 class CommandWithUUID(BaseModel):

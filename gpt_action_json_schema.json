@@ -6,20 +6,20 @@
   },
   "servers": [
     {
-      "url": "https://abe7-106-213-82-238.ngrok-free.app"
+      "url": "https://7d75-103-212-152-58.ngrok-free.app"
     }
   ],
   "paths": {
-    "/v1/write_file": {
+    "/v1/create_file": {
       "post": {
         "x-openai-isConsequential": false,
-        "summary": "Write File",
-        "operationId": "write_file_v1_write_file_post",
+        "summary": "Create File",
+        "operationId": "create_file_v1_create_file_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WritefileWithUUID"
+                "$ref": "#/components/schemas/CreateFileNewWithUUID"
               }
             }
           },
@@ -32,7 +32,47 @@
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "title": "Response Write File V1 Write File Post"
+                  "title": "Response Create File V1 Create File Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/full_file_edit": {
+      "post": {
+        "x-openai-isConsequential": false,
+        "summary": "File Edit Find Replace",
+        "operationId": "file_edit_find_replace_v1_full_file_edit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FullFileEditWithUUID"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "title": "Response File Edit Find Replace V1 Full File Edit Post"
                 }
               }
             }
@@ -255,6 +295,54 @@
         ],
         "title": "CommandWithUUID"
       },
+      "CreateFileNewWithUUID": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "file_content": {
+            "type": "string",
+            "title": "File Content"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "file_content",
+          "user_id"
+        ],
+        "title": "CreateFileNewWithUUID"
+      },
+      "FullFileEditWithUUID": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "file_edit_using_searh_replace_blocks": {
+            "type": "string",
+            "title": "File Edit Using Searh Replace Blocks"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "file_edit_using_searh_replace_blocks",
+          "user_id"
+        ],
+        "title": "FullFileEditWithUUID"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -323,30 +411,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "WritefileWithUUID": {
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
-          },
-          "file_content": {
-            "type": "string",
-            "title": "File Content"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file_path",
-          "file_content",
-          "user_id"
-        ],
-        "title": "WritefileWithUUID"
       }
     }
   }

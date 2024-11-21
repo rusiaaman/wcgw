@@ -56,3 +56,8 @@ class FileEditFindReplace(BaseModel):
 
 class ResetShell(BaseModel):
     should_reset: Literal[True] = True
+
+
+class FullFileEdit(BaseModel):
+    file_path: str
+    file_edit_using_searh_replace_blocks: str

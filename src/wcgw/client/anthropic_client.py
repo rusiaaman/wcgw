@@ -26,6 +26,7 @@ from ..types_ import (
     BashInteraction,
     CreateFileNew,
     FileEditFindReplace,
+    FullFileEdit,
     ReadImage,
     Writefile,
     ResetShell,
@@ -143,8 +144,6 @@ def loop(
             history = json.load(f)
         if len(history) <= 2:
             raise ValueError("Invalid history file")
-        if history[1]["role"] != "user":
-            raise ValueError("Invalid history file, second message should be user")
         first_message = ""
         waiting_for_assistant = history[-1]["role"] != "assistant"
 
@@ -185,7 +184,7 @@ def loop(
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
 - Provide absolute file path only.
-- For editing existing files, use FileEditFindReplace.
+- For editing existing files, use FullFileEdit.
 """,
         ),
         ToolParam(
@@ -199,12 +198,11 @@ def loop(
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
         ToolParam(
-            input_schema=FileEditFindReplace.model_json_schema(),
-            name="FileEditFindReplace",
+            input_schema=FullFileEdit.model_json_schema(),
+            name="FullFileEdit",
             description="""
-- Find and replace multiple lines in a file.
 - Use absolute file path only.
-- Replaces complete lines.
+- Use SEARCH/REPLACE blocks to edit the file.
 """,
         ),
     ]
@@ -225,9 +223,10 @@ System information:
     - Machine: {uname_machine}
 """
 
-    if not history:
-        history = [{"role": "assistant", "content": system}]
-    else:
+    with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:
+        system += f.read()
+
+    if history:
         if (
             (last_msg := history[-1])["role"] == "user"
             and isinstance((content := last_msg["content"]), dict)
@@ -275,6 +274,7 @@ System information:
             messages=history,
             tools=tools,
             max_tokens=8096,
+            system=system,
         )
 
         system_console.print(

@@ -23,7 +23,8 @@ import uuid
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    FileEditFindReplace,
+    CreateFileNew,
+    FullFileEdit,
     ReadImage,
     Writefile,
     ResetShell,
@@ -141,8 +142,6 @@ def loop(
             history = json.load(f)
         if len(history) <= 2:
             raise ValueError("Invalid history file")
-        if history[1]["role"] != "user":
-            raise ValueError("Invalid history file, second message should be user")
         first_message = ""
         waiting_for_assistant = history[-1]["role"] != "assistant"
 
@@ -181,11 +180,20 @@ def loop(
 - Only one of send_text, send_specials, send_ascii should be provided.""",
         ),
         openai.pydantic_function_tool(
-            Writefile,
+            CreateFileNew,
             description="""
-- Write content to a file. Provide file path and content. Use this instead of BashCommand for writing files.
+- Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
-- Provide absolute file path only.""",
+- Provide absolute file path only.
+- For editing existing files, use FullFileEdit.""",
+        ),
+        openai.pydantic_function_tool(
+            FullFileEdit,
+            description="""
+- Use absolute file path only.
+- Use ONLY SEARCH/REPLACE blocks to edit the file.
+- file_edit_using_searh_replace_blocks should start with <<<<<<< SEARCH
+""",
         ),
         openai.pydantic_function_tool(
             ReadImage, description="Read an image from the shell."
@@ -210,7 +218,11 @@ Instructions:
 System information:
     - System: {uname_sysname}
     - Machine: {uname_machine}
+
 """
+
+    with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:
+        system += f.read()
 
     if not history:
         history = [{"role": "system", "content": system}]
