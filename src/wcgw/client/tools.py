@@ -44,7 +44,14 @@ from openai.types.chat import (
     ParsedChatCompletionMessage,
 )
 from nltk.metrics.distance import edit_distance
-from ..types_ import CreateFileNew, FileEditFindReplace, ResetShell, Writefile
+
+from ..types_ import (
+    CreateFileNew,
+    FileEditFindReplace,
+    ResetShell,
+    Writefile,
+    FullFileDiff,
+)
 
 from ..types_ import BashCommand
 
@@ -466,17 +473,35 @@ def find_least_edit_distance_substring(
     return "\n".join(min_edit_distance_lines), min_edit_distance
 
 
+def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
+    count = content.count(find_lines)
+    if count == 0:
+        closest_match, min_edit_distance = find_least_edit_distance_substring(
+            content, find_lines
+        )
+        print(f"Exact match not found, found with edit distance: {min_edit_distance}")
+        if min_edit_distance / len(find_lines) < 1 / 100:
+            print("Editing file with closest match")
+            return edit_content(content, closest_match, replace_with_lines)
+        raise Exception(
+            f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
+        )
+
+    content = content.replace(find_lines, replace_with_lines, 1)
+    return content
+
+
 def file_edit(fedit: FileEditFindReplace) -> str:
     if not os.path.isabs(fedit.file_path):
-        return "Failure: file_path should be absolute path"
+        raise Exception("Failure: file_path should be absolute path")
     else:
         path_ = fedit.file_path
 
     if not os.path.exists(path_):
-        return f"Error: file {path_} does not exist"
+        raise Exception(f"Error: file {path_} does not exist")
 
     if not fedit.find_lines:
-        return "Error: `find_lines` cannot be empty"
+        raise Exception("Error: `find_lines` cannot be empty")
 
     out_string = "\n".join("> " + line for line in fedit.find_lines.split("\n"))
     in_string = "\n".join("< " + line for line in fedit.replace_with_lines.split("\n"))
@@ -484,32 +509,13 @@ def file_edit(fedit: FileEditFindReplace) -> str:
     try:
         with open(path_) as f:
             content = f.read()
-        # First find counts
-        count = content.count(fedit.find_lines)
 
-        if count == 0:
-            closest_match, min_edit_distance = find_least_edit_distance_substring(
-                content, fedit.find_lines
-            )
-            print(
-                f"Exact match not found, found with edit distance: {min_edit_distance}"
-            )
-            if min_edit_distance / len(fedit.find_lines) < 1 / 100:
-                print("Editing file with closest match")
-                return file_edit(
-                    FileEditFindReplace(
-                        file_path=fedit.file_path,
-                        find_lines=closest_match,
-                        replace_with_lines=fedit.replace_with_lines,
-                    )
-                )
-            return f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
+        edit_content = edit_content(content, fedit.find_lines, fedit.replace_with_lines)
 
-        content = content.replace(fedit.find_lines, fedit.replace_with_lines)
         with open(path_, "w") as f:
             f.write(content)
     except OSError as e:
-        return f"Error: {e}"
+        raise Exception(f"Error: {e}")
     console.print(f"File written to {path_}")
     return "Success"
 
