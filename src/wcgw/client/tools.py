@@ -9,6 +9,7 @@ import re
 import sys
 import threading
 import importlib.metadata
+import time
 import traceback
 from typing import (
     Callable,
@@ -755,16 +756,16 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
         client_uuid = str(uuid.uuid4())
 
     # Create the WebSocket connection
-    with syncconnect(f"{server_url}/{client_uuid}") as websocket:
-        server_version = str(websocket.recv())
-        print(f"Server version: {server_version}")
-        client_version = importlib.metadata.version("wcgw")
-        websocket.send(client_version)
+    try:
+        with syncconnect(f"{server_url}/{client_uuid}") as websocket:
+            server_version = str(websocket.recv())
+            print(f"Server version: {server_version}")
+            client_version = importlib.metadata.version("wcgw")
+            websocket.send(client_version)
 
-        print(
-            f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
-        )
-        try:
+            print(
+                f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
+            )
             while True:
                 # Wait to receive data from the server
                 message = websocket.recv()
@@ -783,9 +784,10 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                 assert isinstance(output, str)
                 websocket.send(output)
 
-        except (websockets.ConnectionClosed, ConnectionError, OSError):
-            print(f"Connection closed for UUID: {client_uuid}, retrying")
-            register_client(server_url, client_uuid)
+    except (websockets.ConnectionClosed, ConnectionError, OSError):
+        print(f"Connection closed for UUID: {client_uuid}, retrying")
+        time.sleep(0.5)
+        register_client(server_url, client_uuid)
 
 
 run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
