@@ -783,7 +783,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                 assert isinstance(output, str)
                 websocket.send(output)
 
-        except (websockets.ConnectionClosed, ConnectionError):
+        except (websockets.ConnectionClosed, ConnectionError, OSError):
             print(f"Connection closed for UUID: {client_uuid}, retrying")
             register_client(server_url, client_uuid)
 
