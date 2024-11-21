@@ -744,6 +744,7 @@ class Mdata(BaseModel):
         | ResetShell
         | FileEditFindReplace
         | FullFileEdit
+        | str
     )
 
 
@@ -768,6 +769,8 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                 # Wait to receive data from the server
                 message = websocket.recv()
                 mdata = Mdata.model_validate_json(message)
+                if isinstance(mdata.data, str):
+                    raise Exception(mdata)
                 try:
                     output, cost = get_tool_output(
                         mdata.data, default_enc, 0.0, lambda x, y: ("", 0), None

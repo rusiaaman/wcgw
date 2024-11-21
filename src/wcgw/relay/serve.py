@@ -35,6 +35,7 @@ class Mdata(BaseModel):
         | ResetShell
         | FileEditFindReplace
         | FullFileEdit
+        | str
     )
     user_id: UUID
 
@@ -65,7 +66,10 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
     sem_version_server = semantic_version.Version.coerce(CLIENT_VERSION_MINIMUM)
     if sem_version_client < sem_version_server:
         await websocket.send_text(
-            f"Client version {client_version} is outdated. Please upgrade to {CLIENT_VERSION_MINIMUM} or higher."
+            Mdata(
+                user_id=uuid,
+                data=f"Client version {client_version} is outdated. Please upgrade to {CLIENT_VERSION_MINIMUM} or higher.",
+            ).model_dump_json()
         )
         await websocket.close(
             reason="Client version outdated. Please upgrade to the latest version.",
