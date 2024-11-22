@@ -490,12 +490,12 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
         closest_match, min_edit_distance = find_least_edit_distance_substring(
             content, find_lines
         )
-        print(
-            f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
-        )
-        if min_edit_distance / len(find_lines) < 1 / 100:
-            print("Editing file with closest match")
+        if min_edit_distance == 0:
             return edit_content(content, closest_match, replace_with_lines)
+        else:
+            print(
+                f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
+            )
         raise Exception(
             f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
         )
