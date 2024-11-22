@@ -185,6 +185,7 @@ def loop(
 - Interact with running program using this tool
 - Special keys like arrows, interrupts, enter, etc.
 - Send text input to the running program.
+- Send send_specials=["Enter"] to recheck status of a running program.
 - Only one of send_text, send_specials, send_ascii should be provided.""",
         ),
         openai.pydantic_function_tool(
