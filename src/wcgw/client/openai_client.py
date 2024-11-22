@@ -58,7 +58,6 @@ from dotenv import load_dotenv
 
 class Config(BaseModel):
     model: Models
-    secondary_model: Models
     cost_limit: float
     cost_file: dict[Models, CostData]
     cost_unit: str = "$"
@@ -146,10 +145,18 @@ def loop(
         waiting_for_assistant = history[-1]["role"] != "assistant"
 
     my_dir = os.path.dirname(__file__)
-    config_file = os.path.join(my_dir, "..", "..", "..", "config.toml")
-    with open(config_file) as f:
-        config_json = toml.load(f)
-        config = Config.model_validate(config_json)
+
+    config = Config(
+        model=cast(
+            Models, os.getenv("OPENAI_MODEL", "gpt-4o-2024-08-06").lower()),
+        cost_limit=0.1,
+        cost_unit="$",
+        cost_file={
+            "gpt-4o-2024-08-06": CostData(
+                cost_per_1m_input_tokens=5, cost_per_1m_output_tokens=15
+            ),
+        },
+    )
 
     if limit is not None:
         config.cost_limit = limit
