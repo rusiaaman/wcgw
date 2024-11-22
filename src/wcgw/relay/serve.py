@@ -19,7 +19,8 @@ from ..types_ import (
     BashInteraction,
     CreateFileNew,
     FileEditFindReplace,
-    FullFileEdit,
+    FileEdit,
+    ReadFile,
     ResetShell,
     Writefile,
     Specials,
@@ -34,7 +35,8 @@ class Mdata(BaseModel):
         | CreateFileNew
         | ResetShell
         | FileEditFindReplace
-        | FullFileEdit
+        | FileEdit
+        | ReadFile
         | str
     )
     user_id: UUID
@@ -63,12 +65,14 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
     # receive client version
     client_version = await websocket.receive_text()
     sem_version_client = semantic_version.Version.coerce(client_version)
-    sem_version_server = semantic_version.Version.coerce(CLIENT_VERSION_MINIMUM)
+    sem_version_server = semantic_version.Version.coerce(
+        CLIENT_VERSION_MINIMUM)
     if sem_version_client < sem_version_server:
         await websocket.send_text(
             Mdata(
                 user_id=uuid,
-                data=f"Client version {client_version} is outdated. Please upgrade to {CLIENT_VERSION_MINIMUM} or higher.",
+                data=f"Client version {client_version} is outdated. Please upgrade to {
+                    CLIENT_VERSION_MINIMUM} or higher.",
             ).model_dump_json()
         )
         await websocket.close(
@@ -88,7 +92,8 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         while True:
             received_data = await websocket.receive_text()
             if uuid not in gpts:
-                raise fastapi.HTTPException(status_code=400, detail="No call made")
+                raise fastapi.HTTPException(
+                    status_code=400, detail="No call made")
             gpts[uuid](received_data)
     except WebSocketDisconnect:
         # Remove the client if the WebSocket is disconnected
@@ -126,13 +131,13 @@ async def create_file(write_file_data: CreateFileNewWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class FullFileEditWithUUID(FullFileEdit):
+class FileEditWithUUID(FileEdit):
     user_id: UUID
 
 
 @app.post("/v1/full_file_edit")
 async def file_edit_find_replace(
-    file_edit_find_replace: FullFileEditWithUUID,
+    file_edit_find_replace: FileEditWithUUID,
 ) -> str:
     user_id = file_edit_find_replace.user_id
     if user_id not in clients:
@@ -246,6 +251,39 @@ async def bash_interaction(bash_interaction: BashInteractionWithUUID) -> str:
             data=bash_interaction,
             user_id=user_id,
         )
+    )
+
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        if results is not None:
+            return results
+        await asyncio.sleep(0.1)
+
+    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+
+class ReadFileWithUUID(ReadFile):
+    user_id: UUID
+
+
+@app.post("/v1/read_file")
+async def read_file_endpoint(read_file_data: ReadFileWithUUID) -> str:
+    user_id = read_file_data.user_id
+    if user_id not in clients:
+        return "Failure: id not found, ask the user to check it."
+
+    results: Optional[str] = None
+
+    def put_results(result: str) -> None:
+        nonlocal results
+        results = result
+
+    gpts[user_id] = put_results
+
+    await clients[user_id](
+        Mdata(data=ReadFile(file_path=read_file_data.file_path,
+                            type=read_file_data.type
+                            ), user_id=user_id)
     )
 
     start_time = time.time()

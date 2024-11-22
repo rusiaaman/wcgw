@@ -48,18 +48,16 @@ from openai.types.chat import (
 from nltk.metrics.distance import edit_distance
 
 from ..types_ import (
+    BashCommand,
+    BashInteraction,
     CreateFileNew,
     FileEditFindReplace,
-    FullFileEdit,
+    FileEdit,
+    ReadFile,
+    ReadImage,
     ResetShell,
     Writefile,
 )
-
-from ..types_ import BashCommand
-
-from ..types_ import BashInteraction
-
-from ..types_ import ReadImage
 
 from .common import CostData, Models, discard_input
 
@@ -320,7 +318,7 @@ def execute_bash(
         tokens = enc.encode(text)
 
         if max_tokens and len(tokens) >= max_tokens:
-            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
 
         if is_interrupt:
             text = (
@@ -347,7 +345,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
-        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
 
     try:
         exit_status = get_status()
@@ -427,7 +425,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
 
 def write_file(writefile: Writefile | CreateFileNew, error_on_exist: bool) -> str:
     if not os.path.isabs(writefile.file_path):
-        return "Failure: file_path should be absolute path"
+        return f"Failure: file_path should be absolute path, current working directory is {CWD}"
     else:
         path_ = writefile.file_path
 
@@ -466,12 +464,14 @@ def find_least_edit_distance_substring(
         edit_distance_sum = 0
         for j in range(len(find_lines)):
             if (i + j) < len(content_lines):
-                edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
+                edit_distance_sum += edit_distance(
+                    content_lines[i + j], find_lines[j])
             else:
                 edit_distance_sum += len(find_lines[j])
         if edit_distance_sum < min_edit_distance:
             min_edit_distance = edit_distance_sum
-            min_edit_distance_lines = orig_content_lines[i : i + len(find_lines)]
+            min_edit_distance_lines = orig_content_lines[i: i + len(
+                find_lines)]
     return "\n".join(min_edit_distance_lines), min_edit_distance
 
 
@@ -495,11 +495,12 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
     return content
 
 
-def do_diff_edit(fedit: FullFileEdit) -> str:
+def do_diff_edit(fedit: FileEdit) -> str:
     console.log(f"Editing file: {fedit.file_path}")
 
     if not os.path.isabs(fedit.file_path):
-        raise Exception("Failure: file_path should be absolute path")
+        raise Exception(
+            f"Failure: file_path should be absolute path, current working directory is {CWD}")
     else:
         path_ = fedit.file_path
 
@@ -509,9 +510,10 @@ def do_diff_edit(fedit: FullFileEdit) -> str:
     with open(path_) as f:
         apply_diff_to = f.read()
 
-    lines = fedit.file_edit_using_searh_replace_blocks.split("\n")
+    lines = fedit.file_edit_using_search_replace_blocks.split("\n")
     n_lines = len(lines)
     i = 0
+    replacement_count = 0
     while i < n_lines:
         if re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[i]):
             search_block = []
@@ -535,9 +537,16 @@ def do_diff_edit(fedit: FullFileEdit) -> str:
             search_block_ = "\n".join(search_block)
             replace_block_ = "\n".join(replace_block)
 
-            apply_diff_to = edit_content(apply_diff_to, search_block_, replace_block_)
+            apply_diff_to = edit_content(
+                apply_diff_to, search_block_, replace_block_)
+            replacement_count += 1
         else:
             i += 1
+
+    if replacement_count == 0:
+        raise Exception(
+            "Error: no valid search-replace blocks found, please check your syntax for FileEdit"
+        )
 
     with open(path_, "w") as f:
         f.write(apply_diff_to)
@@ -547,7 +556,8 @@ def do_diff_edit(fedit: FullFileEdit) -> str:
 
 def file_edit(fedit: FileEditFindReplace) -> str:
     if not os.path.isabs(fedit.file_path):
-        raise Exception("Failure: file_path should be absolute path")
+        raise Exception(
+            f"Failure: file_path should be absolute path, current working directory is {CWD}")
     else:
         path_ = fedit.file_path
 
@@ -557,14 +567,17 @@ def file_edit(fedit: FileEditFindReplace) -> str:
     if not fedit.find_lines:
         raise Exception("Error: `find_lines` cannot be empty")
 
-    out_string = "\n".join("> " + line for line in fedit.find_lines.split("\n"))
-    in_string = "\n".join("< " + line for line in fedit.replace_with_lines.split("\n"))
+    out_string = "\n".join(
+        "> " + line for line in fedit.find_lines.split("\n"))
+    in_string = "\n".join(
+        "< " + line for line in fedit.replace_with_lines.split("\n"))
     console.log(f"Editing file: {path_}\n---\n{out_string}\n---\n{in_string}\n---")
     try:
         with open(path_) as f:
             content = f.read()
 
-        content = edit_content(content, fedit.find_lines, fedit.replace_with_lines)
+        content = edit_content(content, fedit.find_lines,
+                               fedit.replace_with_lines)
 
         with open(path_, "w") as f:
             f.write(content)
@@ -604,10 +617,11 @@ TOOLS = (
     | Writefile
     | CreateFileNew
     | FileEditFindReplace
-    | FullFileEdit
+    | FileEdit
     | AIAssistant
     | DoneFlag
     | ReadImage
+    | ReadFile
 )
 
 
@@ -631,14 +645,16 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return CreateFileNew
     elif name == "FileEditFindReplace":
         return FileEditFindReplace
-    elif name == "FullFileEdit":
-        return FullFileEdit
+    elif name == "FileEdit":
+        return FileEdit
     elif name == "AIAssistant":
         return AIAssistant
     elif name == "DoneFlag":
         return DoneFlag
     elif name == "ReadImage":
         return ReadImage
+    elif name == "ReadFile":
+        return ReadFile
     else:
         raise ValueError(f"Unknown tool name: {name}")
 
@@ -652,10 +668,11 @@ def get_tool_output(
     | Writefile
     | CreateFileNew
     | FileEditFindReplace
-    | FullFileEdit
+    | FileEdit
     | AIAssistant
     | DoneFlag
-    | ReadImage,
+    | ReadImage
+    | ReadFile,
     enc: tiktoken.Encoding,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
@@ -670,10 +687,11 @@ def get_tool_output(
             | Writefile
             | CreateFileNew
             | FileEditFindReplace
-            | FullFileEdit
+            | FileEdit
             | AIAssistant
             | DoneFlag
             | ReadImage
+            | ReadFile
         ](
             Confirmation
             | BashCommand
@@ -682,10 +700,11 @@ def get_tool_output(
             | Writefile
             | CreateFileNew
             | FileEditFindReplace
-            | FullFileEdit
+            | FileEdit
             | AIAssistant
             | DoneFlag
             | ReadImage
+            | ReadFile
         )
         arg = adapter.validate_python(args)
     else:
@@ -706,7 +725,7 @@ def get_tool_output(
     elif isinstance(arg, FileEditFindReplace):
         console.print("Calling file edit tool")
         output = file_edit(arg), 0.0
-    elif isinstance(arg, FullFileEdit):
+    elif isinstance(arg, FileEdit):
         console.print("Calling full file edit tool")
         output = do_diff_edit(arg), 0.0
     elif isinstance(arg, DoneFlag):
@@ -718,6 +737,9 @@ def get_tool_output(
     elif isinstance(arg, ReadImage):
         console.print("Calling read image tool")
         output = read_image_from_shell(arg.file_path), 0.0
+    elif isinstance(arg, ReadFile):
+        console.print("Calling read file tool")
+        output = read_file(arg), 0.0
     elif isinstance(arg, ResetShell):
         console.print("Calling reset shell tool")
         output = reset_shell(), 0.0
@@ -732,7 +754,8 @@ History = list[ChatCompletionMessageParam]
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
 default_model: Models = "gpt-4o-2024-08-06"
-default_cost = CostData(cost_per_1m_input_tokens=0.15, cost_per_1m_output_tokens=0.6)
+default_cost = CostData(cost_per_1m_input_tokens=0.15,
+                        cost_per_1m_output_tokens=0.6)
 curr_cost = 0.0
 
 
@@ -744,8 +767,9 @@ class Mdata(BaseModel):
         | CreateFileNew
         | ResetShell
         | FileEditFindReplace
-        | FullFileEdit
+        | FileEdit
         | str
+        | ReadFile
     )
 
 
@@ -774,7 +798,8 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                     raise Exception(mdata)
                 try:
                     output, cost = get_tool_output(
-                        mdata.data, default_enc, 0.0, lambda x, y: ("", 0), None
+                        mdata.data, default_enc, 0.0, lambda x, y: (
+                            "", 0), None
                     )
                     curr_cost += cost
                     print(f"{curr_cost=}")
@@ -805,3 +830,19 @@ def app(
         exit()
 
     register_client(server_url, client_uuid or "")
+
+
+def read_file(readfile: ReadFile) -> str:
+
+    console.print(f"Reading file: {readfile.file_path}")
+
+    if not os.path.isabs(readfile.file_path):
+        return f"Failure: file_path should be absolute path, current working directory is {CWD}"
+
+    path = Path(readfile.file_path)
+    if not path.exists():
+        return f"Error: file {readfile.file_path} does not exist"
+
+    with path.open("r") as f:
+        content = f.read()
+    return content

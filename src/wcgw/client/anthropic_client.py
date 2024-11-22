@@ -26,7 +26,8 @@ from ..types_ import (
     BashInteraction,
     CreateFileNew,
     FileEditFindReplace,
-    FullFileEdit,
+    FileEdit,
+    ReadFile,
     ReadImage,
     Writefile,
     ResetShell,
@@ -178,13 +179,21 @@ def loop(
 """,
         ),
         ToolParam(
+            input_schema=ReadFile.model_json_schema(),
+            name="ReadFile",
+            description="""
+- Read full file content
+- Provide absolute file path only
+""",
+        ),
+        ToolParam(
             input_schema=CreateFileNew.model_json_schema(),
             name="CreateFileNew",
             description="""
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
 - Provide absolute file path only.
-- For editing existing files, use FullFileEdit.
+- For editing existing files, use FileEdit.
 """,
         ),
         ToolParam(
@@ -198,8 +207,8 @@ def loop(
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
         ToolParam(
-            input_schema=FullFileEdit.model_json_schema(),
-            name="FullFileEdit",
+            input_schema=FileEdit.model_json_schema(),
+            name="FileEdit",
             description="""
 - Use absolute file path only.
 - Use SEARCH/REPLACE blocks to edit the file.
@@ -217,8 +226,6 @@ Instructions:
     - You should use the provided bash execution tool to run script to complete objective.
     - First understand about the project by understanding the folder structure (ignoring node_modules or venv, etc.)
     - Always read relevant files before making any changes.
-    - Use cat to read files;
-        - For larger files use grep to understand relevant context.
     
 System information:
     - System: {uname_sysname}

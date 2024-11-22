@@ -24,8 +24,9 @@ from ..types_ import (
     BashCommand,
     BashInteraction,
     CreateFileNew,
-    FullFileEdit,
+    FileEdit,
     ReadImage,
+    ReadFile,
     Writefile,
     ResetShell,
 )
@@ -187,19 +188,26 @@ def loop(
 - Only one of send_text, send_specials, send_ascii should be provided.""",
         ),
         openai.pydantic_function_tool(
+            ReadFile,
+            description="""
+- Read full file content
+- Provide absolute file path only
+""",
+        ),
+        openai.pydantic_function_tool(
             CreateFileNew,
             description="""
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
 - Provide absolute file path only.
-- For editing existing files, use FullFileEdit.""",
+- For editing existing files, use FileEdit.""",
         ),
         openai.pydantic_function_tool(
-            FullFileEdit,
+            FileEdit,
             description="""
 - Use absolute file path only.
 - Use ONLY SEARCH/REPLACE blocks to edit the file.
-- file_edit_using_searh_replace_blocks should start with <<<<<<< SEARCH
+- file_edit_using_search_replace_blocks should start with <<<<<<< SEARCH
 """,
         ),
         openai.pydantic_function_tool(
@@ -221,8 +229,6 @@ Instructions:
     - You should use the provided bash execution tool to run script to complete objective.
     - First understand about the project by understanding the folder structure (ignoring node_modules or venv, etc.)
     - Always read relevant files before making any changes.
-    - Use cat to read files;
-        - For larger files use grep to understand relevant context.
     
 System information:
     - System: {uname_sysname}

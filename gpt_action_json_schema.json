@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "https://7d75-103-212-152-58.ngrok-free.app"
+      "url": "https://a0e8-125-99-67-222.ngrok-free.app"
     }
   ],
   "paths": {
@@ -59,7 +59,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FullFileEditWithUUID"
+                "$ref": "#/components/schemas/FileEditWithUUID"
               }
             }
           },
@@ -209,6 +209,46 @@
           }
         }
       }
+    },
+    "/v1/read_file": {
+      "post": {
+        "x-openai-isConsequential": false,
+        "summary": "Read File Endpoint",
+        "operationId": "read_file_endpoint_v1_read_file_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadFileWithUUID"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "title": "Response Read File Endpoint V1 Read File Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -319,15 +359,15 @@
         ],
         "title": "CreateFileNewWithUUID"
       },
-      "FullFileEditWithUUID": {
+      "FileEditWithUUID": {
         "properties": {
           "file_path": {
             "type": "string",
             "title": "File Path"
           },
-          "file_edit_using_searh_replace_blocks": {
+          "file_edit_using_search_replace_blocks": {
             "type": "string",
-            "title": "File Edit Using Searh Replace Blocks"
+            "title": "File Edit Using Search Replace Blocks"
           },
           "user_id": {
             "type": "string",
@@ -338,10 +378,10 @@
         "type": "object",
         "required": [
           "file_path",
-          "file_edit_using_searh_replace_blocks",
+          "file_edit_using_search_replace_blocks",
           "user_id"
         ],
-        "title": "FullFileEditWithUUID"
+        "title": "FileEditWithUUID"
       },
       "HTTPValidationError": {
         "properties": {
@@ -355,6 +395,34 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ReadFileWithUUID": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ReadFile"
+            ],
+            "const": "ReadFile",
+            "title": "Type"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "type",
+          "user_id"
+        ],
+        "title": "ReadFileWithUUID"
       },
       "ResetShellWithUUID": {
         "properties": {
