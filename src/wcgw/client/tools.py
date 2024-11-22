@@ -453,6 +453,14 @@ def find_least_edit_distance_substring(
     content_lines = [
         line.strip() for line in orig_content_lines
     ]  # Remove trailing and leading space for calculating edit distance
+    new_to_original_indices = {}
+    new_content_lines = []
+    for i in range(len(content_lines)):
+        if not content_lines[i]:
+            continue
+        new_content_lines.append(content_lines[i])
+        new_to_original_indices[len(new_content_lines) - 1] = i
+    content_lines = new_content_lines
     find_lines = find_str.split("\n")
     find_lines = [
         line.strip() for line in find_lines
@@ -470,8 +478,9 @@ def find_least_edit_distance_substring(
                 edit_distance_sum += len(find_lines[j])
         if edit_distance_sum < min_edit_distance:
             min_edit_distance = edit_distance_sum
-            min_edit_distance_lines = orig_content_lines[i: i + len(
-                find_lines)]
+            orig_start_index = new_to_original_indices[i]
+            orig_end_index = new_to_original_indices.get(i + len(find_lines) - 1, len(orig_content_lines) - 1) + 1
+            min_edit_distance_lines = orig_content_lines[orig_start_index:orig_end_index]
     return "\n".join(min_edit_distance_lines), min_edit_distance
 
 
