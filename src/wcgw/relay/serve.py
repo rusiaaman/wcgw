@@ -51,7 +51,7 @@ gpts: dict[UUID, Callable[[str], None]] = {}
 images: DefaultDict[UUID, dict[str, dict[str, Any]]] = DefaultDict(dict)
 
 
-CLIENT_VERSION_MINIMUM = "1.1.0"
+CLIENT_VERSION_MINIMUM = "1.2.0"
 
 
 @app.websocket("/v1/register/{uuid}")
