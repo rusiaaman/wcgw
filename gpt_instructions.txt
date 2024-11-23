@@ -14,6 +14,7 @@ Instructions for `BashCommand`:
 - Status of the command and the current working directory will always be returned at the end.
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
+- The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 
 Instructions for `Read File`
 - Read full content of a file.

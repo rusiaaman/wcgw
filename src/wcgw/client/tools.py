@@ -561,10 +561,10 @@ def do_diff_edit(fedit: FileEdit) -> str:
 
             for line in search_block:
                 console.log("> " + line)
-            console.log("---")
+            console.log("=======")
             for line in replace_block:
                 console.log("< " + line)
-
+            console.log("\n\n\n\n")
             search_block_ = "\n".join(search_block)
             replace_block_ = "\n".join(replace_block)
 

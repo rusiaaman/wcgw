@@ -165,6 +165,7 @@ def loop(
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
+- The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 """,
         ),
         ToolParam(
@@ -227,7 +228,7 @@ Instructions:
     - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
     - Always read relevant files before editing.
     - Do not provide code snippets unless asked by the user, instead directly edit the code.
-    
+
 System information:
     - System: {uname_sysname}
     - Machine: {uname_machine}
