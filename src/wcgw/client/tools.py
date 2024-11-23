@@ -251,55 +251,71 @@ def execute_bash(
                 )
 
             SHELL.sendline(command)
-        elif bash_arg.send_specials:
-            console.print(f"Sending special sequence: {bash_arg.send_specials}")
-            for char in bash_arg.send_specials:
-                if char == "Key-up":
-                    SHELL.send("\033[A")
-                elif char == "Key-down":
-                    SHELL.send("\033[B")
-                elif char == "Key-left":
-                    SHELL.send("\033[D")
-                elif char == "Key-right":
-                    SHELL.send("\033[C")
-                elif char == "Enter":
-                    SHELL.send("\n")
-                elif char == "Ctrl-c":
-                    SHELL.sendintr()
-                    is_interrupt = True
-                elif char == "Ctrl-d":
-                    SHELL.sendintr()
-                    is_interrupt = True
-                elif char == "Ctrl-z":
-                    SHELL.send("\x1a")
-                else:
-                    raise Exception(f"Unknown special character: {char}")
-        elif bash_arg.send_ascii:
-            console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
-            for ascii_char in bash_arg.send_ascii:
-                SHELL.send(chr(ascii_char))
-                if ascii_char == 3:
-                    is_interrupt = True
+
         else:
-            if bash_arg.send_text is None:
+            if (
+                sum(
+                    [
+                        int(bool(bash_arg.send_text)),
+                        int(bool(bash_arg.send_specials)),
+                        int(bool(bash_arg.send_ascii)),
+                    ]
+                )
+                != 1
+            ):
                 return (
-                    "Failure: at least one of send_text, send_specials or send_ascii should be provided",
+                    "Failure: exactly one of send_text, send_specials or send_ascii should be provided",
                     0.0,
                 )
+            if bash_arg.send_specials:
+                console.print(f"Sending special sequence: {bash_arg.send_specials}")
+                for char in bash_arg.send_specials:
+                    if char == "Key-up":
+                        SHELL.send("\033[A")
+                    elif char == "Key-down":
+                        SHELL.send("\033[B")
+                    elif char == "Key-left":
+                        SHELL.send("\033[D")
+                    elif char == "Key-right":
+                        SHELL.send("\033[C")
+                    elif char == "Enter":
+                        SHELL.send("\n")
+                    elif char == "Ctrl-c":
+                        SHELL.sendintr()
+                        is_interrupt = True
+                    elif char == "Ctrl-d":
+                        SHELL.sendintr()
+                        is_interrupt = True
+                    elif char == "Ctrl-z":
+                        SHELL.send("\x1a")
+                    else:
+                        raise Exception(f"Unknown special character: {char}")
+            elif bash_arg.send_ascii:
+                console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
+                for ascii_char in bash_arg.send_ascii:
+                    SHELL.send(chr(ascii_char))
+                    if ascii_char == 3:
+                        is_interrupt = True
+            else:
+                if bash_arg.send_text is None:
+                    return (
+                        "Failure: at least one of send_text, send_specials or send_ascii should be provided",
+                        0.0,
+                    )
 
-            updated_repl_mode = update_repl_prompt(bash_arg.send_text)
-            if updated_repl_mode:
-                BASH_STATE = "repl"
-                response = (
-                    "Prompt updated, you can execute REPL lines using BashCommand now"
-                )
-                console.print(response)
-                return (
-                    response,
-                    0,
-                )
-            console.print(f"Interact text: {bash_arg.send_text}")
-            SHELL.sendline(bash_arg.send_text)
+                updated_repl_mode = update_repl_prompt(bash_arg.send_text)
+                if updated_repl_mode:
+                    BASH_STATE = "repl"
+                    response = (
+                        "Prompt updated, you can execute REPL lines using BashCommand now"
+                    )
+                    console.print(response)
+                    return (
+                        response,
+                        0,
+                    )
+                console.print(f"Interact text: {bash_arg.send_text}")
+                SHELL.sendline(bash_arg.send_text)
 
         BASH_STATE = "repl"
 
@@ -520,6 +536,12 @@ def do_diff_edit(fedit: FileEdit) -> str:
         apply_diff_to = f.read()
 
     lines = fedit.file_edit_using_search_replace_blocks.split("\n")
+
+    if not lines or not re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[0]):
+        raise Exception(
+            "Error: first line should be `<<<<<< SEARCH` to start a search-replace block"
+        )
+    
     n_lines = len(lines)
     i = 0
     replacement_count = 0

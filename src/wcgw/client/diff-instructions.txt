@@ -1,5 +1,7 @@
 
-Instructions for 
+Instructions for editing files.
+
+
 Only edit the files using the following SEARCH/REPLACE blocks.
 ```
 <<<<<<< SEARCH
@@ -8,7 +10,27 @@ def hello():
 
     print("hello")
 =======
-from hello import hello
+from hello import hello as hello_renamed
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+def call_hello():
+    "call hello"
+
+    hello()
+=======
+def call_hello_renamed():
+    "call hello renamed"
+
+    hello_renamed()
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    impl1()
+    hello()
+    impl2()
+=======
+    impl1()
+    hello_renamed()
+    impl2()
 >>>>>>> REPLACE
 ```
 

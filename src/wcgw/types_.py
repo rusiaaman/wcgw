@@ -13,25 +13,10 @@ Specials = Literal[
 
 
 class BashInteraction(BaseModel):
+    type: Literal["BashInteraction"]
     send_text: Optional[str] = None
     send_specials: Optional[Sequence[Specials]] = None
     send_ascii: Optional[Sequence[int]] = None
-
-    def model_post_init(self, __context: object) -> None:
-        # Ensure only one of the fields is set
-        if (
-            sum(
-                [
-                    int(bool(self.send_text)),
-                    int(bool(self.send_specials)),
-                    int(bool(self.send_ascii)),
-                ]
-            )
-            != 1
-        ):
-            raise ValueError(
-                "Exactly one of 'send_text', 'send_specials', or 'send_ascii' must be set"
-            )
 
 
 class ReadImage(BaseModel):
@@ -61,16 +46,9 @@ class FileEditFindReplace(BaseModel):
 
 
 class ResetShell(BaseModel):
-    should_reset: Literal[True] = True
+    should_reset: Literal[True]
 
 
 class FileEdit(BaseModel):
     file_path: str
     file_edit_using_search_replace_blocks: str
-
-    def model_post_init(self, __context: object) -> None:
-        # Ensure first line is "<<<<<<< SEARCH"
-
-        if not re.match(r"^<<<<<<+\s*SEARCH\s*$", self.file_edit_using_search_replace_blocks.split("\n")[0]):
-
-            raise ValueError("First line of file_edit_using_search_replace_blocks must be '<<<<<<< SEARCH'")

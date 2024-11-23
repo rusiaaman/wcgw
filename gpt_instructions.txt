@@ -39,16 +39,35 @@ Instructions for `FileEdit`:
     - Use absolute file path only.
     - Use SEARCH/REPLACE blocks to edit the file.
         Only edit the files using the following SEARCH/REPLACE blocks.
+
 ```
 <<<<<<< SEARCH
-// Original code
+def hello():
+    "print a greeting"
+
+    print("hello")
 =======
-// New code
+from hello import hello as hello_renamed
 >>>>>>> REPLACE
 <<<<<<< SEARCH
-// Original code further down in the file
+def call_hello():
+    "call hello"
+
+    hello()
 =======
-// New code to replace
+def call_hello_renamed():
+    "call hello renamed"
+
+    hello_renamed()
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    impl1()
+    hello()
+    impl2()
+=======
+    impl1()
+    hello_renamed()
+    impl2()
 >>>>>>> REPLACE
 ```
 

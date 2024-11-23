@@ -255,6 +255,14 @@
     "schemas": {
       "BashInteractionWithUUID": {
         "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "BashInteraction"
+            ],
+            "const": "BashInteraction",
+            "title": "Type"
+          },
           "send_text": {
             "anyOf": [
               {
@@ -312,7 +320,8 @@
         },
         "type": "object",
         "required": [
-          "user_id"
+          "user_id",
+          "type"
         ],
         "title": "BashInteractionWithUUID"
       },
@@ -443,7 +452,8 @@
         },
         "type": "object",
         "required": [
-          "user_id"
+          "user_id",
+          "should_reset"
         ],
         "title": "ResetShellWithUUID"
       },
