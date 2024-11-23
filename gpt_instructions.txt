@@ -72,8 +72,6 @@ Instructions for `FileEdit`:
         Include just the changing lines, and a few surrounding lines if needed for uniqueness.
         Do not include long runs of unchanging lines in *SEARCH/REPLACE* blocks.
 
-        Include context lines before and after the code to edit for better matching in "<<<<<<< SEARCH" and ">>>>>>> REPLACE". Recommended to add 3 lines on each side.
-
 ---
 Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
 
