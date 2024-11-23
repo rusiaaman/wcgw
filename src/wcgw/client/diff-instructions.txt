@@ -4,6 +4,7 @@ Instructions for editing files.
 
 Only edit the files using the following SEARCH/REPLACE blocks.
 ```
+file_edit_using_search_replace_blocks="""
 <<<<<<< SEARCH
 def hello():
     "print a greeting"
@@ -32,6 +33,7 @@ def call_hello_renamed():
     hello_renamed()
     impl2()
 >>>>>>> REPLACE
+"""
 ```
 
 # *SEARCH/REPLACE block* Rules:

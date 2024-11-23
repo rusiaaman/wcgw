@@ -20,6 +20,7 @@ from ..types_ import (
     CreateFileNew,
     FileEditFindReplace,
     FileEdit,
+    Initialize,
     ReadFile,
     ResetShell,
     Writefile,
@@ -37,6 +38,7 @@ class Mdata(BaseModel):
         | FileEditFindReplace
         | FileEdit
         | ReadFile
+        | Initialize
         | str
     )
     user_id: UUID
@@ -51,7 +53,7 @@ gpts: dict[UUID, Callable[[str], None]] = {}
 images: DefaultDict[UUID, dict[str, dict[str, Any]]] = DefaultDict(dict)
 
 
-CLIENT_VERSION_MINIMUM = "1.2.0"
+CLIENT_VERSION_MINIMUM = "1.3.0"
 
 
 @app.websocket("/v1/register/{uuid}")
@@ -71,8 +73,7 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         await websocket.send_text(
             Mdata(
                 user_id=uuid,
-                data=f"Client version {client_version} is outdated. Please upgrade to {
-                    CLIENT_VERSION_MINIMUM} or higher.",
+                data=f"Client version {client_version} is outdated. Please upgrade to {CLIENT_VERSION_MINIMUM} or higher.",
             ).model_dump_json()
         )
         await websocket.close(
@@ -281,9 +282,37 @@ async def read_file_endpoint(read_file_data: ReadFileWithUUID) -> str:
     gpts[user_id] = put_results
 
     await clients[user_id](
-        Mdata(data=ReadFile(file_path=read_file_data.file_path,
-                            type=read_file_data.type
-                            ), user_id=user_id)
+        Mdata(data=read_file_data, user_id=user_id)
+    )
+
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        if results is not None:
+            return results
+        await asyncio.sleep(0.1)
+
+    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+class InitializeWithUUID(Initialize):
+    user_id: UUID
+
+
+@app.post("/v1/initialize")
+async def initialize(initialize_data: InitializeWithUUID) -> str:
+    user_id = initialize_data.user_id
+    if user_id not in clients:
+        return "Failure: id not found, ask the user to check it."
+
+    results: Optional[str] = None
+
+    def put_results(result: str) -> None:
+        nonlocal results
+        results = result
+
+    gpts[user_id] = put_results
+
+    await clients[user_id](
+        Mdata(data=initialize_data, user_id=user_id)
     )
 
     start_time = time.time()

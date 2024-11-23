@@ -202,7 +202,7 @@ def loop(
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
 - Provide absolute file path only.
-- For editing existing files, use FileEdit.""",
+- For editing existing files, use FileEdit instead of this tool.""",
         ),
         openai.pydantic_function_tool(
             FileEdit,
@@ -224,7 +224,7 @@ def loop(
     uname_machine = os.uname().machine
 
     system = f"""
-You're a cli assistant.
+You're an expert software engineer with shell and code knowledge.
 
 Instructions:
 
@@ -236,6 +236,7 @@ Instructions:
 System information:
     - System: {uname_sysname}
     - Machine: {uname_machine}
+    - Current directory: {os.getcwd()}
 
 """
 

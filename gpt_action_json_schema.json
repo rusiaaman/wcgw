@@ -249,6 +249,46 @@
           }
         }
       }
+    },
+    "/v1/initialize": {
+      "post": {
+        "x-openai-isConsequential": false,
+        "summary": "Initialize",
+        "operationId": "initialize_v1_initialize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitializeWithUUID"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "title": "Response Initialize V1 Initialize Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -320,8 +360,8 @@
         },
         "type": "object",
         "required": [
-          "user_id",
-          "type"
+          "type",
+          "user_id"
         ],
         "title": "BashInteractionWithUUID"
       },
@@ -405,6 +445,29 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "InitializeWithUUID": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "Initialize"
+            ],
+            "const": "Initialize",
+            "title": "Type"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "user_id"
+        ],
+        "title": "InitializeWithUUID"
+      },
       "ReadFileWithUUID": {
         "properties": {
           "file_path": {
@@ -441,8 +504,7 @@
               true
             ],
             "const": true,
-            "title": "Should Reset",
-            "default": true
+            "title": "Should Reset"
           },
           "user_id": {
             "type": "string",
@@ -452,8 +514,8 @@
         },
         "type": "object",
         "required": [
-          "user_id",
-          "should_reset"
+          "should_reset",
+          "user_id"
         ],
         "title": "ResetShellWithUUID"
       },

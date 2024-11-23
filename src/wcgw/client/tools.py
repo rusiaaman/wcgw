@@ -53,6 +53,7 @@ from ..types_ import (
     CreateFileNew,
     FileEditFindReplace,
     FileEdit,
+    Initialize,
     ReadFile,
     ReadImage,
     ResetShell,
@@ -153,6 +154,17 @@ def _get_exit_code() -> int:
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 BASH_STATE: BASH_CLF_OUTPUT = "repl"
 CWD = os.getcwd()
+
+
+
+def initial_info() -> str:
+    uname_sysname = os.uname().sysname
+    uname_machine = os.uname().machine
+    return f"""
+System: {uname_sysname}
+Machine: {uname_machine}
+Current working directory: {CWD}
+"""
 
 
 def reset_shell() -> str:
@@ -535,6 +547,7 @@ def do_diff_edit(fedit: FileEdit) -> str:
     with open(path_) as f:
         apply_diff_to = f.read()
 
+    fedit.file_edit_using_search_replace_blocks = fedit.file_edit_using_search_replace_blocks.strip()
     lines = fedit.file_edit_using_search_replace_blocks.split("\n")
 
     if not lines or not re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[0]):
@@ -653,6 +666,7 @@ TOOLS = (
     | DoneFlag
     | ReadImage
     | ReadFile
+    | Initialize
 )
 
 
@@ -686,6 +700,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return ReadImage
     elif name == "ReadFile":
         return ReadFile
+    elif name == "Initialize":
+        return Initialize
     else:
         raise ValueError(f"Unknown tool name: {name}")
 
@@ -703,6 +719,7 @@ def get_tool_output(
     | AIAssistant
     | DoneFlag
     | ReadImage
+    | Initialize
     | ReadFile,
     enc: tiktoken.Encoding,
     limit: float,
@@ -723,6 +740,7 @@ def get_tool_output(
             | DoneFlag
             | ReadImage
             | ReadFile
+            | Initialize
         ](
             Confirmation
             | BashCommand
@@ -736,6 +754,7 @@ def get_tool_output(
             | DoneFlag
             | ReadImage
             | ReadFile
+            | Initialize
         )
         arg = adapter.validate_python(args)
     else:
@@ -774,6 +793,9 @@ def get_tool_output(
     elif isinstance(arg, ResetShell):
         console.print("Calling reset shell tool")
         output = reset_shell(), 0.0
+    elif isinstance(arg, Initialize):
+        console.print("Calling initial info tool")
+        output = initial_info(), 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
 
@@ -801,6 +823,7 @@ class Mdata(BaseModel):
         | FileEdit
         | str
         | ReadFile
+        | Initialize
     )
 
 

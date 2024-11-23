@@ -52,3 +52,7 @@ class ResetShell(BaseModel):
 class FileEdit(BaseModel):
     file_path: str
     file_edit_using_search_replace_blocks: str
+
+
+class Initialize(BaseModel):
+    type: Literal["Initialize"]
