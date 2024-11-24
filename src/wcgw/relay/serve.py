@@ -23,7 +23,6 @@ from ..types_ import (
     Initialize,
     ReadFile,
     ResetShell,
-    Writefile,
     Specials,
 )
 
@@ -32,7 +31,6 @@ class Mdata(BaseModel):
     data: (
         BashCommand
         | BashInteraction
-        | Writefile
         | CreateFileNew
         | ResetShell
         | FileEditFindReplace
@@ -67,8 +65,7 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
     # receive client version
     client_version = await websocket.receive_text()
     sem_version_client = semantic_version.Version.coerce(client_version)
-    sem_version_server = semantic_version.Version.coerce(
-        CLIENT_VERSION_MINIMUM)
+    sem_version_server = semantic_version.Version.coerce(CLIENT_VERSION_MINIMUM)
     if sem_version_client < sem_version_server:
         await websocket.send_text(
             Mdata(
@@ -93,8 +90,7 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         while True:
             received_data = await websocket.receive_text()
             if uuid not in gpts:
-                raise fastapi.HTTPException(
-                    status_code=400, detail="No call made")
+                raise fastapi.HTTPException(status_code=400, detail="No call made")
             gpts[uuid](received_data)
     except WebSocketDisconnect:
         # Remove the client if the WebSocket is disconnected
@@ -281,9 +277,7 @@ async def read_file_endpoint(read_file_data: ReadFileWithUUID) -> str:
 
     gpts[user_id] = put_results
 
-    await clients[user_id](
-        Mdata(data=read_file_data, user_id=user_id)
-    )
+    await clients[user_id](Mdata(data=read_file_data, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:
@@ -292,6 +286,7 @@ async def read_file_endpoint(read_file_data: ReadFileWithUUID) -> str:
         await asyncio.sleep(0.1)
 
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
 
 class InitializeWithUUID(Initialize):
     user_id: UUID
@@ -311,9 +306,7 @@ async def initialize(initialize_data: InitializeWithUUID) -> str:
 
     gpts[user_id] = put_results
 
-    await clients[user_id](
-        Mdata(data=initialize_data, user_id=user_id)
-    )
+    await clients[user_id](Mdata(data=initialize_data, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:
