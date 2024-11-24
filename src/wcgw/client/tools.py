@@ -57,7 +57,6 @@ from ..types_ import (
     ReadFile,
     ReadImage,
     ResetShell,
-    Writefile,
 )
 
 from .common import CostData, Models, discard_input
@@ -448,7 +447,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
         return ImageData(media_type=image_type, data=image_b64)  # type: ignore
 
 
-def write_file(writefile: Writefile | CreateFileNew, error_on_exist: bool) -> str:
+def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
     if not os.path.isabs(writefile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {CWD}"
     else:
@@ -661,7 +660,6 @@ TOOLS = (
     | BashCommand
     | BashInteraction
     | ResetShell
-    | Writefile
     | CreateFileNew
     | FileEditFindReplace
     | FileEdit
@@ -687,8 +685,6 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return BashInteraction
     elif name == "ResetShell":
         return ResetShell
-    elif name == "Writefile":
-        return Writefile
     elif name == "CreateFileNew":
         return CreateFileNew
     elif name == "FileEditFindReplace":
@@ -715,7 +711,6 @@ def get_tool_output(
     | BashCommand
     | BashInteraction
     | ResetShell
-    | Writefile
     | CreateFileNew
     | FileEditFindReplace
     | FileEdit
@@ -735,7 +730,6 @@ def get_tool_output(
             | BashCommand
             | BashInteraction
             | ResetShell
-            | Writefile
             | CreateFileNew
             | FileEditFindReplace
             | FileEdit
@@ -749,7 +743,6 @@ def get_tool_output(
             | BashCommand
             | BashInteraction
             | ResetShell
-            | Writefile
             | CreateFileNew
             | FileEditFindReplace
             | FileEdit
@@ -769,9 +762,6 @@ def get_tool_output(
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
         output = execute_bash(enc, arg, max_tokens)
-    elif isinstance(arg, Writefile):
-        console.print("Calling write file tool")
-        output = write_file(arg, False), 0
     elif isinstance(arg, CreateFileNew):
         console.print("Calling write file tool")
         output = write_file(arg, True), 0
@@ -818,7 +808,6 @@ class Mdata(BaseModel):
     data: (
         BashCommand
         | BashInteraction
-        | Writefile
         | CreateFileNew
         | ResetShell
         | FileEditFindReplace
