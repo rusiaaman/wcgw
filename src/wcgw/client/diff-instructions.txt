@@ -45,7 +45,7 @@ Every *SEARCH/REPLACE block* must use this format:
 4. The lines to replace into the source code
 5. The end of the replace block: >>>>>>> REPLACE
 
-Every "<<<<<<< SEARCH" section must *EXACTLY MATCH* the existing file content, character for character, including all comments, docstrings, etc.
+Every "<<<<<<< SEARCH" section must *EXACTLY MATCH* the existing file content, character for character, including all comments, docstrings, whitespaces, etc.
 
 *SEARCH/REPLACE* blocks will *only* replace the first match occurrence.
 Including multiple unique *SEARCH/REPLACE* blocks if needed.
@@ -55,3 +55,5 @@ Keep *SEARCH/REPLACE* blocks concise.
 Break large *SEARCH/REPLACE* blocks into a series of smaller blocks that each change a small portion of the file.
 Include just the changing lines, and a few surrounding lines if needed for uniqueness.
 Do not include long runs of unchanging lines in *SEARCH/REPLACE* blocks.
+
+Preserve leading spaces and indentations in both SEARCH and REPLACE blocks.
