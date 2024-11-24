@@ -95,7 +95,8 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-PROMPT = "#@@"
+PROMPT_CONST = "#$wcgw$#"
+PROMPT = PROMPT_CONST
 
 
 def start_shell() -> pexpect.spawn:  # type: ignore
@@ -124,7 +125,7 @@ def _is_int(mystr: str) -> bool:
 
 
 def _get_exit_code() -> int:
-    if PROMPT != "#@@":
+    if PROMPT != PROMPT_CONST:
         return 0
     # First reset the prompt in case venv was sourced or other reasons.
     SHELL.sendline(f"export PS1={PROMPT}")
