@@ -363,7 +363,7 @@ System information:
                                     enc,
                                     limit - cost,
                                     loop,
-                                    max_tokens=8096,
+                                    max_tokens=8000,
                                 )
                             except Exception as e:
                                 output_or_done = (

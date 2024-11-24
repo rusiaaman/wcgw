@@ -45,7 +45,7 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ParsedChatCompletionMessage,
 )
-from nltk.metrics.distance import edit_distance
+from nltk.metrics.distance import edit_distance  # type: ignore[import-untyped]
 
 from ..types_ import (
     BashCommand,
@@ -154,7 +154,6 @@ def _get_exit_code() -> int:
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 BASH_STATE: BASH_CLF_OUTPUT = "repl"
 CWD = os.getcwd()
-
 
 
 def initial_info() -> str:
@@ -318,9 +317,7 @@ def execute_bash(
                 updated_repl_mode = update_repl_prompt(bash_arg.send_text)
                 if updated_repl_mode:
                     BASH_STATE = "repl"
-                    response = (
-                        "Prompt updated, you can execute REPL lines using BashCommand now"
-                    )
+                    response = "Prompt updated, you can execute REPL lines using BashCommand now"
                     console.print(response)
                     return (
                         response,
@@ -346,7 +343,7 @@ def execute_bash(
         tokens = enc.encode(text)
 
         if max_tokens and len(tokens) >= max_tokens:
-            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
+            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
         if is_interrupt:
             text = (
@@ -373,7 +370,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
-        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
+        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
     try:
         exit_status = get_status()
@@ -448,7 +445,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
         image_bytes = image_file.read()
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
         image_type = mimetypes.guess_type(file_path)[0]
-        return ImageData(media_type=image_type, data=image_b64)
+        return ImageData(media_type=image_type, data=image_b64)  # type: ignore
 
 
 def write_file(writefile: Writefile | CreateFileNew, error_on_exist: bool) -> str:
@@ -500,15 +497,21 @@ def find_least_edit_distance_substring(
         edit_distance_sum = 0
         for j in range(len(find_lines)):
             if (i + j) < len(content_lines):
-                edit_distance_sum += edit_distance(
-                    content_lines[i + j], find_lines[j])
+                edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
             else:
                 edit_distance_sum += len(find_lines[j])
         if edit_distance_sum < min_edit_distance:
             min_edit_distance = edit_distance_sum
             orig_start_index = new_to_original_indices[i]
-            orig_end_index = new_to_original_indices.get(i + len(find_lines) - 1, len(orig_content_lines) - 1) + 1
-            min_edit_distance_lines = orig_content_lines[orig_start_index:orig_end_index]
+            orig_end_index = (
+                new_to_original_indices.get(
+                    i + len(find_lines) - 1, len(orig_content_lines) - 1
+                )
+                + 1
+            )
+            min_edit_distance_lines = orig_content_lines[
+                orig_start_index:orig_end_index
+            ]
     return "\n".join(min_edit_distance_lines), min_edit_distance
 
 
@@ -537,7 +540,8 @@ def do_diff_edit(fedit: FileEdit) -> str:
 
     if not os.path.isabs(fedit.file_path):
         raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {CWD}")
+            f"Failure: file_path should be absolute path, current working directory is {CWD}"
+        )
     else:
         path_ = fedit.file_path
 
@@ -547,14 +551,16 @@ def do_diff_edit(fedit: FileEdit) -> str:
     with open(path_) as f:
         apply_diff_to = f.read()
 
-    fedit.file_edit_using_search_replace_blocks = fedit.file_edit_using_search_replace_blocks.strip()
+    fedit.file_edit_using_search_replace_blocks = (
+        fedit.file_edit_using_search_replace_blocks.strip()
+    )
     lines = fedit.file_edit_using_search_replace_blocks.split("\n")
 
     if not lines or not re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[0]):
         raise Exception(
             "Error: first line should be `<<<<<< SEARCH` to start a search-replace block"
         )
-    
+
     n_lines = len(lines)
     i = 0
     replacement_count = 0
@@ -581,8 +587,7 @@ def do_diff_edit(fedit: FileEdit) -> str:
             search_block_ = "\n".join(search_block)
             replace_block_ = "\n".join(replace_block)
 
-            apply_diff_to = edit_content(
-                apply_diff_to, search_block_, replace_block_)
+            apply_diff_to = edit_content(apply_diff_to, search_block_, replace_block_)
             replacement_count += 1
         else:
             i += 1
@@ -601,7 +606,8 @@ def do_diff_edit(fedit: FileEdit) -> str:
 def file_edit(fedit: FileEditFindReplace) -> str:
     if not os.path.isabs(fedit.file_path):
         raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {CWD}")
+            f"Failure: file_path should be absolute path, current working directory is {CWD}"
+        )
     else:
         path_ = fedit.file_path
 
@@ -611,17 +617,14 @@ def file_edit(fedit: FileEditFindReplace) -> str:
     if not fedit.find_lines:
         raise Exception("Error: `find_lines` cannot be empty")
 
-    out_string = "\n".join(
-        "> " + line for line in fedit.find_lines.split("\n"))
-    in_string = "\n".join(
-        "< " + line for line in fedit.replace_with_lines.split("\n"))
+    out_string = "\n".join("> " + line for line in fedit.find_lines.split("\n"))
+    in_string = "\n".join("< " + line for line in fedit.replace_with_lines.split("\n"))
     console.log(f"Editing file: {path_}\n---\n{out_string}\n---\n{in_string}\n---")
     try:
         with open(path_) as f:
             content = f.read()
 
-        content = edit_content(content, fedit.find_lines,
-                               fedit.replace_with_lines)
+        content = edit_content(content, fedit.find_lines, fedit.replace_with_lines)
 
         with open(path_, "w") as f:
             f.write(content)
@@ -789,7 +792,7 @@ def get_tool_output(
         output = read_image_from_shell(arg.file_path), 0.0
     elif isinstance(arg, ReadFile):
         console.print("Calling read file tool")
-        output = read_file(arg), 0.0
+        output = read_file(arg, max_tokens), 0.0
     elif isinstance(arg, ResetShell):
         console.print("Calling reset shell tool")
         output = reset_shell(), 0.0
@@ -807,8 +810,7 @@ History = list[ChatCompletionMessageParam]
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
 default_model: Models = "gpt-4o-2024-08-06"
-default_cost = CostData(cost_per_1m_input_tokens=0.15,
-                        cost_per_1m_output_tokens=0.6)
+default_cost = CostData(cost_per_1m_input_tokens=0.15, cost_per_1m_output_tokens=0.6)
 curr_cost = 0.0
 
 
@@ -852,8 +854,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                     raise Exception(mdata)
                 try:
                     output, cost = get_tool_output(
-                        mdata.data, default_enc, 0.0, lambda x, y: (
-                            "", 0), None
+                        mdata.data, default_enc, 0.0, lambda x, y: ("", 0), 8000
                     )
                     curr_cost += cost
                     print(f"{curr_cost=}")
@@ -886,8 +887,7 @@ def app(
     register_client(server_url, client_uuid or "")
 
 
-def read_file(readfile: ReadFile) -> str:
-
+def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
     console.print(f"Reading file: {readfile.file_path}")
 
     if not os.path.isabs(readfile.file_path):
@@ -899,4 +899,11 @@ def read_file(readfile: ReadFile) -> str:
 
     with path.open("r") as f:
         content = f.read()
+
+    if max_tokens is not None:
+        tokens = default_enc.encode(content)
+        if len(tokens) > max_tokens:
+            content = default_enc.decode(tokens[: max_tokens - 5])
+            content += "\n...(truncated)"
+
     return content

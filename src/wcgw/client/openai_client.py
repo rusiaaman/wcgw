@@ -148,8 +148,7 @@ def loop(
     my_dir = os.path.dirname(__file__)
 
     config = Config(
-        model=cast(
-            Models, os.getenv("OPENAI_MODEL", "gpt-4o-2024-08-06").lower()),
+        model=cast(Models, os.getenv("OPENAI_MODEL", "gpt-4o-2024-08-06").lower()),
         cost_limit=0.1,
         cost_unit="$",
         cost_file={
@@ -343,7 +342,7 @@ System information:
                                     enc,
                                     limit - cost,
                                     loop,
-                                    max_tokens=2048,
+                                    max_tokens=8000,
                                 )
                             except Exception as e:
                                 output_or_done = (
