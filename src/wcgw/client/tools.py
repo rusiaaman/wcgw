@@ -95,7 +95,7 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-PROMPT_CONST = "#$wcgw$#"
+PROMPT_CONST = "#@wcgw@#"
 PROMPT = PROMPT_CONST
 
 
