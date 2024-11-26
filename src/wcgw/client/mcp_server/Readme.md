@@ -2,23 +2,22 @@
 
 ## Setup
 
-Install xdtool
-
-```sh
-brew install xdotool
-
-# On macos:
-defaults write org.x.X11 enable_test_extensions -boolean true
-```
-
 Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
 
 ```json
 {
   "mcpServers": {
     "wcgw": {
-      "command": "uvx",
-      "args": ["--from", "wcgw@latest", "wcgw_mcp"]
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "wcgw@latest",
+        "--python",
+        "3.12",
+        "wcgw_mcp"
+      ]
     }
   }
 }
