@@ -288,8 +288,7 @@ def execute_bash(
                     0.0,
                 )
             if bash_arg.send_specials:
-                console.print(f"Sending special sequence: {
-                              bash_arg.send_specials}")
+                console.print(f"Sending special sequence: {bash_arg.send_specials}")
                 for char in bash_arg.send_specials:
                     if char == "Key-up":
                         SHELL.send("\033[A")
