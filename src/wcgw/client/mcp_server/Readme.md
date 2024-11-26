@@ -25,7 +25,7 @@ Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude
 
 Then restart claude app.
 
-### Computer use support using desktop on docker
+### [Optional] Computer use support using desktop on docker
 
 Computer use is enabled by default. Claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
 
