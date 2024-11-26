@@ -26,6 +26,27 @@ Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude
 
 Then restart claude app.
 
+### Computer use support on docker
+
+Controlling the system isn't possible yet, but you can connect to a docker container which runs a linux os.
+
+```sh
+docker run \
+    --entrypoint "" \
+    -p 6080:6080 \
+    -e WIDTH=1024 \
+    -e HEIGHT=768 \
+    -d \
+    ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest \
+    bash -c "\
+        ./start_all.sh && \
+        ./novnc_startup.sh && \
+        python http_server.py > /tmp/server_logs.txt 2>&1 & \
+        tail -f /dev/null"
+```
+
+Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker.
+
 ## Usage
 
 Wait for a few seconds. You should be able to see this icon if everything goes right.
@@ -37,6 +58,14 @@ over here
 
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
+If you've run the docker for LLM to access, you can ask it to control the "docker os".
+
 ## Example
 
+### Shell example
+
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
+
+### Computer use example
+
+![computer-use](https://github.com/rusiaaman/wcgw/blob/main/static/computer-use.jpg?raw=true)
