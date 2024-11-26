@@ -9,7 +9,8 @@
     ],
     "mypy-type-checker.args": [
         "--enable-incomplete-feature=NewGenericSyntax",
-        "--strict"
+        "--strict",
+        
     ],
     "editor.formatOnSave": true,
     "editor.renderWhitespace": "selection",

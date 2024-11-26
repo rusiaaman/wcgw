@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "wcgw",
+        "wcgw_mcp"
+      ],
+      "protocol": "mcp",
+      "defaultModel": "claude-3-sonnet",
+      "maxTokens": 4096
+    }
+  }
+}

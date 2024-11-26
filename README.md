@@ -81,6 +81,9 @@ If you don't have public ip and domain name, you can use `ngrok` or similar serv
 The specify the server url in the `wcgw` command like so
 `wcgw --server-url https://your-url/v1/register`
 
+# Claude Support
+WCGW now supports Claude Desktop through the MCP protocol, allowing you to use Claude's capabilities directly from your desktop environment. This integration enables seamless interaction between Claude and your local shell.
+
 # [Optional] Local shell access with openai API key
 
 Add `OPENAI_API_KEY` and `OPENAI_ORG_ID` env variables.

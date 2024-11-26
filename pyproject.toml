@@ -1,7 +1,7 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "1.3.1"
+version = "1.4.0"
 description = "What could go wrong giving full shell access to chatgpt?"
 readme = "README.md"
 requires-python = ">=3.10, <3.13"
@@ -25,6 +25,7 @@ dependencies = [
     "semantic-version>=2.10.0",
     "nltk>=3.9.1",
     "anthropic>=0.39.0",
+    "mcp>=1.0.0",
 ]
 
 [project.urls]
@@ -38,6 +39,7 @@ build-backend = "hatchling.build"
 wcgw_local = "wcgw:app"
 wcgw = "wcgw:listen"
 wcgw_relay = "wcgw.relay.serve:run"
+wcgw_mcp = "wcgw:mcp_server"
 
 [tool.uv]
 dev-dependencies = [
