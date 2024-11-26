@@ -1,6 +1,6 @@
-# Enable shell access on Chatgpt and claude desktop apps
+# Shell assistant and Coding agent on Chatgpt and claude desktop apps
 
-A custom gpt on chatgpt web/desktop apps to interact with your local shell.
+A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit files, run code, etc.
 
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
