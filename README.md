@@ -22,7 +22,7 @@ You need to keep running this client for GPT to access your shell. Run it in a v
 ### Option 1: using uv [Recommended]
 ```sh
 $ curl -LsSf https://astral.sh/uv/install.sh | sh
-$ uv tool run --python 3.12 wcgw@latest
+$ uvx wcgw@latest
 ```
 
 ### Option 2: using pip
