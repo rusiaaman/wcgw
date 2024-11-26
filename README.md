@@ -43,18 +43,18 @@ You can then ask claude to execute shell commands, read files, edit files, run y
 2. Share the generated id with this GPT: `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access`
 3. The custom GPT can now run any command on your cli
 
-## Client
+### Client
 
 You need to keep running this client for GPT to access your shell. Run it in a version controlled project's root.
 
-### Option 1: using uv [Recommended]
+#### Option 1: using uv [Recommended]
 
 ```sh
 $ curl -LsSf https://astral.sh/uv/install.sh | sh
 $ uvx wcgw@latest
 ```
 
-### Option 2: using pip
+#### Option 2: using pip
 
 Supports python >=3.10 and <3.13
 
@@ -65,7 +65,7 @@ $ wcgw
 
 This will print a UUID that you need to share with the gpt.
 
-## Chat
+### Chat
 
 Open the following link or search the "wcgw" custom gpt using "Explore GPTs" on chatgpt.com
 
@@ -76,7 +76,7 @@ Finally, let the chatgpt know your user id in any format. E.g., "user_id=<your u
 NOTE: you can resume a broken connection
 `wcgw --client-uuid $previous_uuid`
 
-# How it works
+### How it works on chatgpt app?
 
 Your commands are relayed through a server to the terminal client. [You could host the server on your own](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#creating-your-own-custom-gpt-and-the-relay-server). For public convenience I've hosted one at https://wcgw.arcfu.com thanks to the gcloud free tier plan.
 
