@@ -16,7 +16,7 @@ A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
 ## Claude
-
+Full readme [src/wcgw/client/mcp_server/Readme.md](src/wcgw/client/mcp_server/Readme.md)
 ### Setup
 
 Update `claude_desktop_config.json`
