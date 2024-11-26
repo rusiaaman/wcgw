@@ -1,4 +1,4 @@
-# Shell assistant and Coding agent on Chatgpt and claude desktop apps
+# Shell and Coding agent on Chatgpt and Claude desktop apps
 
 A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit files, run code, etc.
 
