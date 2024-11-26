@@ -26,7 +26,7 @@ Update `claude_desktop_config.json`
   "mcpServers": {
     "wcgw": {
       "command": "uvx",
-      "args": ["--from", "wcgw", "wcgw_mcp"]
+      "args": ["--from", "wcgw@latest", "wcgw_mcp"]
     }
   }
 }
