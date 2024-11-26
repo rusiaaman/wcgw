@@ -1,7 +1,6 @@
 """Computer Use Tool for Anthropic API"""
 
 import base64
-import subprocess
 import time
 import shlex
 import os
@@ -12,6 +11,7 @@ from typing import Any, Literal, TypedDict, Union, Optional
 from uuid import uuid4
 
 from anthropic.types.beta import BetaToolComputerUse20241022Param, BetaToolUnionParam
+from .sys_utils import command_run
 from ..types_ import (
     Keyboard,
     LeftClickDrag,
@@ -27,7 +27,6 @@ OUTPUT_DIR = "/tmp/outputs"
 TYPING_DELAY_MS = 12
 TYPING_GROUP_SIZE = 50
 TRUNCATED_MESSAGE: str = "<response clipped><NOTE>To save on context only part of this file has been shown to you.</NOTE>"
-MAX_RESPONSE_LEN: int = 16000
 
 Action = Literal[
     "key",
@@ -125,43 +124,6 @@ class ToolError(Exception):
 
 def chunks(s: str, chunk_size: int) -> list[str]:
     return [s[i : i + chunk_size] for i in range(0, len(s), chunk_size)]
-
-
-def maybe_truncate(content: str, truncate_after: int | None = MAX_RESPONSE_LEN) -> str:
-    """Truncate content and append a notice if content exceeds the specified length."""
-    return (
-        content
-        if not truncate_after or len(content) <= truncate_after
-        else content[:truncate_after] + TRUNCATED_MESSAGE
-    )
-
-
-def run(
-    cmd: str,
-    timeout: float | None = 120.0,  # seconds
-    truncate_after: int | None = MAX_RESPONSE_LEN,
-    text: bool = True,
-) -> tuple[int, str, str]:
-    """Run a shell command synchronously with a timeout."""
-    try:
-        process = subprocess.Popen(
-            cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=text,
-        )
-        stdout, stderr = process.communicate(timeout=timeout)
-        return (
-            process.returncode or 0,
-            maybe_truncate(stdout, truncate_after=truncate_after),
-            maybe_truncate(stderr, truncate_after=truncate_after),
-        )
-    except subprocess.TimeoutExpired as exc:
-        process.kill()
-        raise TimeoutError(
-            f"Command '{cmd}' timed out after {timeout} seconds"
-        ) from exc
 
 
 class ComputerTool:
@@ -368,7 +330,7 @@ class ComputerTool:
             )
 
         # Copy file from docker to tmp
-        _, stdout, stderr = run(
+        _, stdout, stderr = command_run(
             f"docker cp {docker_image_id}:{path} {path}",
             truncate_after=None,
         )
@@ -385,7 +347,9 @@ class ComputerTool:
         self, docker_image_id: str, command: str, take_screenshot: bool = True
     ) -> ToolResult:
         """Run a shell command and return the output, error, and optionally a screenshot."""
-        _, stdout, stderr = run(f"docker exec {docker_image_id} sh -c '{command}'")
+        _, stdout, stderr = command_run(
+            f"docker exec {docker_image_id} sh -c '{command}'"
+        )
         base64_image = None
 
         if take_screenshot:

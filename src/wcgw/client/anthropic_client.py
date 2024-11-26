@@ -170,6 +170,7 @@ def loop(
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 - The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
+- Run long running commands in background using screen instead of "&".
 """,
         ),
         ToolParam(
@@ -196,7 +197,6 @@ def loop(
             name="CreateFileNew",
             description="""
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
-- This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
 - Provide absolute file path only.
 - For editing existing files, use FileEdit instead of this tool.
 """,
@@ -209,7 +209,7 @@ def loop(
         ToolParam(
             input_schema=ResetShell.model_json_schema(),
             name="ResetShell",
-            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
+            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.\nAlso exits the docker environment.\nYou need to call GetScreenInfo again",
         ),
         ToolParam(
             input_schema=FileEdit.model_json_schema(),
@@ -226,6 +226,8 @@ def loop(
 - Get display information of an OS running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
 - If user hasn't provided docker image id, check using `docker ps` and provide the id.
 - Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
+- Connects shell to the docker environment.
+- Note: once this is called, the shell enters the docker environment. All bash commands will run over there.
 """,
         ),
         ToolParam(
@@ -413,7 +415,6 @@ System information:
                                 ]
                                 tb = traceback.format_exc()
                                 error_console.print(str(output_or_dones) + "\n" + tb)
-                                raise
 
                             if any(isinstance(x, DoneFlag) for x in output_or_dones):
                                 return "", cost

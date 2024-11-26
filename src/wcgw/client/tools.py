@@ -11,6 +11,7 @@ import threading
 import importlib.metadata
 import time
 import traceback
+from tempfile import TemporaryDirectory
 from typing import (
     Callable,
     Literal,
@@ -61,11 +62,11 @@ from ..types_ import (
     Mouse,
     Keyboard,
     ScreenShot,
-    GetScreenInfo
+    GetScreenInfo,
 )
 
 from .common import CostData, Models, discard_input
-
+from .sys_utils import command_run
 from .openai_utils import get_input_cost, get_output_cost
 
 console = rich.console.Console(style="magenta", highlight=False, markup=False)
@@ -158,6 +159,7 @@ def _get_exit_code() -> int:
 
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 BASH_STATE: BASH_CLF_OUTPUT = "repl"
+IS_IN_DOCKER: Optional[str] = ""
 CWD = os.getcwd()
 
 
@@ -172,10 +174,11 @@ Current working directory: {CWD}
 
 
 def reset_shell() -> str:
-    global SHELL, BASH_STATE, CWD
+    global SHELL, BASH_STATE, CWD, IS_IN_DOCKER
     SHELL.close(True)
     SHELL = start_shell()
     BASH_STATE = "repl"
+    IS_IN_DOCKER = ""
     CWD = os.getcwd()
     return "Reset successful" + get_status()
 
@@ -239,6 +242,7 @@ def execute_bash(
     enc: tiktoken.Encoding,
     bash_arg: BashCommand | BashInteraction,
     max_tokens: Optional[int],
+    timeout_s: Optional[float],
 ) -> tuple[str, float]:
     global SHELL, BASH_STATE, CWD
     try:
@@ -339,7 +343,7 @@ def execute_bash(
         SHELL.expect(PROMPT)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
-    wait = 5
+    wait = timeout_s or 5
     index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
         BASH_STATE = "pending"
@@ -349,7 +353,7 @@ def execute_bash(
         tokens = enc.encode(text)
 
         if max_tokens and len(tokens) >= max_tokens:
-            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
+            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
         if is_interrupt:
             text = (
@@ -376,7 +380,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
-        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
+        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
     try:
         exit_status = get_status()
@@ -444,14 +448,26 @@ def read_image_from_shell(file_path: str) -> ImageData:
     if not os.path.isabs(file_path):
         file_path = os.path.join(CWD, file_path)
 
-    if not os.path.exists(file_path):
-        raise ValueError(f"File {file_path} does not exist")
+    if not IS_IN_DOCKER:
+        if not os.path.exists(file_path):
+            raise ValueError(f"File {file_path} does not exist")
 
-    with open(file_path, "rb") as image_file:
-        image_bytes = image_file.read()
-        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        image_type = mimetypes.guess_type(file_path)[0]
-        return ImageData(media_type=image_type, data=image_b64)  # type: ignore
+        with open(file_path, "rb") as image_file:
+            image_bytes = image_file.read()
+            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+            image_type = mimetypes.guess_type(file_path)[0]
+            return ImageData(media_type=image_type, data=image_b64)  # type: ignore
+    else:
+        with TemporaryDirectory() as tmpdir:
+            rcode = os.system(f"docker cp {IS_IN_DOCKER}:{file_path} {tmpdir}")
+            if rcode != 0:
+                raise Exception(f"Error: Read failed with code {rcode}")
+            path_ = os.path.join(tmpdir, os.path.basename(file_path))
+            with open(path_, "rb") as f:
+                image_bytes = f.read()
+            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+            image_type = mimetypes.guess_type(file_path)[0]
+            return ImageData(media_type=image_type, data=image_b64)  # type: ignore
 
 
 def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
@@ -460,19 +476,42 @@ def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
     else:
         path_ = writefile.file_path
 
-    if error_on_exist and os.path.exists(path_):
-        file_data = Path(path_).read_text()
-        if file_data:
-            return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+    if not IS_IN_DOCKER:
+        if error_on_exist and os.path.exists(path_):
+            file_data = Path(path_).read_text()
+            if file_data:
+                return f"Error: can't write to existing file {path_}, use other functions to edit the file"
 
-    path = Path(path_)
-    path.parent.mkdir(parents=True, exist_ok=True)
+        path = Path(path_)
+        path.parent.mkdir(parents=True, exist_ok=True)
 
-    try:
-        with path.open("w") as f:
-            f.write(writefile.file_content)
-    except OSError as e:
-        return f"Error: {e}"
+        try:
+            with path.open("w") as f:
+                f.write(writefile.file_content)
+        except OSError as e:
+            return f"Error: {e}"
+    else:
+        if error_on_exist:
+            # Check if it exists using os.system
+            cmd = f"test -f {path_}"
+            status = os.system(f'docker exec {IS_IN_DOCKER} bash -c "{cmd}"')
+            if status == 0:
+                return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+
+        with TemporaryDirectory() as tmpdir:
+            tmppath = os.path.join(tmpdir, os.path.basename(path_))
+            with open(tmppath, "w") as f:
+                f.write(writefile.file_content)
+            os.chmod(tmppath, 0o777)
+            parent_dir = os.path.dirname(path_)
+            rcode = os.system(f"docker exec {IS_IN_DOCKER} mkdir -p {parent_dir}")
+            if rcode != 0:
+                return f"Error: Write failed with code while creating dirs {rcode}"
+
+            rcode = os.system(f"docker cp {tmppath} {IS_IN_DOCKER}:{path_}")
+            if rcode != 0:
+                return f"Error: Write failed with code {rcode}"
+
     console.print(f"File written to {path_}")
     return "Success"
 
@@ -503,8 +542,7 @@ def find_least_edit_distance_substring(
         edit_distance_sum = 0
         for j in range(len(find_lines)):
             if (i + j) < len(content_lines):
-                edit_distance_sum += edit_distance(
-                    content_lines[i + j], find_lines[j])
+                edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
             else:
                 edit_distance_sum += len(find_lines[j])
         if edit_distance_sum < min_edit_distance:
@@ -555,11 +593,21 @@ def do_diff_edit(fedit: FileEdit) -> str:
     else:
         path_ = fedit.file_path
 
-    if not os.path.exists(path_):
-        raise Exception(f"Error: file {path_} does not exist")
+    if not IS_IN_DOCKER:
+        if not os.path.exists(path_):
+            raise Exception(f"Error: file {path_} does not exist")
 
-    with open(path_) as f:
-        apply_diff_to = f.read()
+        with open(path_) as f:
+            apply_diff_to = f.read()
+    else:
+        # Copy from docker
+        with TemporaryDirectory() as tmpdir:
+            rcode = os.system(f"docker cp {IS_IN_DOCKER}:{path_} {tmpdir}")
+            if rcode != 0:
+                raise Exception(f"Error: Read failed with code {rcode}")
+            path_tmp = os.path.join(tmpdir, os.path.basename(path_))
+            with open(path_tmp, "r") as f:
+                apply_diff_to = f.read()
 
     fedit.file_edit_using_search_replace_blocks = (
         fedit.file_edit_using_search_replace_blocks.strip()
@@ -597,8 +645,7 @@ def do_diff_edit(fedit: FileEdit) -> str:
             search_block_ = "\n".join(search_block)
             replace_block_ = "\n".join(replace_block)
 
-            apply_diff_to = edit_content(
-                apply_diff_to, search_block_, replace_block_)
+            apply_diff_to = edit_content(apply_diff_to, search_block_, replace_block_)
             replacement_count += 1
         else:
             i += 1
@@ -608,45 +655,20 @@ def do_diff_edit(fedit: FileEdit) -> str:
             "Error: no valid search-replace blocks found, please check your syntax for FileEdit"
         )
 
-    with open(path_, "w") as f:
-        f.write(apply_diff_to)
-
-    return "Success"
-
-
-def file_edit(fedit: FileEditFindReplace) -> str:
-    if not os.path.isabs(fedit.file_path):
-        raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {
-                CWD}"
-        )
-    else:
-        path_ = fedit.file_path
-
-    if not os.path.exists(path_):
-        raise Exception(f"Error: file {path_} does not exist")
-
-    if not fedit.find_lines:
-        raise Exception("Error: `find_lines` cannot be empty")
-
-    out_string = "\n".join(
-        "> " + line for line in fedit.find_lines.split("\n"))
-    in_string = "\n".join(
-        "< " + line for line in fedit.replace_with_lines.split("\n"))
-    console.log(f"Editing file: {
-                path_}\n---\n{out_string}\n---\n{in_string}\n---")
-    try:
-        with open(path_) as f:
-            content = f.read()
-
-        content = edit_content(content, fedit.find_lines,
-                               fedit.replace_with_lines)
-
+    if not IS_IN_DOCKER:
         with open(path_, "w") as f:
-            f.write(content)
-    except OSError as e:
-        raise Exception(f"Error: {e}")
-    console.print(f"File written to {path_}")
+            f.write(apply_diff_to)
+    else:
+        with TemporaryDirectory() as tmpdir:
+            path_tmp = os.path.join(tmpdir, os.path.basename(path_))
+            with open(path_tmp, "w") as f:
+                f.write(apply_diff_to)
+            os.chmod(path_tmp, 0o777)
+            # Copy to docker using docker cp
+            rcode = os.system(f"docker cp {path_tmp} {IS_IN_DOCKER}:{path_}")
+            if rcode != 0:
+                raise Exception(f"Error: Write failed with code {rcode}")
+
     return "Success"
 
 
@@ -757,6 +779,7 @@ def get_tool_output(
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
+    global IS_IN_DOCKER
     if isinstance(args, dict):
         adapter = TypeAdapter[
             Confirmation
@@ -802,13 +825,10 @@ def get_tool_output(
         output = ask_confirmation(arg), 0.0
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
-        output = execute_bash(enc, arg, max_tokens)
+        output = execute_bash(enc, arg, max_tokens, None)
     elif isinstance(arg, CreateFileNew):
         console.print("Calling write file tool")
         output = write_file(arg, True), 0
-    elif isinstance(arg, FileEditFindReplace):
-        console.print("Calling file edit tool")
-        output = file_edit(arg), 0.0
     elif isinstance(arg, FileEdit):
         console.print("Calling full file edit tool")
         output = do_diff_edit(arg), 0.0
@@ -839,11 +859,40 @@ def get_tool_output(
         if imgBs64:
             console.print("Captured screenshot")
             outputs.append(ImageData(media_type="image/png", data=imgBs64))
+            if not IS_IN_DOCKER:
+                try:
+                    # At this point we should go into the docker env
+                    res, _ = execute_bash(
+                        enc,
+                        BashCommand(
+                            command=f"docker exec -it {arg.docker_image_id} sh"
+                        ),
+                        None,
+                        0.2,
+                    )
+                    # At this point we should go into the docker env
+                    res, _ = execute_bash(
+                        enc,
+                        BashInteraction(
+                            send_text=f"export PS1={PROMPT}", type="BashInteraction"
+                        ),
+                        None,
+                        0.2,
+                    )
+                    # Do chown of home dir
+                except Exception as e:
+                    reset_shell()
+                    raise Exception(
+                        f"Some error happened while going inside docker. I've reset the shell. Please start again. Error {e}"
+                    )
+                IS_IN_DOCKER = arg.docker_image_id
         return outputs, outputs_cost[1]
     else:
         raise ValueError(f"Unknown tool: {arg}")
-
-    console.print(str(output[0]))
+    if isinstance(output[0], str):
+        console.print(str(output[0]))
+    else:
+        console.print(f"Received {type(output[0])} from tool")
     return [output[0]], output[1]
 
 
@@ -851,8 +900,7 @@ History = list[ChatCompletionMessageParam]
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
 default_model: Models = "gpt-4o-2024-08-06"
-default_cost = CostData(cost_per_1m_input_tokens=0.15,
-                        cost_per_1m_output_tokens=0.6)
+default_cost = CostData(cost_per_1m_input_tokens=0.15, cost_per_1m_output_tokens=0.6)
 curr_cost = 0.0
 
 
@@ -896,8 +944,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                     raise Exception(mdata)
                 try:
                     outputs, cost = get_tool_output(
-                        mdata.data, default_enc, 0.0, lambda x, y: (
-                            "", 0), 8000
+                        mdata.data, default_enc, 0.0, lambda x, y: ("", 0), 8000
                     )
                     output = outputs[0]
                     curr_cost += cost
@@ -937,12 +984,22 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
     if not os.path.isabs(readfile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {CWD}"
 
-    path = Path(readfile.file_path)
-    if not path.exists():
-        return f"Error: file {readfile.file_path} does not exist"
+    if not IS_IN_DOCKER:
+        path = Path(readfile.file_path)
+        if not path.exists():
+            return f"Error: file {readfile.file_path} does not exist"
 
-    with path.open("r") as f:
-        content = f.read()
+        with path.open("r") as f:
+            content = f.read()
+
+    else:
+        return_code, content, stderr = command_run(
+            f"cat {readfile.file_path}",
+        )
+        if return_code != 0:
+            raise Exception(
+                f"Error: cat {readfile.file_path} failed with code {return_code}\nstdout: {content}\nstderr: {stderr}"
+            )
 
     if max_tokens is not None:
         tokens = default_enc.encode(content)

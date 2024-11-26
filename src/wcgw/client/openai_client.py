@@ -176,6 +176,7 @@ def loop(
 - The first line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 - The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
+- Run long running commands in background using screen instead of "&".
 """,
         ),
         openai.pydantic_function_tool(
@@ -198,7 +199,6 @@ def loop(
             CreateFileNew,
             description="""
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
-- This doesn't create any directories, please create directories using `mkdir -p` BashCommand.
 - Provide absolute file path only.
 - For editing existing files, use FileEdit instead of this tool.""",
         ),
