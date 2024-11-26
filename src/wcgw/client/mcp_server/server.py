@@ -17,39 +17,44 @@ from ...types_ import (
     BashInteraction,
     CreateFileNew,
     FileEdit,
+    Keyboard,
+    Mouse,
     ReadFile,
     ReadImage,
     ResetShell,
     Initialize,
+    ScreenShot,
+    GetScreenInfo,
 )
+from ..computer_use import Computer
 
 
 server = Server("wcgw")
 
 
-@server.list_resources()
+@server.list_resources()  # type: ignore
 async def handle_list_resources() -> list[types.Resource]:
     return []
 
 
-@server.read_resource()
+@server.read_resource()  # type: ignore
 async def handle_read_resource(uri: AnyUrl) -> str:
     raise ValueError("No resources available")
 
 
-@server.list_prompts()
+@server.list_prompts()  # type: ignore
 async def handle_list_prompts() -> list[types.Prompt]:
     return []
 
 
-@server.get_prompt()
+@server.get_prompt()  # type: ignore
 async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
-    types.GetPromptResult(messages=[])
+    return types.GetPromptResult(messages=[])
 
 
-@server.list_tools()
+@server.list_tools()  # type: ignore
 async def handle_list_tools() -> list[types.Tool]:
     """
     List available tools.
@@ -62,6 +67,7 @@ async def handle_list_tools() -> list[types.Tool]:
         )
     ) as f:
         diffinstructions = f.read()
+
     return [
         ToolParam(
             inputSchema=Initialize.model_json_schema(),
@@ -138,12 +144,49 @@ async def handle_list_tools() -> list[types.Tool]:
 - Read an image from the shell.
 """,
         ),
+        ToolParam(
+            inputSchema=GetScreenInfo.model_json_schema(),
+            name="GetScreenInfo",
+            description="""
+- Get display information of an OS running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
+""",
+        ),
+        ToolParam(
+            inputSchema=ScreenShot.model_json_schema(),
+            name="ScreenShot",
+            description="""
+- Capture screenshot of an OS running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Capture ScreenShot of the current screen for automation.
+""",
+        ),
+        ToolParam(
+            inputSchema=Mouse.model_json_schema(),
+            name="Mouse",
+            description="""
+- Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Interact with the screen using mouse
+""",
+        ),
+        ToolParam(
+            inputSchema=Keyboard.model_json_schema(),
+            name="Keyboard",
+            description="""
+- Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Emulate keyboard input to the screen
+- Do not use it to interact with Bash tool.
+""",
+        ),
     ]
 
 
-@server.call_tool()
+@server.call_tool()  # type: ignore
 async def handle_call_tool(
-    name: str, arguments: dict | None
+    name: str, arguments: dict[str, Any] | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     if not arguments:
         raise ValueError("Missing arguments")
@@ -163,45 +206,49 @@ async def handle_call_tool(
         tool_call = tool_type(**{k: try_json(v) for k, v in arguments.items()})
 
     try:
-        output_or_done, _ = get_tool_output(
+        output_or_dones, _ = get_tool_output(
             tool_call, default_enc, 0.0, lambda x, y: ("", 0), 8000
         )
 
     except Exception as e:
-        output_or_done = f"GOT EXCEPTION while calling tool. Error: {e}"
+        output_or_dones = [f"GOT EXCEPTION while calling tool. Error: {e}"]
         tb = traceback.format_exc()
-        print(output_or_done + "\n" + tb)
+        print(str(output_or_dones[0]) + "\n" + tb)
 
-    assert not isinstance(output_or_done, DoneFlag)
-    if isinstance(output_or_done, str):
-        if issubclass(tool_type, Initialize):
-            output_or_done += """
-            
-You're an expert software engineer with shell and code knowledge.
+    content: list[types.TextContent | types.ImageContent | types.EmbeddedResource] = []
+    for output_or_done in output_or_dones:
+        assert not isinstance(output_or_done, DoneFlag)
+        if isinstance(output_or_done, str):
+            if issubclass(tool_type, Initialize):
+                output_or_done += """
+                
+    You're an expert software engineer with shell and code knowledge.
 
-Instructions:
-   
-    - You should use the provided bash execution, reading and writing file tools to complete objective.
-    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
-    - Always read relevant files before editing.
-    - Do not provide code snippets unless asked by the user, instead directly edit the code.
-
+    Instructions:
     
-Additional instructions:
-    Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
+        - You should use the provided bash execution, reading and writing file tools to complete objective.
+        - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
+        - Always read relevant files before editing.
+        - Do not provide code snippets unless asked by the user, instead directly edit the code.
 
-    Always write production ready, syntactically correct code.
-"""
+        
+    Additional instructions:
+        Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
 
-        return [types.TextContent(type="text", text=output_or_done)]
+        Always write production ready, syntactically correct code.
+    """
 
-    return [
-        types.ImageContent(
-            type="image",
-            data=output_or_done.data,
-            mimeType=output_or_done.media_type,
-        )
-    ]
+            content.append(types.TextContent(type="text", text=output_or_done))
+        else:
+            content.append(
+                types.ImageContent(
+                    type="image",
+                    data=output_or_done.data,
+                    mimeType=output_or_done.media_type,
+                )
+            )
+
+    return content
 
 
 async def main() -> None:

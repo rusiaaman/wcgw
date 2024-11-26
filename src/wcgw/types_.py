@@ -53,8 +53,14 @@ class Initialize(BaseModel):
     type: Literal["Initialize"]
 
 
+class GetScreenInfo(BaseModel):
+    type: Literal["GetScreenInfo"]
+    docker_image_id: str
+
+
 class ScreenShot(BaseModel):
     type: Literal["ScreenShot"]
+    docker_image_id: str
 
 
 class MouseMove(BaseModel):
@@ -82,9 +88,11 @@ class MouseButton(BaseModel):
 class Mouse(BaseModel):
     type: Literal["Mouse"]
     action: MouseButton | LeftClickDrag | MouseMove
+    docker_image_id: str
 
 
 class Keyboard(BaseModel):
     type: Literal["Keyboard"]
     action: Literal["key", "type"]
     text: str
+    docker_image_id: str

@@ -24,6 +24,7 @@ from typing import (
 import uuid
 from pydantic import BaseModel, TypeAdapter
 import typer
+from .computer_use import run_computer_tool
 from websockets.sync.client import connect as syncconnect
 
 import os
@@ -57,6 +58,10 @@ from ..types_ import (
     ReadFile,
     ReadImage,
     ResetShell,
+    Mouse,
+    Keyboard,
+    ScreenShot,
+    GetScreenInfo
 )
 
 from .common import CostData, Models, discard_input
@@ -279,7 +284,8 @@ def execute_bash(
                     0.0,
                 )
             if bash_arg.send_specials:
-                console.print(f"Sending special sequence: {bash_arg.send_specials}")
+                console.print(f"Sending special sequence: {
+                              bash_arg.send_specials}")
                 for char in bash_arg.send_specials:
                     if char == "Key-up":
                         SHELL.send("\033[A")
@@ -343,7 +349,7 @@ def execute_bash(
         tokens = enc.encode(text)
 
         if max_tokens and len(tokens) >= max_tokens:
-            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
 
         if is_interrupt:
             text = (
@@ -370,7 +376,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
-        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1):])
 
     try:
         exit_status = get_status()
@@ -497,7 +503,8 @@ def find_least_edit_distance_substring(
         edit_distance_sum = 0
         for j in range(len(find_lines)):
             if (i + j) < len(content_lines):
-                edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
+                edit_distance_sum += edit_distance(
+                    content_lines[i + j], find_lines[j])
             else:
                 edit_distance_sum += len(find_lines[j])
         if edit_distance_sum < min_edit_distance:
@@ -525,10 +532,12 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
             return edit_content(content, closest_match, replace_with_lines)
         else:
             print(
-                f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
+                f"Exact match not found, found with whitespace removed edit distance: {
+                    min_edit_distance}"
             )
         raise Exception(
-            f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
+            f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{
+                closest_match}\n---\nFile not edited"
         )
 
     content = content.replace(find_lines, replace_with_lines, 1)
@@ -540,7 +549,8 @@ def do_diff_edit(fedit: FileEdit) -> str:
 
     if not os.path.isabs(fedit.file_path):
         raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {CWD}"
+            f"Failure: file_path should be absolute path, current working directory is {
+                CWD}"
         )
     else:
         path_ = fedit.file_path
@@ -587,7 +597,8 @@ def do_diff_edit(fedit: FileEdit) -> str:
             search_block_ = "\n".join(search_block)
             replace_block_ = "\n".join(replace_block)
 
-            apply_diff_to = edit_content(apply_diff_to, search_block_, replace_block_)
+            apply_diff_to = edit_content(
+                apply_diff_to, search_block_, replace_block_)
             replacement_count += 1
         else:
             i += 1
@@ -606,7 +617,8 @@ def do_diff_edit(fedit: FileEdit) -> str:
 def file_edit(fedit: FileEditFindReplace) -> str:
     if not os.path.isabs(fedit.file_path):
         raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {CWD}"
+            f"Failure: file_path should be absolute path, current working directory is {
+                CWD}"
         )
     else:
         path_ = fedit.file_path
@@ -617,14 +629,18 @@ def file_edit(fedit: FileEditFindReplace) -> str:
     if not fedit.find_lines:
         raise Exception("Error: `find_lines` cannot be empty")
 
-    out_string = "\n".join("> " + line for line in fedit.find_lines.split("\n"))
-    in_string = "\n".join("< " + line for line in fedit.replace_with_lines.split("\n"))
-    console.log(f"Editing file: {path_}\n---\n{out_string}\n---\n{in_string}\n---")
+    out_string = "\n".join(
+        "> " + line for line in fedit.find_lines.split("\n"))
+    in_string = "\n".join(
+        "< " + line for line in fedit.replace_with_lines.split("\n"))
+    console.log(f"Editing file: {
+                path_}\n---\n{out_string}\n---\n{in_string}\n---")
     try:
         with open(path_) as f:
             content = f.read()
 
-        content = edit_content(content, fedit.find_lines, fedit.replace_with_lines)
+        content = edit_content(content, fedit.find_lines,
+                               fedit.replace_with_lines)
 
         with open(path_, "w") as f:
             f.write(content)
@@ -669,6 +685,10 @@ TOOLS = (
     | ReadImage
     | ReadFile
     | Initialize
+    | Mouse
+    | Keyboard
+    | ScreenShot
+    | GetScreenInfo
 )
 
 
@@ -702,6 +722,14 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return ReadFile
     elif name == "Initialize":
         return Initialize
+    elif name == "Mouse":
+        return Mouse
+    elif name == "Keyboard":
+        return Keyboard
+    elif name == "ScreenShot":
+        return ScreenShot
+    elif name == "GetScreenInfo":
+        return GetScreenInfo
     else:
         raise ValueError(f"Unknown tool name: {name}")
 
@@ -719,12 +747,16 @@ def get_tool_output(
     | DoneFlag
     | ReadImage
     | Initialize
-    | ReadFile,
+    | ReadFile
+    | Mouse
+    | Keyboard
+    | ScreenShot
+    | GetScreenInfo,
     enc: tiktoken.Encoding,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
-) -> tuple[str | ImageData | DoneFlag, float]:
+) -> tuple[list[str | ImageData | DoneFlag], float]:
     if isinstance(args, dict):
         adapter = TypeAdapter[
             Confirmation
@@ -739,6 +771,10 @@ def get_tool_output(
             | ReadImage
             | ReadFile
             | Initialize
+            | Mouse
+            | Keyboard
+            | ScreenShot
+            | GetScreenInfo,
         ](
             Confirmation
             | BashCommand
@@ -752,6 +788,10 @@ def get_tool_output(
             | ReadImage
             | ReadFile
             | Initialize
+            | Mouse
+            | Keyboard
+            | ScreenShot
+            | GetScreenInfo
         )
         arg = adapter.validate_python(args)
     else:
@@ -790,18 +830,29 @@ def get_tool_output(
     elif isinstance(arg, Initialize):
         console.print("Calling initial info tool")
         output = initial_info(), 0.0
+    elif isinstance(arg, (Mouse, Keyboard, ScreenShot, GetScreenInfo)):
+        console.print(f"Calling {type(arg).__name__} tool")
+        outputs_cost = run_computer_tool(arg), 0.0
+        console.print(outputs_cost[0][0])
+        outputs: list[ImageData | str | DoneFlag] = [outputs_cost[0][0]]
+        imgBs64 = outputs_cost[0][1]
+        if imgBs64:
+            console.print("Captured screenshot")
+            outputs.append(ImageData(media_type="image/png", data=imgBs64))
+        return outputs, outputs_cost[1]
     else:
         raise ValueError(f"Unknown tool: {arg}")
 
     console.print(str(output[0]))
-    return output
+    return [output[0]], output[1]
 
 
 History = list[ChatCompletionMessageParam]
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
 default_model: Models = "gpt-4o-2024-08-06"
-default_cost = CostData(cost_per_1m_input_tokens=0.15, cost_per_1m_output_tokens=0.6)
+default_cost = CostData(cost_per_1m_input_tokens=0.15,
+                        cost_per_1m_output_tokens=0.6)
 curr_cost = 0.0
 
 
@@ -834,7 +885,8 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
             websocket.send(client_version)
 
             print(
-                f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
+                f"Connected. Share this user id with the chatbot: {
+                    client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
             )
             while True:
                 # Wait to receive data from the server
@@ -843,9 +895,11 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                 if isinstance(mdata.data, str):
                     raise Exception(mdata)
                 try:
-                    output, cost = get_tool_output(
-                        mdata.data, default_enc, 0.0, lambda x, y: ("", 0), 8000
+                    outputs, cost = get_tool_output(
+                        mdata.data, default_enc, 0.0, lambda x, y: (
+                            "", 0), 8000
                     )
+                    output = outputs[0]
                     curr_cost += cost
                     print(f"{curr_cost=}")
                 except Exception as e:

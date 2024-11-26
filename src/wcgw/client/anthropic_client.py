@@ -27,14 +27,19 @@ from ..types_ import (
     CreateFileNew,
     FileEditFindReplace,
     FileEdit,
+    Keyboard,
+    Mouse,
     ReadFile,
     ReadImage,
     ResetShell,
+    ScreenShot,
+    GetScreenInfo,
 )
 
 from .common import Models, discard_input
 from .common import CostData
 from .tools import ImageData
+from .computer_use import Computer
 
 from .tools import (
     DoneFlag,
@@ -214,6 +219,43 @@ def loop(
 - Use SEARCH/REPLACE blocks to edit the file.
 """,
         ),
+        ToolParam(
+            input_schema=GetScreenInfo.model_json_schema(),
+            name="GetScreenInfo",
+            description="""
+- Get display information of an OS running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
+""",
+        ),
+        ToolParam(
+            input_schema=ScreenShot.model_json_schema(),
+            name="ScreenShot",
+            description="""
+- Capture screenshot of an OS running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Capture ScreenShot of the current screen for automation.
+""",
+        ),
+        ToolParam(
+            input_schema=Mouse.model_json_schema(),
+            name="Mouse",
+            description="""
+- Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Interact with the screen using mouse
+""",
+        ),
+        ToolParam(
+            input_schema=Keyboard.model_json_schema(),
+            name="Keyboard",
+            description="""
+- Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Emulate keyboard input to the screen
+- Do not use it to interact with Bash tool.
+""",
+        ),
     ]
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
@@ -261,7 +303,8 @@ System information:
     while True:
         if cost > limit:
             system_console.print(
-                f"\nCost limit exceeded. Current cost: {cost}, input tokens: {input_toks}, output tokens: {output_toks}"
+                f"\nCost limit exceeded. Current cost: {cost}, input tokens: {
+                    input_toks}, output tokens: {output_toks}"
             )
             break
 
@@ -357,7 +400,7 @@ System information:
                                 }
                             )
                             try:
-                                output_or_done, _ = get_tool_output(
+                                output_or_dones, _ = get_tool_output(
                                     tool_parsed,
                                     enc,
                                     limit - cost,
@@ -365,45 +408,47 @@ System information:
                                     max_tokens=8000,
                                 )
                             except Exception as e:
-                                output_or_done = (
-                                    f"GOT EXCEPTION while calling tool. Error: {e}"
-                                )
+                                output_or_dones = [
+                                    (f"GOT EXCEPTION while calling tool. Error: {e}")
+                                ]
                                 tb = traceback.format_exc()
-                                error_console.print(output_or_done + "\n" + tb)
+                                error_console.print(str(output_or_dones) + "\n" + tb)
+                                raise
 
-                            if isinstance(output_or_done, DoneFlag):
-                                system_console.print(
-                                    f"\n# Task marked done, with output {output_or_done.task_output}",
-                                )
-                                return output_or_done.task_output, cost
+                            if any(isinstance(x, DoneFlag) for x in output_or_dones):
+                                return "", cost
 
-                            output = output_or_done
-                            if isinstance(output, ImageData):
-                                tool_results.append(
-                                    ToolResultBlockParam(
-                                        type="tool_result",
-                                        tool_use_id=tc["id"],
-                                        content=[
-                                            {
-                                                "type": "image",
-                                                "source": {
-                                                    "type": "base64",
-                                                    "media_type": output.media_type,
-                                                    "data": output.data,
-                                                },
-                                            }
-                                        ],
+                            tool_results_content: list[
+                                TextBlockParam | ImageBlockParam
+                            ] = []
+                            for output in output_or_dones:
+                                assert not isinstance(output, DoneFlag)
+                                if isinstance(output, ImageData):
+                                    tool_results_content.append(
+                                        {
+                                            "type": "image",
+                                            "source": {
+                                                "type": "base64",
+                                                "media_type": output.media_type,
+                                                "data": output.data,
+                                            },
+                                        }
                                     )
-                                )
 
-                            else:
-                                tool_results.append(
-                                    ToolResultBlockParam(
-                                        type="tool_result",
-                                        tool_use_id=tc["id"],
-                                        content=output,
+                                else:
+                                    tool_results_content.append(
+                                        {
+                                            "type": "text",
+                                            "text": output,
+                                        },
                                     )
+                            tool_results.append(
+                                ToolResultBlockParam(
+                                    type="tool_result",
+                                    tool_use_id=tc["id"],
+                                    content=tool_results_content,
                                 )
+                            )
                         else:
                             _histories.append(
                                 {"role": "assistant", "content": full_response}

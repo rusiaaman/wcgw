@@ -336,13 +336,14 @@ System information:
                     for tool_call_id, toolcallargs in tool_call_args_by_id.items():
                         for toolindex, tool_args in toolcallargs.items():
                             try:
-                                output_or_done, cost_ = get_tool_output(
+                                output_or_dones, cost_ = get_tool_output(
                                     json.loads(tool_args),
                                     enc,
                                     limit - cost,
                                     loop,
                                     max_tokens=8000,
                                 )
+                                output_or_done = output_or_dones[0]
                             except Exception as e:
                                 output_or_done = (
                                     f"GOT EXCEPTION while calling tool. Error: {e}"
