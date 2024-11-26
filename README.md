@@ -141,6 +141,6 @@ Add `ANTHROPIC_API_KEY` env variable.
 
 Then run
 
-`uvx --from wcgw@latest wcgw_local --claude  --limit 0.1` # Cost limit $0.1
+`uvx --from wcgw@latest wcgw_local --claude`
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
