@@ -15,6 +15,28 @@ A custom gpt on chatgpt web/desktop apps to interact with your local shell.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
+## Claude
+
+### Setup
+
+Update `claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "uvx",
+      "args": ["--from", "wcgw", "wcgw_mcp"]
+    }
+  }
+}
+```
+
+Then restart claude app.
+You can then ask claude to execute shell commands, read files, edit files, run your code, etc.
+
+## ChatGPT
+
 ### 🪜 Steps:
 
 1. Run the [cli client](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#client) in any directory of choice.
@@ -64,11 +86,19 @@ It's secure in both the directions. Either a malicious actor or a malicious Chat
 
 # Showcase
 
-## Unit tests and github actions
+## Claude desktop
+
+### Resize image and move it to a new dir
+
+![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
+
+## Chatgpt app
+
+### Unit tests and github actions
 
 [The first version of unit tests and github workflow to test on multiple python versions were written by the custom chatgpt](https://chatgpt.com/share/6717f922-8998-8005-b825-45d4b348b4dd)
 
-## Create a todo app using react + typescript + vite
+### Create a todo app using react + typescript + vite
 
 ![Screenshot](https://github.com/rusiaaman/wcgw/blob/main/static/ss1.png?raw=true)
 
