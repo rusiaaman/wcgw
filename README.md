@@ -123,20 +123,24 @@ If you don't have public ip and domain name, you can use `ngrok` or similar serv
 The specify the server url in the `wcgw` command like so
 `wcgw --server-url https://your-url/v1/register`
 
-# Claude Support
+# [Optional] Local shell access with openai API key or anthropic API key
 
-WCGW now supports Claude Desktop through the MCP protocol, allowing you to use Claude's capabilities directly from your desktop environment. This integration enables seamless interaction between Claude and your local shell.
-
-# [Optional] Local shell access with openai API key
+## Openai
 
 Add `OPENAI_API_KEY` and `OPENAI_ORG_ID` env variables.
 
-Clone the repo and run to install `wcgw_local` command
+Then run
 
-`pip install .`
+`uvx --from wcgw wcgw_local  --limit 0.1` # Cost limit $0.1
+
+You can now directly write messages or press enter key to open vim for multiline message and text pasting.
+
+## Anthropic
+
+Add `ANTHROPIC_API_KEY` env variable.
 
 Then run
 
-`wcgw_local  --limit 0.1` # Cost limit $0.1
+`uvx --from wcgw wcgw_local --claude  --limit 0.1` # Cost limit $0.1
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
