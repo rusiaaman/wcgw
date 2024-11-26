@@ -26,9 +26,11 @@ Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude
 
 Then restart claude app.
 
-### Computer use support on docker
+### Computer use support using desktop on docker
 
-Controlling the system isn't possible yet, but you can connect to a docker container which runs a linux os.
+Controlling the system isn't possible yet, but you can connect to a docker container which runs a linux os with desktop.
+
+First run a sample docker image with desktop and optionally VNC connection:
 
 ```sh
 docker run \
@@ -58,14 +60,14 @@ over here
 
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
-If you've run the docker for LLM to access, you can ask it to control the "docker os".
+If you've run the docker for LLM to access, you can ask it to control the "docker os". If you don't provide the docker container id to it, it'll try to search for available docker using `docker ps` command.
 
 ## Example
-
-### Shell example
-
-![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
 
 ### Computer use example
 
 ![computer-use](https://github.com/rusiaaman/wcgw/blob/main/static/computer-use.jpg?raw=true)
+
+### Shell example
+
+![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
