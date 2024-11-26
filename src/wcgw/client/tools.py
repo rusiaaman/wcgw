@@ -569,12 +569,10 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
             return edit_content(content, closest_match, replace_with_lines)
         else:
             print(
-                f"Exact match not found, found with whitespace removed edit distance: {
-                    min_edit_distance}"
+                f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
             )
         raise Exception(
-            f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{
-                closest_match}\n---\nFile not edited"
+            f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
         )
 
     content = content.replace(find_lines, replace_with_lines, 1)
@@ -586,8 +584,7 @@ def do_diff_edit(fedit: FileEdit) -> str:
 
     if not os.path.isabs(fedit.file_path):
         raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {
-                CWD}"
+            f"Failure: file_path should be absolute path, current working directory is {CWD}"
         )
     else:
         path_ = fedit.file_path
@@ -932,8 +929,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
             websocket.send(client_version)
 
             print(
-                f"Connected. Share this user id with the chatbot: {
-                    client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
+                f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
             )
             while True:
                 # Wait to receive data from the server

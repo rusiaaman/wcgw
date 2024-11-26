@@ -4,7 +4,7 @@ name = "wcgw"
 version = "1.5.0"
 description = "What could go wrong giving full shell access to chatgpt?"
 readme = "README.md"
-requires-python = ">=3.10, <3.13"
+requires-python = ">=3.11, <3.13"
 dependencies = [
     "openai>=1.46.0",
     "mypy>=1.11.2",

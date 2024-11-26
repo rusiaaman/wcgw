@@ -306,8 +306,7 @@ System information:
     while True:
         if cost > limit:
             system_console.print(
-                f"\nCost limit exceeded. Current cost: {cost}, input tokens: {
-                    input_toks}, output tokens: {output_toks}"
+                f"\nCost limit exceeded. Current cost: {cost}, input tokens: {input_toks}, output tokens: {output_toks}"
             )
             break
 

@@ -237,8 +237,7 @@ class ComputerTool:
             elif action == "type":
                 results: list[ToolResult] = []
                 for chunk in chunks(text, TYPING_GROUP_SIZE):
-                    cmd = f"{
-                        self.xdotool} type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}"
+                    cmd = f"{self.xdotool} type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}"
                     results.append(self.shell(cmd, take_screenshot=False))
                 screenshot_base64 = self.screenshot().base64_image
                 return ToolResult(
@@ -306,8 +305,7 @@ class ComputerTool:
         )
         path = f"{OUTPUT_DIR}/screenshot_{uuid4().hex}.png"
 
-        screenshot_cmd = f"{
-            self._display_prefix}scrot -f {path} -p"
+        screenshot_cmd = f"{self._display_prefix}scrot -f {path} -p"
 
         self.shell(screenshot_cmd, take_screenshot=False)
 
