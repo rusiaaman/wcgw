@@ -27,7 +27,7 @@ Then restart claude app.
 
 ### Computer use support using desktop on docker
 
-Computer use is enabled by default. The claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
+Computer use is enabled by default. Claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
 
 First run a sample docker image with desktop and optionally VNC connection:
 
