@@ -51,3 +51,40 @@ class FileEdit(BaseModel):
 
 class Initialize(BaseModel):
     type: Literal["Initialize"]
+
+
+class ScreenShot(BaseModel):
+    type: Literal["ScreenShot"]
+
+
+class MouseMove(BaseModel):
+    x: int
+    y: int
+    type: Literal["MouseMove"]
+
+
+class LeftClickDrag(BaseModel):
+    x: int
+    y: int
+
+
+class MouseButton(BaseModel):
+    button_type: Literal[
+        "left_click",
+        "right_click",
+        "middle_click",
+        "double_click",
+        "scroll_up",
+        "scroll_down",
+    ]
+
+
+class Mouse(BaseModel):
+    type: Literal["Mouse"]
+    action: MouseButton | LeftClickDrag | MouseMove
+
+
+class Keyboard(BaseModel):
+    type: Literal["Keyboard"]
+    action: Literal["key", "type"]
+    text: str
