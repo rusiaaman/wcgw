@@ -22,5 +22,12 @@ Then restart claude app.
 You should be able to see this icon if everything goes right.
 
 ![mcp icon](https://github.com/rusiaaman/wcgw/blob/main/static/rocket-icon.png?raw=true)
+over here
+
+![mcp icon](https://github.com/rusiaaman/wcgw/blob/main/static/claude-ss.jpg?raw=true)
 
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
+
+## Example
+
+![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
