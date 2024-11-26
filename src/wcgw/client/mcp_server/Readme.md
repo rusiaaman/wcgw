@@ -27,7 +27,7 @@ Then restart claude app.
 
 ### Computer use support using desktop on docker
 
-Controlling the system isn't possible yet, but you can connect to a docker container which runs a linux os with desktop.
+Computer use is enabled by default. The claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
 
 First run a sample docker image with desktop and optionally VNC connection:
 
@@ -46,7 +46,7 @@ docker run \
         tail -f /dev/null"
 ```
 
-Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker.
+Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker. Then ask claude to control the docker os.
 
 ## Usage
 
