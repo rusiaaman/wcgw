@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import json
 import os
+import sys
 import traceback
 from typing import Any
 
@@ -180,6 +181,7 @@ async def handle_list_tools() -> list[types.Tool]:
 - Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
 - If user hasn't provided docker image id, check using `docker ps` and provide the id.
 - Emulate keyboard input to the screen
+- Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
 - Do not use it to interact with Bash tool.
 """,
         ),
@@ -255,17 +257,27 @@ async def handle_call_tool(
 
 async def main() -> None:
     version = importlib.metadata.version("wcgw")
-    # Run the server using stdin/stdout streams
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="wcgw",
-                server_version=version,
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
-        )
+    while True:
+        try:
+            # Run the server using stdin/stdout streams
+            async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+                await server.run(
+                    read_stream,
+                    write_stream,
+                    InitializationOptions(
+                        server_name="wcgw",
+                        server_version=version,
+                        capabilities=server.get_capabilities(
+                            notification_options=NotificationOptions(),
+                            experimental_capabilities={},
+                        ),
+                    ),
+                    raise_exceptions=True,
+                )
+        except BaseException as e:
+            print(f"Server encountered an error: {e}", file=sys.stderr)
+            print("Stack trace:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            print("Restarting server in 5 seconds...", file=sys.stderr)
+            await asyncio.sleep(5)
+            continue

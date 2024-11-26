@@ -86,13 +86,9 @@ class MouseButton(BaseModel):
 
 
 class Mouse(BaseModel):
-    type: Literal["Mouse"]
     action: MouseButton | LeftClickDrag | MouseMove
-    docker_image_id: str
 
 
 class Keyboard(BaseModel):
-    type: Literal["Keyboard"]
     action: Literal["key", "type"]
     text: str
-    docker_image_id: str

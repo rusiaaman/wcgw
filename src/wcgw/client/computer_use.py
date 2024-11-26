@@ -138,8 +138,9 @@ class ComputerTool:
     height: Optional[int]
     display_num: Optional[int]
     xdotool: Optional[str]
+    docker_image_id: Optional[str]
 
-    _screenshot_delay = 2.0
+    _screenshot_delay = 0.5
     _scaling_enabled = True
 
     def __init__(self) -> None:
@@ -150,10 +151,10 @@ class ComputerTool:
         self.height = None
         self.display_num = None
         self._display_prefix = ""
+        self.docker_image_id = None
 
-    def get_screen_info(self, docker_image_id: str) -> tuple[int, int, Optional[int]]:
+    def get_screen_info(self) -> tuple[int, int, Optional[int]]:
         result = self.shell(
-            docker_image_id,
             "echo $WIDTH,$HEIGHT,$DISPLAY_NUM",
             take_screenshot=False,
         )
@@ -182,22 +183,24 @@ class ComputerTool:
     def __call__(
         self,
         *,
-        docker_image_id: str,
         action: Action,
+        docker_image_id: Optional[str] = None,
         text: str | None = None,
         coordinate: tuple[int, int] | None = None,
         **kwargs: Any,
     ) -> ToolResult:
         if action == "get_screen_info":
-            self.get_screen_info(docker_image_id)
-            screenshot_res = self.screenshot(docker_image_id)
+            assert docker_image_id is not None
+            self.docker_image_id = docker_image_id
+            self.get_screen_info()
+            screenshot_res = self.screenshot()
             return ToolResult(
                 output=f"width: {self.width}, height: {self.height}, display_num: {self.display_num}",
                 error=screenshot_res.error,
                 base64_image=screenshot_res.base64_image,
             )
 
-        if self.width is None or self.height is None:
+        if self.width is None or self.height is None or self.docker_image_id is None:
             raise ToolError("Please first get screen info using get_screen_info tool")
 
         if action in ("mouse_move", "left_click_drag"):
@@ -215,13 +218,10 @@ class ComputerTool:
             )
 
             if action == "mouse_move":
-                return self.shell(
-                    docker_image_id, f"{self.xdotool} mousemove --sync {x} {y}"
-                )
+                return self.shell(f"{self.xdotool} mousemove  {x} {y}")
             elif action == "left_click_drag":
                 return self.shell(
-                    docker_image_id,
-                    f"{self.xdotool} mousedown 1 mousemove --sync {x} {y} mouseup 1",
+                    f"{self.xdotool} mousedown 1 mousemove  {x} {y} mouseup 1",
                 )
 
         if action in ("key", "type"):
@@ -233,16 +233,14 @@ class ComputerTool:
                 raise ToolError(output=f"{text} must be a string")
 
             if action == "key":
-                return self.shell(docker_image_id, f"{self.xdotool} key -- {text}")
+                return self.shell(f"{self.xdotool} key -- {text}")
             elif action == "type":
                 results: list[ToolResult] = []
                 for chunk in chunks(text, TYPING_GROUP_SIZE):
                     cmd = f"{
                         self.xdotool} type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}"
-                    results.append(
-                        self.shell(docker_image_id, cmd, take_screenshot=False)
-                    )
-                screenshot_base64 = self.screenshot(docker_image_id).base64_image
+                    results.append(self.shell(cmd, take_screenshot=False))
+                screenshot_base64 = self.screenshot().base64_image
                 return ToolResult(
                     output="".join(result.output or "" for result in results),
                     error="".join(result.error or "" for result in results),
@@ -265,10 +263,9 @@ class ComputerTool:
                 raise ToolError(f"coordinate is not accepted for {action}")
 
             if action == "screenshot":
-                return self.screenshot(docker_image_id)
+                return self.screenshot()
             elif action == "cursor_position":
                 result = self.shell(
-                    docker_image_id,
                     f"{self.xdotool} getmouselocation --shell",
                     take_screenshot=False,
                 )
@@ -283,9 +280,7 @@ class ComputerTool:
                 if action in ("scroll_up", "scroll_down"):
                     button = "4" if action == "scroll_up" else "5"
                     return self.shell(
-                        docker_image_id,
-                        f"{
-                            self.xdotool} click --repeat 1 {button}",
+                        f"{self.xdotool} click --repeat 1 {button}",
                     )
                 else:
                     click_arg = {
@@ -294,22 +289,19 @@ class ComputerTool:
                         "middle_click": "2",
                         "double_click": "--repeat 2 --delay 500 1",
                     }[action]
-                    return self.shell(
-                        docker_image_id, f"{self.xdotool} click {click_arg}"
-                    )
+                    return self.shell(f"{self.xdotool} click {click_arg}")
 
         raise ToolError(f"Invalid action: {action}")
 
-    def screenshot(self, docker_image_id: str) -> ToolResult:
+    def screenshot(self) -> ToolResult:
         """Take a screenshot of the current screen and return the base64 encoded image."""
-        if self.width is None or self.height is None:
-            self.get_screen_info(docker_image_id)
+        if self.width is None or self.height is None or self.docker_image_id is None:
+            self.get_screen_info()
         assert self.width and self.height
         # output_dir = Path(OUTPUT_DIR)
         # output_dir.mkdir(parents=True, exist_ok=True)
         mkdir_res = self.shell(
             command=f"mkdir -p {OUTPUT_DIR}",
-            docker_image_id=docker_image_id,
             take_screenshot=False,
         )
         path = f"{OUTPUT_DIR}/screenshot_{uuid4().hex}.png"
@@ -317,21 +309,20 @@ class ComputerTool:
         screenshot_cmd = f"{
             self._display_prefix}scrot -f {path} -p"
 
-        self.shell(docker_image_id, screenshot_cmd, take_screenshot=False)
+        self.shell(screenshot_cmd, take_screenshot=False)
 
         if self._scaling_enabled:
             x, y = self.scale_coordinates(
                 ScalingSource.COMPUTER, self.width, self.height
             )
             self.shell(
-                docker_image_id,
                 f"convert {path} -resize {x}x{y}! {path}",
                 take_screenshot=False,
             )
 
         # Copy file from docker to tmp
         _, stdout, stderr = command_run(
-            f"docker cp {docker_image_id}:{path} {path}",
+            f"docker cp {self.docker_image_id}:{path} {path}",
             truncate_after=None,
         )
 
@@ -343,19 +334,17 @@ class ComputerTool:
 
         raise ToolError(f"Failed to take screenshot: {stderr}")
 
-    def shell(
-        self, docker_image_id: str, command: str, take_screenshot: bool = True
-    ) -> ToolResult:
+    def shell(self, command: str, take_screenshot: bool = True) -> ToolResult:
         """Run a shell command and return the output, error, and optionally a screenshot."""
         _, stdout, stderr = command_run(
-            f"docker exec {docker_image_id} sh -c '{command}'"
+            f"docker exec {self.docker_image_id} sh -c '{command}'"
         )
         base64_image = None
 
         if take_screenshot:
             # delay to let things settle before taking a screenshot
             time.sleep(self._screenshot_delay)
-            base64_image = self.screenshot(docker_image_id).base64_image
+            base64_image = self.screenshot().base64_image
 
         return ToolResult(output=stdout, error=stderr, base64_image=base64_image)
 
@@ -402,30 +391,27 @@ def run_computer_tool(
             action="get_screen_info", docker_image_id=action.docker_image_id
         )
     elif isinstance(action, ScreenShot):
-        result = Computer(action="screenshot", docker_image_id=action.docker_image_id)
+        result = Computer(
+            action="screenshot",
+        )
     elif isinstance(action, Keyboard):
         result = Computer(
             action=action.action,
             text=action.text,
-            docker_image_id=action.docker_image_id,
         )
     elif isinstance(action, Mouse):
         if isinstance(action.action, MouseMove):
             result = Computer(
-                docker_image_id=action.docker_image_id,
                 action="mouse_move",
                 coordinate=(action.action.x, action.action.y),
             )
         elif isinstance(action.action, LeftClickDrag):
             result = Computer(
-                docker_image_id=action.docker_image_id,
                 action="left_click_drag",
                 coordinate=(action.action.x, action.action.y),
             )
         else:
-            result = Computer(
-                docker_image_id=action.docker_image_id, action=action.action.button_type
-            )
+            result = Computer(action=action.action.button_type)
 
     output = f"stdout: {result.output or ''}, stderr: {result.error or ''}"
     image = result.base64_image or ""

@@ -255,6 +255,7 @@ def loop(
 - Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
 - If user hasn't provided docker image id, check using `docker ps` and provide the id.
 - Emulate keyboard input to the screen
+- Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
 - Do not use it to interact with Bash tool.
 """,
         ),
