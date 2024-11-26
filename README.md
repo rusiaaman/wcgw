@@ -5,7 +5,7 @@ A custom gpt on chatgpt web/desktop apps to interact with your local shell.
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 
-[New feature] Claude desktop
+[New feature] [26-Nov-2024] Claude desktop support
 [src/wcgw/client/mcp_server/Readme.md](src/wcgw/client/mcp_server/Readme.md)
 
 ### 🚀 Highlights
