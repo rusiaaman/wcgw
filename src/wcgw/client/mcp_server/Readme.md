@@ -9,7 +9,7 @@ Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude
   "mcpServers": {
     "wcgw": {
       "command": "uvx",
-      "args": ["--from", "wcgw", "wcgw_mcp"]
+      "args": ["--from", "wcgw@latest", "wcgw_mcp"]
     }
   }
 }
@@ -19,7 +19,7 @@ Then restart claude app.
 
 ## Usage
 
-You should be able to see this icon if everything goes right.
+Wait for a few seconds. You should be able to see this icon if everything goes right.
 
 ![mcp icon](https://github.com/rusiaaman/wcgw/blob/main/static/rocket-icon.png?raw=true)
 over here
