@@ -1,6 +1,8 @@
 # Shell and Coding agent on Chatgpt and Claude desktop apps
 
-A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit files, run code, etc.
+- An MCP server on claude desktop for autonomous shell, coding and desktop control agent.
+- A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit files, run code, etc.
+
 
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
@@ -11,6 +13,7 @@ A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit
 ### 🚀 Highlights
 
 - ⚡ **Full Shell Access**: No restrictions, complete control.
+- ⚡ **Desktop control on Claude**: Screen capture, mouse control, keyboard control on claude desktop (on mac with docker linux)
 - ⚡ **Create, Execute, Iterate**: Ask the gpt to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
