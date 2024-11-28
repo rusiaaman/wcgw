@@ -26,6 +26,7 @@ from ..types_ import (
 OUTPUT_DIR = "/tmp/outputs"
 TYPING_DELAY_MS = 12
 TYPING_GROUP_SIZE = 50
+SLEEP_TIME_MAX_S = 3
 
 Action = Literal[
     "key",
@@ -187,12 +188,15 @@ class ComputerTool:
         text: str | None = None,
         coordinate: tuple[int, int] | None = None,
         do_left_click_on_move: bool | None = None,
+        take_after_delay_seconds: int | None = None,
         **kwargs: Any,
     ) -> ToolResult:
         if action == "get_screen_info":
             assert docker_image_id is not None
             self.docker_image_id = docker_image_id
             self.get_screen_info()
+            if take_after_delay_seconds is not None:
+                time.sleep(min(take_after_delay_seconds, SLEEP_TIME_MAX_S))
             screenshot_res = self.screenshot()
             return ToolResult(
                 output=f"width: {self.width}, height: {self.height}, display_num: {self.display_num}",
@@ -396,6 +400,7 @@ def run_computer_tool(
     elif isinstance(action, ScreenShot):
         result = Computer(
             action="screenshot",
+            screenshot_delay=action.take_after_delay_seconds,
         )
     elif isinstance(action, Keyboard):
         result = Computer(

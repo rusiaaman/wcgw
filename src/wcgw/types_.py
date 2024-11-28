@@ -60,6 +60,7 @@ class GetScreenInfo(BaseModel):
 
 class ScreenShot(BaseModel):
     type: Literal["ScreenShot"]
+    take_after_delay_seconds: int
 
 
 class MouseMove(BaseModel):

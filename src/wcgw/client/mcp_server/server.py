@@ -28,9 +28,9 @@ from ...types_ import (
     ScreenShot,
     GetScreenInfo,
 )
-from ..computer_use import Computer
+from ..computer_use import SLEEP_TIME_MAX_S
 
-tools.TIMEOUT = 3
+tools.TIMEOUT = SLEEP_TIME_MAX_S
 
 server = Server("wcgw")
 
@@ -102,6 +102,8 @@ async def handle_list_tools() -> list[types.Tool]:
 - Send text input to the running program.
 - Send send_specials=["Enter"] to recheck status of a running program.
 - Only one of send_text, send_specials, send_ascii should be provided.
+- This returns within 3 seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
+    - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again usign ["Enter"].
 """,
         ),
         ToolParam(
@@ -164,6 +166,11 @@ async def handle_list_tools() -> list[types.Tool]:
             name="ScreenShot",
             description="""
 - Capture screenshot of the linux os on docker.
+- All actions on UI using mouse and keyboard return within 0.5 seconds.
+    * So if you're doing something that takes longer for UI to update like heavy page loading, keep checking UI for update usign ScreenShot upto 10 turns. 
+    * Notice for smallest of the loading icons to check if your action worked.
+    * After 10 turns of no change, ask user for permission to keep checking.
+    * If you don't notice even slightest of the change, it's likely you clicked on the wrong place.
 """,
         ),
         ToolParam(
@@ -172,6 +179,7 @@ async def handle_list_tools() -> list[types.Tool]:
             description="""
 - Interact with the linux os on docker using mouse.
 - Uses xdotool
+- About left_click_drag: the current mouse position will be used as the starting point, click and drag to the given x, y coordinates. Useful in things like sliders, moving things around, etc.
 """,
         ),
         ToolParam(
@@ -257,27 +265,18 @@ async def handle_call_tool(
 
 async def main() -> None:
     version = importlib.metadata.version("wcgw")
-    while True:
-        try:
-            # Run the server using stdin/stdout streams
-            async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-                await server.run(
-                    read_stream,
-                    write_stream,
-                    InitializationOptions(
-                        server_name="wcgw",
-                        server_version=version,
-                        capabilities=server.get_capabilities(
-                            notification_options=NotificationOptions(),
-                            experimental_capabilities={},
-                        ),
-                    ),
-                    raise_exceptions=False,
-                )
-        except BaseException as e:
-            print(f"Server encountered an error: {e}", file=sys.stderr)
-            print("Stack trace:", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            print("Restarting server in 5 seconds...", file=sys.stderr)
-            await asyncio.sleep(5)
-            continue
+    # Run the server using stdin/stdout streams
+    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+        await server.run(
+            read_stream,
+            write_stream,
+            InitializationOptions(
+                server_name="wcgw",
+                server_version=version,
+                capabilities=server.get_capabilities(
+                    notification_options=NotificationOptions(),
+                    experimental_capabilities={},
+                ),
+            ),
+            raise_exceptions=False,
+        )
