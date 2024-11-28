@@ -135,15 +135,15 @@ def _get_exit_code() -> int:
         return 0
     # First reset the prompt in case venv was sourced or other reasons.
     SHELL.sendline(f"export PS1={PROMPT}")
-    SHELL.expect(PROMPT, timeout=0.1)
+    SHELL.expect(PROMPT, timeout=0.2)
     # Reset echo also if it was enabled
     SHELL.sendline("stty -icanon -echo")
-    SHELL.expect(PROMPT, timeout=0.1)
+    SHELL.expect(PROMPT, timeout=0.2)
     SHELL.sendline("echo $?")
     before = ""
     while not _is_int(before):  # Consume all previous output
         try:
-            SHELL.expect(PROMPT, timeout=0.1)
+            SHELL.expect(PROMPT, timeout=0.2)
         except pexpect.TIMEOUT:
             print(f"Couldn't get exit code, before: {before}")
             raise
@@ -215,7 +215,7 @@ def update_repl_prompt(command: str) -> bool:
 
 def get_cwd() -> str:
     SHELL.sendline("pwd")
-    SHELL.expect(PROMPT, timeout=0.1)
+    SHELL.expect(PROMPT, timeout=0.2)
     assert isinstance(SHELL.before, str)
     current_dir = render_terminal_output(SHELL.before).strip()
     return current_dir
