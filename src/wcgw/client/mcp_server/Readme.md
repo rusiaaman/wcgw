@@ -1,5 +1,9 @@
 # Claude desktop support
 
+`wcgw` enables Claude desktop app on Mac to access shell and file system in order to automate tasks, run code, etc.
+
+It also has a computer use feature to connect to linux running on docker. Claude can fully control it including mouse and keyboard.
+
 ## Setup
 
 Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
@@ -32,21 +36,10 @@ Computer use is enabled by default. Claude will be able to connect to any docker
 First run a sample docker image with desktop and optionally VNC connection:
 
 ```sh
-docker run \
-    --entrypoint "" \
-    -p 6080:6080 \
-    -e WIDTH=1024 \
-    -e HEIGHT=768 \
-    -d \
-    ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest \
-    bash -c "\
-        ./start_all.sh && \
-        ./novnc_startup.sh && \
-        python http_server.py > /tmp/server_logs.txt 2>&1 & \
-        tail -f /dev/null"
+docker run -p 6080:6080 ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
 ```
 
-Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker. Then ask claude to control the docker os.
+Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker. Then ask claude desktop app to control the docker os.
 
 ## Usage
 

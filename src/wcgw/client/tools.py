@@ -170,6 +170,7 @@ def initial_info() -> str:
 System: {uname_sysname}
 Machine: {uname_machine}
 Current working directory: {CWD}
+wcgw version: {importlib.metadata.version("wcgw")}
 """
 
 

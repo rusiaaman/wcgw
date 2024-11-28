@@ -151,9 +151,10 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema=GetScreenInfo.model_json_schema(),
             name="GetScreenInfo",
             description="""
-- Get display information of an OS running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
-- If user hasn't provided docker image id, check using `docker ps` and provide the id.
 - Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
+- Get display information of a linux os running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
+- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- If the docker is not running, run using `docker run -d -p 6080:6080 ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest`
 - Connects shell to the docker environment.
 - Note: once this is called, the shell enters the docker environment. All bash commands will run over there.
 """,
@@ -162,29 +163,26 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema=ScreenShot.model_json_schema(),
             name="ScreenShot",
             description="""
-- Capture screenshot of an OS running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
-- If user hasn't provided docker image id, check using `docker ps` and provide the id.
-- Capture ScreenShot of the current screen for automation.
+- Capture screenshot of the linux os on docker.
 """,
         ),
         ToolParam(
             inputSchema=Mouse.model_json_schema(),
             name="Mouse",
             description="""
-- Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
-- If user hasn't provided docker image id, check using `docker ps` and provide the id.
-- Interact with the screen using mouse
+- Interact with the linux os on docker using mouse.
+- Uses xdotool
 """,
         ),
         ToolParam(
             inputSchema=Keyboard.model_json_schema(),
             name="Keyboard",
             description="""
-- Interact with docker container running image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
-- If user hasn't provided docker image id, check using `docker ps` and provide the id.
+- Interact with the linux os on docker using keyboard.
 - Emulate keyboard input to the screen
 - Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
 - Do not use it to interact with Bash tool.
+- Make sure you've selected a text area or an editable element before sending text.
 """,
         ),
     ]

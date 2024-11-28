@@ -60,12 +60,12 @@ class GetScreenInfo(BaseModel):
 
 class ScreenShot(BaseModel):
     type: Literal["ScreenShot"]
-    docker_image_id: str
 
 
 class MouseMove(BaseModel):
     x: int
     y: int
+    do_left_click_on_move: bool
     type: Literal["MouseMove"]
 
 

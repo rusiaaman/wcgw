@@ -186,6 +186,7 @@ class ComputerTool:
         docker_image_id: Optional[str] = None,
         text: str | None = None,
         coordinate: tuple[int, int] | None = None,
+        do_left_click_on_move: bool | None = None,
         **kwargs: Any,
     ) -> ToolResult:
         if action == "get_screen_info":
@@ -217,7 +218,12 @@ class ComputerTool:
             )
 
             if action == "mouse_move":
-                return self.shell(f"{self.xdotool} mousemove  {x} {y}")
+                if not do_left_click_on_move:
+                    return self.shell(f"{self.xdotool} mousemove  {x} {y}")
+                else:
+                    return self.shell(
+                        f"{self.xdotool} mousemove  {x} {y} click 1",
+                    )
             elif action == "left_click_drag":
                 return self.shell(
                     f"{self.xdotool} mousedown 1 mousemove  {x} {y} mouseup 1",
@@ -401,6 +407,7 @@ def run_computer_tool(
             result = Computer(
                 action="mouse_move",
                 coordinate=(action.action.x, action.action.y),
+                do_left_click_on_move=action.action.do_left_click_on_move,
             )
         elif isinstance(action.action, LeftClickDrag):
             result = Computer(
