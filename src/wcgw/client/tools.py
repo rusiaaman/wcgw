@@ -71,7 +71,7 @@ from .openai_utils import get_input_cost, get_output_cost
 
 console = rich.console.Console(style="magenta", highlight=False, markup=False)
 
-TIMEOUT = 30
+TIMEOUT = 5
 
 
 def render_terminal_output(text: str) -> str:
@@ -113,9 +113,9 @@ def start_shell() -> pexpect.spawn:  # type: ignore
         encoding="utf-8",
         timeout=TIMEOUT,
     )
-    SHELL.expect(PROMPT)
+    SHELL.expect(PROMPT, timeout=TIMEOUT)
     SHELL.sendline("stty -icanon -echo")
-    SHELL.expect(PROMPT)
+    SHELL.expect(PROMPT, timeout=TIMEOUT)
     return SHELL
 
 
@@ -135,15 +135,15 @@ def _get_exit_code() -> int:
         return 0
     # First reset the prompt in case venv was sourced or other reasons.
     SHELL.sendline(f"export PS1={PROMPT}")
-    SHELL.expect(PROMPT)
+    SHELL.expect(PROMPT, timeout=0.1)
     # Reset echo also if it was enabled
     SHELL.sendline("stty -icanon -echo")
-    SHELL.expect(PROMPT)
+    SHELL.expect(PROMPT, timeout=0.1)
     SHELL.sendline("echo $?")
     before = ""
     while not _is_int(before):  # Consume all previous output
         try:
-            SHELL.expect(PROMPT)
+            SHELL.expect(PROMPT, timeout=0.1)
         except pexpect.TIMEOUT:
             print(f"Couldn't get exit code, before: {before}")
             raise
@@ -215,7 +215,7 @@ def update_repl_prompt(command: str) -> bool:
 
 def get_cwd() -> str:
     SHELL.sendline("pwd")
-    SHELL.expect(PROMPT)
+    SHELL.expect(PROMPT, timeout=0.1)
     assert isinstance(SHELL.before, str)
     current_dir = render_terminal_output(SHELL.before).strip()
     return current_dir
@@ -342,13 +342,13 @@ def execute_bash(
         SHELL.expect(PROMPT)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
-    wait = timeout_s or 5
+    wait = timeout_s or TIMEOUT
     index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
         BASH_STATE = "pending"
         text = SHELL.before or ""
 
-        text = render_terminal_output(text)
+        text = render_terminal_output(text[-100_000:])
         tokens = enc.encode(text)
 
         if max_tokens and len(tokens) >= max_tokens:
@@ -855,7 +855,7 @@ def get_tool_output(
         if imgBs64:
             console.print("Captured screenshot")
             outputs.append(ImageData(media_type="image/png", data=imgBs64))
-            if not IS_IN_DOCKER:
+            if not IS_IN_DOCKER and isinstance(arg, GetScreenInfo):
                 try:
                     # At this point we should go into the docker env
                     res, _ = execute_bash(

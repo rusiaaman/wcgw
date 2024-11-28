@@ -10,8 +10,9 @@ from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.types import Tool as ToolParam
 from mcp.server import NotificationOptions, Server
-from pydantic import AnyUrl, ValidationError
+from pydantic import AnyUrl, BaseModel, ValidationError
 import mcp.server.stdio
+from .. import tools
 from ..tools import DoneFlag, get_tool_output, which_tool_name, default_enc
 from ...types_ import (
     BashCommand,
@@ -272,7 +273,7 @@ async def main() -> None:
                             experimental_capabilities={},
                         ),
                     ),
-                    raise_exceptions=True,
+                    raise_exceptions=False,
                 )
         except BaseException as e:
             print(f"Server encountered an error: {e}", file=sys.stderr)
