@@ -1,6 +1,7 @@
 import subprocess
 
 MAX_RESPONSE_LEN: int = 16000
+TRUNCATED_MESSAGE: str = "<response clipped><NOTE>To save on context only part of this file has been shown to you.</NOTE>"
 
 
 def maybe_truncate(content: str, truncate_after: int | None = MAX_RESPONSE_LEN) -> str:
@@ -14,7 +15,7 @@ def maybe_truncate(content: str, truncate_after: int | None = MAX_RESPONSE_LEN) 
 
 def command_run(
     cmd: str,
-    timeout: float | None = 30.0,  # seconds
+    timeout: float | None = 3.0,  # seconds
     truncate_after: int | None = MAX_RESPONSE_LEN,
     text: bool = True,
 ) -> tuple[int, str, str]:

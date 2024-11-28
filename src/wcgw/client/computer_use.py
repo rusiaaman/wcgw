@@ -26,7 +26,6 @@ from ..types_ import (
 OUTPUT_DIR = "/tmp/outputs"
 TYPING_DELAY_MS = 12
 TYPING_GROUP_SIZE = 50
-TRUNCATED_MESSAGE: str = "<response clipped><NOTE>To save on context only part of this file has been shown to you.</NOTE>"
 
 Action = Literal[
     "key",

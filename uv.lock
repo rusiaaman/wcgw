@@ -343,8 +343,8 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
+version = "1.0.1.dev0"
+source = { git = "https://github.com/rusiaaman/python-sdk?rev=53b69f397eae6ac81a51b84b34ff52b3119f11cb#53b69f397eae6ac81a51b84b34ff52b3119f11cb" }
 dependencies = [
     { name = "anyio" },
     { name = "httpx" },
@@ -352,10 +352,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "sse-starlette" },
     { name = "starlette" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/97/de/a9ec0a1b6439f90ea59f89004bb2e7ec6890dfaeef809751d9e6577dca7e/mcp-1.0.0.tar.gz", hash = "sha256:dba51ce0b5c6a80e25576f606760c49a91ee90210fed805b530ca165d3bbc9b7", size = 82891 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/89/900c0c8445ec001d3725e475fc553b0feb2e8a51be018f3bb7de51e683db/mcp-1.0.0-py3-none-any.whl", hash = "sha256:bbe70ffa3341cd4da78b5eb504958355c68381fb29971471cea1e642a2af5b8a", size = 36361 },
 ]
 
 [[package]]
@@ -902,7 +898,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.39.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "mcp", specifier = ">=1.0.0" },
+    { name = "mcp", git = "https://github.com/rusiaaman/python-sdk?rev=53b69f397eae6ac81a51b84b34ff52b3119f11cb" },
     { name = "mypy", specifier = ">=1.11.2" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "openai", specifier = ">=1.46.0" },

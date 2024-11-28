@@ -30,6 +30,7 @@ from ...types_ import (
 )
 from ..computer_use import Computer
 
+tools.TIMEOUT = 3
 
 server = Server("wcgw")
 
