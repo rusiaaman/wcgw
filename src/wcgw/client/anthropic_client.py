@@ -4,7 +4,7 @@ import mimetypes
 from pathlib import Path
 import sys
 import traceback
-from typing import Callable, DefaultDict, Optional, cast
+from typing import Callable, DefaultDict, Optional, cast, Literal
 import anthropic
 from anthropic import Anthropic
 from anthropic.types import (
@@ -110,7 +110,10 @@ def parse_user_message_special(msg: str) -> MessageParam:
                     "type": "image",
                     "source": {
                         "type": "base64",
-                        "media_type": image_type,
+                        "media_type": cast(
+                            'Literal["image/jpeg", "image/png", "image/gif", "image/webp"]',
+                            image_type or "image/png",
+                        ),
                         "data": image_b64,
                     },
                 }
@@ -360,53 +363,79 @@ System information:
                     type_ = chunk.type
                     if type_ in {"message_start", "message_stop"}:
                         continue
-                    elif type_ == "content_block_start":
+                    elif type_ == "content_block_start" and hasattr(
+                        chunk, "content_block"
+                    ):
                         content_block = chunk.content_block
-                        if content_block.type == "text":
+                        if (
+                            hasattr(content_block, "type")
+                            and content_block.type == "text"
+                            and hasattr(content_block, "text")
+                        ):
                             chunk_str = content_block.text
                             assistant_console.print(chunk_str, end="")
                             full_response += chunk_str
                         elif content_block.type == "tool_use":
-                            assert content_block.input == {}
-                            tool_calls.append(
-                                {
-                                    "name": content_block.name,
-                                    "input": "",
-                                    "done": False,
-                                    "id": content_block.id,
-                                }
-                            )
+                            if (
+                                hasattr(content_block, "input")
+                                and hasattr(content_block, "name")
+                                and hasattr(content_block, "id")
+                            ):
+                                assert content_block.input == {}
+                                tool_calls.append(
+                                    {
+                                        "name": str(content_block.name),
+                                        "input": str(""),
+                                        "done": False,
+                                        "id": str(content_block.id),
+                                    }
+                                )
                         else:
                             error_console.log(
                                 f"Ignoring unknown content block type {content_block.type}"
                             )
-                    elif type_ == "content_block_delta":
-                        if chunk.delta.type == "text_delta":
-                            chunk_str = chunk.delta.text
-                            assistant_console.print(chunk_str, end="")
-                            full_response += chunk_str
-                        elif chunk.delta.type == "input_json_delta":
-                            tool_calls[-1]["input"] += chunk.delta.partial_json
+                    elif type_ == "content_block_delta" and hasattr(chunk, "delta"):
+                        delta = chunk.delta
+                        if hasattr(delta, "type"):
+                            delta_type = str(delta.type)
+                            if delta_type == "text_delta" and hasattr(delta, "text"):
+                                chunk_str = delta.text
+                                assistant_console.print(chunk_str, end="")
+                                full_response += chunk_str
+                            elif delta_type == "input_json_delta" and hasattr(
+                                delta, "partial_json"
+                            ):
+                                partial_json = delta.partial_json
+                                if isinstance(tool_calls[-1]["input"], str):
+                                    tool_calls[-1]["input"] += partial_json
+                            else:
+                                error_console.log(
+                                    f"Ignoring unknown content block delta type {delta_type}"
+                                )
                         else:
-                            error_console.log(
-                                f"Ignoring unknown content block delta type {chunk.delta.type}"
-                            )
+                            raise ValueError("Content block delta has no type")
                     elif type_ == "content_block_stop":
                         if tool_calls and not tool_calls[-1]["done"]:
                             tc = tool_calls[-1]
+                            tool_name = str(tc["name"])
+                            tool_input = str(tc["input"])
+                            tool_id = str(tc["id"])
+
                             tool_parsed = which_tool_name(
-                                tc["name"]
-                            ).model_validate_json(tc["input"])
+                                tool_name
+                            ).model_validate_json(tool_input)
+
                             system_console.print(
                                 f"\n---------------------------------------\n# Assistant invoked tool: {tool_parsed}"
                             )
+
                             _histories.append(
                                 {
                                     "role": "assistant",
                                     "content": [
                                         ToolUseBlockParam(
-                                            id=tc["id"],
-                                            name=tc["name"],
+                                            id=tool_id,
+                                            name=tool_name,
                                             input=tool_parsed.model_dump(),
                                             type="tool_use",
                                         )
@@ -458,7 +487,7 @@ System information:
                             tool_results.append(
                                 ToolResultBlockParam(
                                     type="tool_result",
-                                    tool_use_id=tc["id"],
+                                    tool_use_id=str(tc["id"]),
                                     content=tool_results_content,
                                 )
                             )

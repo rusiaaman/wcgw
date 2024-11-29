@@ -3,8 +3,8 @@
 - An MCP server on claude desktop for autonomous shell, coding and desktop control agent.
 - A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit files, run code, etc.
 
-
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
+[![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 
 [New feature] [26-Nov-2024] Claude desktop support for shell, computer-control, coding agent.
@@ -19,7 +19,9 @@
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
 ## Claude
+
 Full readme [src/wcgw/client/mcp_server/Readme.md](src/wcgw/client/mcp_server/Readme.md)
+
 ### Setup
 
 Update `claude_desktop_config.json`

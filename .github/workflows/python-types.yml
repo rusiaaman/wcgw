@@ -1,0 +1,29 @@
+name: Type Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "${{ matrix.python-version }}"
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv venv --python "${{ matrix.python-version }}"
+      - name: Run type checks
+        run: |
+          uv run mypy --strict src
