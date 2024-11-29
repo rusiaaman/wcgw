@@ -28,8 +28,16 @@ Update `claude_desktop_config.json`
 {
   "mcpServers": {
     "wcgw": {
-      "command": "uvx",
-      "args": ["--from", "wcgw@latest", "wcgw_mcp"]
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "wcgw@latest",
+        "--python",
+        "3.12",
+        "wcgw_mcp"
+      ]
     }
   }
 }
