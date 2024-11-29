@@ -31,15 +31,39 @@ Then restart claude app.
 
 ### [Optional] Computer use support using desktop on docker
 
-Computer use is enabled by default. Claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
+Computer use is disabled by default. Add `--computer-use` to enable it. This will add necessary tools to Claude including ScreenShot, Mouse and Keyboard control.
 
-First run a sample docker image with desktop and optionally VNC connection:
+```json
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "wcgw@latest",
+        "--python",
+        "3.12",
+        "wcgw_mcp",
+        "--computer-use"
+      ]
+    }
+  }
+}
+```
+
+Claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
+
+You'll need to run a docker image with desktop and optional VNC connection. Here's a demo image:
 
 ```sh
 docker run -p 6080:6080 ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
 ```
 
-Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker. Then ask claude desktop app to control the docker os.
+Then ask claude desktop app to control the docker os. It'll connect to the docker container and control it.
+
+Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker.
 
 ## Usage
 

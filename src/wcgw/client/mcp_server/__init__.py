@@ -1,10 +1,14 @@
 from wcgw.client.mcp_server import server
 import asyncio
+from typer import Typer
+
+main = Typer()
 
 
-def main():
+@main.command()
+def app(computer_use: bool = False) -> None:
     """Main entry point for the package."""
-    asyncio.run(server.main())
+    asyncio.run(server.main(computer_use))
 
 
 # Optionally expose other important items at package level

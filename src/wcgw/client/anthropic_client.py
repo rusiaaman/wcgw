@@ -131,6 +131,7 @@ def loop(
     first_message: Optional[str] = None,
     limit: Optional[float] = None,
     resume: Optional[str] = None,
+    computer_use: bool = False,
 ) -> tuple[str, float]:
     load_dotenv()
 
@@ -222,10 +223,14 @@ def loop(
 - Use SEARCH/REPLACE blocks to edit the file.
 """,
         ),
-        ToolParam(
-            input_schema=GetScreenInfo.model_json_schema(),
-            name="GetScreenInfo",
-            description="""
+    ]
+
+    if computer_use:
+        tools += [
+            ToolParam(
+                input_schema=GetScreenInfo.model_json_schema(),
+                name="GetScreenInfo",
+                description="""
 - Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
 - Get display information of a linux os running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
 - If user hasn't provided docker image id, check using `docker ps` and provide the id.
@@ -233,11 +238,11 @@ def loop(
 - Connects shell to the docker environment.
 - Note: once this is called, the shell enters the docker environment. All bash commands will run over there.
 """,
-        ),
-        ToolParam(
-            input_schema=ScreenShot.model_json_schema(),
-            name="ScreenShot",
-            description="""
+            ),
+            ToolParam(
+                input_schema=ScreenShot.model_json_schema(),
+                name="ScreenShot",
+                description="""
 - Capture screenshot of the linux os on docker.
 - All actions on UI using mouse and keyboard return within 0.5 seconds.
     * So if you're doing something that takes longer for UI to update like heavy page loading, keep checking UI for update usign ScreenShot upto 10 turns. 
@@ -246,27 +251,27 @@ def loop(
     * If you don't notice even slightest of the change, it's likely you clicked on the wrong place.
 
 """,
-        ),
-        ToolParam(
-            input_schema=Mouse.model_json_schema(),
-            name="Mouse",
-            description="""
+            ),
+            ToolParam(
+                input_schema=Mouse.model_json_schema(),
+                name="Mouse",
+                description="""
 - Interact with the linux os on docker using mouse.
 - Uses xdotool
 - About left_click_drag: the current mouse position will be used as the starting point, click and drag to the given x, y coordinates. Useful in things like sliders, moving things around, etc.
 """,
-        ),
-        ToolParam(
-            input_schema=Keyboard.model_json_schema(),
-            name="Keyboard",
-            description="""
+            ),
+            ToolParam(
+                input_schema=Keyboard.model_json_schema(),
+                name="Keyboard",
+                description="""
 - Interact with the linux os on docker using keyboard.
 - Emulate keyboard input to the screen
 - Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
 - Do not use it to interact with Bash tool.
 """,
-        ),
-    ]
+            ),
+        ]
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
 

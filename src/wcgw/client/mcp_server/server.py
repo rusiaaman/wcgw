@@ -32,6 +32,8 @@ from ..computer_use import SLEEP_TIME_MAX_S
 
 tools.TIMEOUT = SLEEP_TIME_MAX_S
 
+COMPUTER_USE_ON_DOCKER_ENABLED = False
+
 server = Server("wcgw")
 
 
@@ -71,7 +73,7 @@ async def handle_list_tools() -> list[types.Tool]:
     ) as f:
         diffinstructions = f.read()
 
-    return [
+    tools = [
         ToolParam(
             inputSchema=Initialize.model_json_schema(),
             name="Initialize",
@@ -142,17 +144,13 @@ async def handle_list_tools() -> list[types.Tool]:
 """
             + diffinstructions,
         ),
-        ToolParam(
-            inputSchema=ReadImage.model_json_schema(),
-            name="ReadImage",
-            description="""
-- Read an image from the shell.
-""",
-        ),
-        ToolParam(
-            inputSchema=GetScreenInfo.model_json_schema(),
-            name="GetScreenInfo",
-            description="""
+    ]
+    if COMPUTER_USE_ON_DOCKER_ENABLED:
+        tools += [
+            ToolParam(
+                inputSchema=GetScreenInfo.model_json_schema(),
+                name="GetScreenInfo",
+                description="""
 - Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
 - Get display information of a linux os running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
 - If user hasn't provided docker image id, check using `docker ps` and provide the id.
@@ -160,11 +158,11 @@ async def handle_list_tools() -> list[types.Tool]:
 - Connects shell to the docker environment.
 - Note: once this is called, the shell enters the docker environment. All bash commands will run over there.
 """,
-        ),
-        ToolParam(
-            inputSchema=ScreenShot.model_json_schema(),
-            name="ScreenShot",
-            description="""
+            ),
+            ToolParam(
+                inputSchema=ScreenShot.model_json_schema(),
+                name="ScreenShot",
+                description="""
 - Capture screenshot of the linux os on docker.
 - All actions on UI using mouse and keyboard return within 0.5 seconds.
     * So if you're doing something that takes longer for UI to update like heavy page loading, keep checking UI for update usign ScreenShot upto 10 turns. 
@@ -172,28 +170,30 @@ async def handle_list_tools() -> list[types.Tool]:
     * After 10 turns of no change, ask user for permission to keep checking.
     * If you don't notice even slightest of the change, it's likely you clicked on the wrong place.
 """,
-        ),
-        ToolParam(
-            inputSchema=Mouse.model_json_schema(),
-            name="Mouse",
-            description="""
+            ),
+            ToolParam(
+                inputSchema=Mouse.model_json_schema(),
+                name="Mouse",
+                description="""
 - Interact with the linux os on docker using mouse.
 - Uses xdotool
 - About left_click_drag: the current mouse position will be used as the starting point, click and drag to the given x, y coordinates. Useful in things like sliders, moving things around, etc.
 """,
-        ),
-        ToolParam(
-            inputSchema=Keyboard.model_json_schema(),
-            name="Keyboard",
-            description="""
+            ),
+            ToolParam(
+                inputSchema=Keyboard.model_json_schema(),
+                name="Keyboard",
+                description="""
 - Interact with the linux os on docker using keyboard.
 - Emulate keyboard input to the screen
 - Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
 - Do not use it to interact with Bash tool.
 - Make sure you've selected a text area or an editable element before sending text.
 """,
-        ),
-    ]
+            ),
+        ]
+
+    return tools
 
 
 @server.call_tool()  # type: ignore
@@ -263,7 +263,11 @@ async def handle_call_tool(
     return content
 
 
-async def main() -> None:
+async def main(computer_use: bool) -> None:
+    global COMPUTER_USE_ON_DOCKER_ENABLED
+    if computer_use:
+        COMPUTER_USE_ON_DOCKER_ENABLED = True
+
     version = importlib.metadata.version("wcgw")
     # Run the server using stdin/stdout streams
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
