@@ -1,3 +1,4 @@
+# mypy: disable-error-code="import-untyped"
 from wcgw.client.mcp_server import server
 import asyncio
 from typer import Typer
