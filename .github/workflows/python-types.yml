@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install uv
-          uv pip install .[dev]
+          uv venv --python "${{ matrix.python-version }}"
       - name: Run type checks
         run: |
-          uv tool run --python "${{ matrix.python-version }}" mypy --strict src
+          uv run mypy --strict src
