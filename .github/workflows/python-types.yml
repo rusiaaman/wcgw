@@ -1,4 +1,4 @@
-name: Type Check
+name: Mypy strict
 
 on:
   push:
