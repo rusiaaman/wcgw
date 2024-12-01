@@ -262,6 +262,7 @@ def loop(
 - Interact with the linux os on docker using mouse.
 - Uses xdotool
 - About left_click_drag: the current mouse position will be used as the starting point, click and drag to the given x, y coordinates. Useful in things like sliders, moving things around, etc.
+- The output of this command has the screenshot after doing this action. Use this to verify if the action was successful.
 """,
             ),
             ToolParam(
@@ -272,6 +273,8 @@ def loop(
 - Emulate keyboard input to the screen
 - Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
 - Do not use it to interact with Bash tool.
+- Make sure you've selected a text area or an editable element before sending text.
+- The output of this command has the screenshot after doing this action. Use this to verify if the action was successful.
 """,
             ),
         ]
