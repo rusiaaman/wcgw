@@ -245,9 +245,17 @@ class ComputerTool:
                 return self.shell(f"{self.xdotool} key -- {text}")
             elif action == "type":
                 results: list[ToolResult] = []
-                for chunk in chunks(text, TYPING_GROUP_SIZE):
-                    cmd = f"{self.xdotool} type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}"
-                    results.append(self.shell(cmd, take_screenshot=False))
+                all_lines = text.splitlines()
+                for i, line in enumerate(all_lines):
+                    for chunk in chunks(line, TYPING_GROUP_SIZE):
+                        cmd = f"{self.xdotool} type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}"
+                        results.append(self.shell(cmd, take_screenshot=False))
+                    if i < len(all_lines) - 1:
+                        results.append(
+                            self.shell(
+                                f"{self.xdotool} key Return", take_screenshot=False
+                            )
+                        )
                 screenshot_base64 = self.screenshot().base64_image
                 return ToolResult(
                     output="".join(result.output or "" for result in results),
@@ -343,8 +351,9 @@ class ComputerTool:
 
     def shell(self, command: str, take_screenshot: bool = True) -> ToolResult:
         """Run a shell command and return the output, error, and optionally a screenshot."""
+        escaped_command = shlex.quote(command)
         _, stdout, stderr = command_run(
-            f"docker exec {self.docker_image_id} sh -c '{command}'"
+            f"docker exec {self.docker_image_id} bash -c {escaped_command}",
         )
         base64_image = None
 
