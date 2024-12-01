@@ -6,12 +6,13 @@
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 
-# Updates
+## Updates
 
-[01 Dec 2024] Deprecated and removed chatgpt app support
-[26 Nov 2024] Introduced claude desktop support through mcp
+- [01 Dec 2024] Deprecated chatgpt app support
 
-### 🚀 Highlights
+- [26 Nov 2024] Introduced claude desktop support through mcp
+
+## 🚀 Highlights
 
 - ⚡ **Full Shell Access**: No restrictions, complete control.
 - ⚡ **Desktop control on Claude**: Screen capture, mouse control, keyboard control on claude desktop (on mac with docker linux)
@@ -44,7 +45,7 @@ Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude
 
 Then restart claude app.
 
-### [Optional] Computer use support using desktop on docker
+## [Optional] Computer use support using desktop on docker
 
 Computer use is disabled by default. Add `--computer-use` to enable it. This will add necessary tools to Claude including ScreenShot, Mouse and Keyboard control.
 
@@ -103,9 +104,9 @@ If you've run the docker for LLM to access, you can ask it to control the "docke
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
 
-# [Optional] Local shell access with openai API key or anthropic API key
+## [Optional] Local shell access with openai API key or anthropic API key
 
-## Openai
+### Openai
 
 Add `OPENAI_API_KEY` and `OPENAI_ORG_ID` env variables.
 
@@ -115,7 +116,7 @@ Then run
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
 
-## Anthropic
+### Anthropic
 
 Add `ANTHROPIC_API_KEY` env variable.
 
