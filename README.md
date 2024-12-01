@@ -1,6 +1,7 @@
-# Shell and Coding agent on Claude desktop app
+# Shell and Coding agent for Claude and Chatgpt
 
-- An MCP server on claude desktop for autonomous shell, coding and desktop control agent.
+- Claude - An MCP server on claude desktop for autonomous shell, coding and desktop control agent.
+- Chatgpt - Allows custom gpt to talk to your shell via a relay server. 
 
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
@@ -8,7 +9,7 @@
 
 ## Updates
 
-- [01 Dec 2024] Deprecated chatgpt app support
+- [01 Dec 2024] Removed author hosted relay server for chatgpt.
 
 - [26 Nov 2024] Introduced claude desktop support through mcp
 
@@ -20,7 +21,7 @@
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
-## Setup
+## Claude Setup
 
 Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
 
@@ -45,7 +46,7 @@ Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude
 
 Then restart claude app.
 
-## [Optional] Computer use support using desktop on docker
+### [Optional] Computer use support using desktop on docker
 
 Computer use is disabled by default. Add `--computer-use` to enable it. This will add necessary tools to Claude including ScreenShot, Mouse and Keyboard control.
 
@@ -94,7 +95,12 @@ Then ask claude to execute shell commands, read files, edit files, run your code
 
 If you've run the docker for LLM to access, you can ask it to control the "docker os". If you don't provide the docker container id to it, it'll try to search for available docker using `docker ps` command.
 
-## Example
+
+## Chatgpt Setup
+
+Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
+
+## Examples
 
 ### Computer use example
 
@@ -103,6 +109,7 @@ If you've run the docker for LLM to access, you can ask it to control the "docke
 ### Shell example
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
+
 
 ## [Optional] Local shell access with openai API key or anthropic API key
 
