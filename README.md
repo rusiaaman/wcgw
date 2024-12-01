@@ -1,30 +1,27 @@
-# Shell and Coding agent on Chatgpt and Claude desktop apps
+# Shell and Coding agent on Claude desktop app
 
 - An MCP server on claude desktop for autonomous shell, coding and desktop control agent.
-- A custom gpt on chatgpt web/desktop apps to interact with your local shell, edit files, run code, etc.
 
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 
-[New feature] [26-Nov-2024] Claude desktop support for shell, computer-control, coding agent.
-[src/wcgw/client/mcp_server/Readme.md](src/wcgw/client/mcp_server/Readme.md)
+# Updates
+
+[01 Dec 2024] Deprecated and removed chatgpt app support
+[26 Nov 2024] Introduced claude desktop support through mcp
 
 ### 🚀 Highlights
 
 - ⚡ **Full Shell Access**: No restrictions, complete control.
 - ⚡ **Desktop control on Claude**: Screen capture, mouse control, keyboard control on claude desktop (on mac with docker linux)
-- ⚡ **Create, Execute, Iterate**: Ask the gpt to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
+- ⚡ **Create, Execute, Iterate**: Ask claude to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
-## Claude
+## Setup
 
-Full readme [src/wcgw/client/mcp_server/Readme.md](src/wcgw/client/mcp_server/Readme.md)
-
-### Setup
-
-Update `claude_desktop_config.json`
+Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
 
 ```json
 {
@@ -46,95 +43,65 @@ Update `claude_desktop_config.json`
 ```
 
 Then restart claude app.
-You can then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
-## ChatGPT
+### [Optional] Computer use support using desktop on docker
 
-### 🪜 Steps:
+Computer use is disabled by default. Add `--computer-use` to enable it. This will add necessary tools to Claude including ScreenShot, Mouse and Keyboard control.
 
-1. Run the [cli client](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#client) in any directory of choice.
-2. Share the generated id with this GPT: `https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access`
-3. The custom GPT can now run any command on your cli
-
-### Client
-
-You need to keep running this client for GPT to access your shell. Run it in a version controlled project's root.
-
-#### Option 1: using uv [Recommended]
-
-```sh
-$ curl -LsSf https://astral.sh/uv/install.sh | sh
-$ uvx wcgw@latest
+```json
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "wcgw@latest",
+        "--python",
+        "3.12",
+        "wcgw_mcp",
+        "--computer-use"
+      ]
+    }
+  }
+}
 ```
 
-#### Option 2: using pip
+Claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
 
-Supports python >=3.10 and <3.13
+You'll need to run a docker image with desktop and optional VNC connection. Here's a demo image:
 
 ```sh
-$ pip3 install wcgw
-$ wcgw
+docker run -p 6080:6080 ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
 ```
 
-This will print a UUID that you need to share with the gpt.
+Then ask claude desktop app to control the docker os. It'll connect to the docker container and control it.
 
-### Chat
+Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker.
 
-Open the following link or search the "wcgw" custom gpt using "Explore GPTs" on chatgpt.com
+## Usage
 
-https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access
+Wait for a few seconds. You should be able to see this icon if everything goes right.
 
-Finally, let the chatgpt know your user id in any format. E.g., "user_id=<your uuid>" followed by rest of your instructions.
+![mcp icon](https://github.com/rusiaaman/wcgw/blob/main/static/rocket-icon.png?raw=true)
+over here
 
-NOTE: you can resume a broken connection
-`wcgw --client-uuid $previous_uuid`
+![mcp icon](https://github.com/rusiaaman/wcgw/blob/main/static/claude-ss.jpg?raw=true)
 
-### How it works on chatgpt app?
+Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
-Your commands are relayed through a server to the terminal client. [You could host the server on your own](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#creating-your-own-custom-gpt-and-the-relay-server). For public convenience I've hosted one at https://wcgw.arcfu.com thanks to the gcloud free tier plan.
+If you've run the docker for LLM to access, you can ask it to control the "docker os". If you don't provide the docker container id to it, it'll try to search for available docker using `docker ps` command.
 
-Chatgpt sends a request to the relay server using the user id that you share with it. The relay server holds a websocket with the terminal client against the user id and acts as a proxy to pass the request.
+## Example
 
-It's secure in both the directions. Either a malicious actor or a malicious Chatgpt has to correctly guess your UUID for any security breach.
+### Computer use example
 
-# Showcase
+![computer-use](https://github.com/rusiaaman/wcgw/blob/main/static/computer-use.jpg?raw=true)
 
-## Claude desktop
-
-### Resize image and move it to a new dir
+### Shell example
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
-
-## Chatgpt app
-
-### Unit tests and github actions
-
-[The first version of unit tests and github workflow to test on multiple python versions were written by the custom chatgpt](https://chatgpt.com/share/6717f922-8998-8005-b825-45d4b348b4dd)
-
-### Create a todo app using react + typescript + vite
-
-![Screenshot](https://github.com/rusiaaman/wcgw/blob/main/static/ss1.png?raw=true)
-
-# Privacy
-
-The relay server doesn't store any data. I can't access any information passing through it and only secure channels are used to communicate.
-
-You may host the server on your own and create a custom gpt using the following section.
-
-# Creating your own custom gpt and the relay server.
-
-I've used the following instructions and action json schema to create the custom GPT. (Replace wcgw.arcfu.com with the address to your server)
-
-https://github.com/rusiaaman/wcgw/blob/main/gpt_instructions.txt
-https://github.com/rusiaaman/wcgw/blob/main/gpt_action_json_schema.json
-
-Run the server
-`gunicorn --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:443 src.wcgw.relay.serve:app  --certfile fullchain.pem  --keyfile  privkey.pem`
-
-If you don't have public ip and domain name, you can use `ngrok` or similar services to get a https address to the api.
-
-The specify the server url in the `wcgw` command like so
-`wcgw --server-url https://your-url/v1/register`
 
 # [Optional] Local shell access with openai API key or anthropic API key
 

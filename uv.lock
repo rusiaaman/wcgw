@@ -343,8 +343,8 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.0.1.dev0"
-source = { git = "https://github.com/rusiaaman/python-sdk?rev=53b69f397eae6ac81a51b84b34ff52b3119f11cb#53b69f397eae6ac81a51b84b34ff52b3119f11cb" }
+version = "1.0.1.dev2"
+source = { directory = "../python-sdk" }
 dependencies = [
     { name = "anyio" },
     { name = "httpx" },
@@ -352,6 +352,24 @@ dependencies = [
     { name = "pydantic" },
     { name = "sse-starlette" },
     { name = "starlette" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anyio", specifier = ">=4.6" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "httpx-sse", specifier = ">=0.4" },
+    { name = "pydantic", specifier = ">=2.8.0" },
+    { name = "sse-starlette", specifier = ">=2.0" },
+    { name = "starlette", specifier = ">=0.39" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.378" },
+    { name = "pytest", specifier = ">=8.3.3" },
+    { name = "ruff", specifier = ">=0.6.9" },
+    { name = "trio", specifier = ">=0.26.2" },
 ]
 
 [[package]]
@@ -898,7 +916,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.39.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "mcp", git = "https://github.com/rusiaaman/python-sdk?rev=53b69f397eae6ac81a51b84b34ff52b3119f11cb" },
+    { name = "mcp", directory = "../python-sdk" },
     { name = "mypy", specifier = ">=1.11.2" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "openai", specifier = ">=1.46.0" },
