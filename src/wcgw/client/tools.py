@@ -929,9 +929,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
             client_version = importlib.metadata.version("wcgw")
             websocket.send(client_version)
 
-            print(
-                f"Connected. Share this user id with the chatbot: {client_uuid} \nLink: https://chatgpt.com/g/g-Us0AAXkRh-wcgw-giving-shell-access"
-            )
+            print(f"Connected. Share this user id with the chatbot: {client_uuid}")
             while True:
                 # Wait to receive data from the server
                 message = websocket.recv()
