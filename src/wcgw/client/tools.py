@@ -962,7 +962,7 @@ run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
 
 @run.command()
 def app(
-    server_url: str = "wss://wcgw.arcfu.com/v1/register",
+    server_url: str = "",
     client_uuid: Optional[str] = None,
     version: bool = typer.Option(False, "--version", "-v"),
 ) -> None:
@@ -970,7 +970,18 @@ def app(
         version_ = importlib.metadata.version("wcgw")
         print(f"wcgw version: {version_}")
         exit()
-
+    if not server_url:
+        server_url = os.environ.get("WCGW_RELAY_SERVER", "")
+        if not server_url:
+            print(
+                "Error: Please provide relay server url using --server_url or WCGW_RELAY_SERVER environment variable"
+            )
+            print(
+                "\tNOTE: you need to run a relay server first, author doesn't host a relay server anymore."
+            )
+            print("\thttps://github.com/rusiaaman/wcgw/blob/main/openai.md")
+            print("\tExample `--server-url=ws://localhost:8000/v1/register`")
+            raise typer.Exit(1)
     register_client(server_url, client_uuid or "")
 
 

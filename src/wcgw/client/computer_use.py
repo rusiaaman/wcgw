@@ -161,7 +161,7 @@ class ComputerTool:
         assert not result.error, result.error
         assert result.output, "Could not get screen info"
         width, height, display_num = map(
-            lambda x: None if not x else int(x), result.output.split(",")
+            lambda x: None if not x else int(x), result.output.strip().split(",")
         )
         if width is None:
             width = 1080
