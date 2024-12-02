@@ -18,6 +18,7 @@
 - ⚡ **Full Shell Access**: No restrictions, complete control.
 - ⚡ **Desktop control on Claude**: Screen capture, mouse control, keyboard control on claude desktop (on mac with docker linux)
 - ⚡ **Create, Execute, Iterate**: Ask claude to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
+- ⚡ **Large file edit**: Supports large file incremental edits to avoid token limit issues. Faster than full file write.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
