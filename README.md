@@ -38,6 +38,8 @@
 
 ## Claude Setup
 
+First install `uv` https://astral.sh/
+
 Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
 
 ```json
