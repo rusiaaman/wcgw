@@ -22,6 +22,20 @@
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
+## Top use cases examples
+- Solve problem X using python, create and run test cases and fix any issues. Do it in a temporary directory
+- Find instances of code with X behavior in my repository
+- Git clone https://github.com/my/repo in my home directory, then understand the project, set up the environment and build
+- Create a golang htmx tailwind webapp, then open browser to see if it works (use with puppeteer mcp)
+- Edit or update a large file
+- In a separate branch create feature Y, then use github cli to create a PR to original branch
+- Command X is failing in Y directory, please run and fix issues
+- Using X virtual environment run Y command
+- Using cli tools, create build and test an android app. Finally run it using emulator for me to use
+- Fix all mypy issues in my repo at X path.
+- Using 'screen' run my server in background instead, then run another api server in bg, finally run the frontend build. Keep checking logs for any issues in all three
+- Create repo wide unittest cases. Keep iterating through files and creating cases. Also keep running the tests after each update. Do not modify original code.
+
 ## Claude Setup
 
 Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
