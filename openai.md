@@ -4,8 +4,8 @@
 
 1. Run a relay server with a domain name and https support (or use ngrok) use the instructions in next section.
 2. Create a custom gpt that connects to the relay server, instructions in next sections.
-3. Run the [cli client](https://github.com/rusiaaman/wcgw?tab=readme-ov-file#client) in any directory of choice.
-4. The custom GPT can now run any command on your cli
+3. Run the client in any directory of choice. `uvx wcgw@latest`
+4. The custom GPT can now run any command on your terminal
 
 ## Creating the relay server
 
