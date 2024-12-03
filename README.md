@@ -1,7 +1,7 @@
 # Shell and Coding agent for Claude and Chatgpt
 
-- Claude - An MCP server on claude desktop for autonomous shell, coding and desktop control agent.
-- Chatgpt - Allows custom gpt to talk to your shell via a relay server. 
+- Claude - An MCP server on claude desktop for autonomous shell, coding and desktop control agent. (mac only)
+- Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux or mac)
 
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
@@ -38,9 +38,9 @@
 
 ## Claude Setup
 
-First install `uv` https://astral.sh/
+First install `uv` https://docs.astral.sh/uv/getting-started/installation/#installation-methods
 
-Update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
+Then update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
 
 ```json
 {
