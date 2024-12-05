@@ -107,7 +107,7 @@ PROMPT = PROMPT_CONST
 
 def start_shell() -> pexpect.spawn:  # type: ignore
     SHELL = pexpect.spawn(
-        "/bin/bash --noprofile --norc",
+        "/bin/bash",
         env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
         echo=False,
         encoding="utf-8",
