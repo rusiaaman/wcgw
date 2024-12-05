@@ -106,13 +106,27 @@ PROMPT = PROMPT_CONST
 
 
 def start_shell() -> pexpect.spawn:  # type: ignore
-    SHELL = pexpect.spawn(
-        "/bin/bash",
-        env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
-        echo=False,
-        encoding="utf-8",
-        timeout=TIMEOUT,
-    )
+    try:
+        SHELL = pexpect.spawn(
+            "/bin/bash",
+            env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
+            echo=False,
+            encoding="utf-8",
+            timeout=TIMEOUT,
+        )
+        SHELL.sendline(f"export PS1={PROMPT}")
+    except Exception as e:
+        traceback.print_exc()
+        console.log(f"Error starting shell: {e}. Retrying without rc ...")
+
+        SHELL = pexpect.spawn(
+            "/bin/bash --noprofile --norc",
+            env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
+            echo=False,
+            encoding="utf-8",
+            timeout=TIMEOUT,
+        )
+
     SHELL.expect(PROMPT, timeout=TIMEOUT)
     SHELL.sendline("stty -icanon -echo")
     SHELL.expect(PROMPT, timeout=TIMEOUT)
