@@ -143,26 +143,26 @@ def _is_int(mystr: str) -> bool:
         return False
 
 
-def _get_exit_code() -> int:
+def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
     if PROMPT != PROMPT_CONST:
         return 0
     # First reset the prompt in case venv was sourced or other reasons.
-    BASH_STATE.shell.sendline(f"export PS1={PROMPT}")
-    BASH_STATE.shell.expect(PROMPT, timeout=0.2)
+    shell.sendline(f"export PS1={PROMPT}")
+    shell.expect(PROMPT, timeout=0.2)
     # Reset echo also if it was enabled
-    BASH_STATE.shell.sendline("stty -icanon -echo")
-    BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-    BASH_STATE.shell.sendline("echo $?")
+    shell.sendline("stty -icanon -echo")
+    shell.expect(PROMPT, timeout=0.2)
+    shell.sendline("echo $?")
     before = ""
     while not _is_int(before):  # Consume all previous output
         try:
-            BASH_STATE.shell.expect(PROMPT, timeout=0.2)
+            shell.expect(PROMPT, timeout=0.2)
         except pexpect.TIMEOUT:
             print(f"Couldn't get exit code, before: {before}")
             raise
-        assert isinstance(BASH_STATE.shell.before, str)
+        assert isinstance(shell.before, str)
         # Render because there could be some anscii escape sequences still set like in google colab env
-        before = render_terminal_output(BASH_STATE.shell.before).strip()
+        before = render_terminal_output(shell.before).strip()
 
     try:
         return int((before))
@@ -182,6 +182,9 @@ class BashState:
         self._is_in_docker: Optional[str] = ""
         self._cwd: str = os.getcwd()
         self._shell = start_shell()
+
+        # Get exit info to ensure shell is ready
+        _get_exit_code(self._shell)
 
     @property
     def shell(self) -> pexpect.spawn:  # type: ignore
@@ -290,7 +293,7 @@ def get_status() -> str:
         status += "running for = " + BASH_STATE.get_pending_for() + "\n"
         status += "cwd = " + BASH_STATE.cwd + "\n"
     else:
-        exit_code = _get_exit_code()
+        exit_code = _get_exit_code(BASH_STATE.shell)
         status += f"status = exited with code {exit_code}\n"
         status += "cwd = " + BASH_STATE.update_cwd() + "\n"
 
