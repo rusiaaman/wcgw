@@ -1,6 +1,7 @@
 import asyncio
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import datetime
 from io import BytesIO
 import json
 import mimetypes
@@ -23,6 +24,7 @@ from typing import (
     TypedDict,
 )
 import uuid
+import humanize
 from pydantic import BaseModel, TypeAdapter
 import typer
 from .computer_use import run_computer_tool
@@ -107,19 +109,19 @@ PROMPT = PROMPT_CONST
 
 def start_shell() -> pexpect.spawn:  # type: ignore
     try:
-        SHELL = pexpect.spawn(
+        shell = pexpect.spawn(
             "/bin/bash",
             env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
         )
-        SHELL.sendline(f"export PS1={PROMPT}")
+        shell.sendline(f"export PS1={PROMPT}")
     except Exception as e:
         traceback.print_exc()
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
 
-        SHELL = pexpect.spawn(
+        shell = pexpect.spawn(
             "/bin/bash --noprofile --norc",
             env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
             echo=False,
@@ -127,13 +129,10 @@ def start_shell() -> pexpect.spawn:  # type: ignore
             timeout=TIMEOUT,
         )
 
-    SHELL.expect(PROMPT, timeout=TIMEOUT)
-    SHELL.sendline("stty -icanon -echo")
-    SHELL.expect(PROMPT, timeout=TIMEOUT)
-    return SHELL
-
-
-SHELL = start_shell()
+    shell.expect(PROMPT, timeout=TIMEOUT)
+    shell.sendline("stty -icanon -echo")
+    shell.expect(PROMPT, timeout=TIMEOUT)
+    return shell
 
 
 def _is_int(mystr: str) -> bool:
@@ -144,26 +143,26 @@ def _is_int(mystr: str) -> bool:
         return False
 
 
-def _get_exit_code() -> int:
+def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
     if PROMPT != PROMPT_CONST:
         return 0
     # First reset the prompt in case venv was sourced or other reasons.
-    SHELL.sendline(f"export PS1={PROMPT}")
-    SHELL.expect(PROMPT, timeout=0.2)
+    shell.sendline(f"export PS1={PROMPT}")
+    shell.expect(PROMPT, timeout=0.2)
     # Reset echo also if it was enabled
-    SHELL.sendline("stty -icanon -echo")
-    SHELL.expect(PROMPT, timeout=0.2)
-    SHELL.sendline("echo $?")
+    shell.sendline("stty -icanon -echo")
+    shell.expect(PROMPT, timeout=0.2)
+    shell.sendline("echo $?")
     before = ""
     while not _is_int(before):  # Consume all previous output
         try:
-            SHELL.expect(PROMPT, timeout=0.2)
+            shell.expect(PROMPT, timeout=0.2)
         except pexpect.TIMEOUT:
             print(f"Couldn't get exit code, before: {before}")
             raise
-        assert isinstance(SHELL.before, str)
+        assert isinstance(shell.before, str)
         # Render because there could be some anscii escape sequences still set like in google colab env
-        before = render_terminal_output(SHELL.before).strip()
+        before = render_terminal_output(shell.before).strip()
 
     try:
         return int((before))
@@ -172,9 +171,71 @@ def _get_exit_code() -> int:
 
 
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
-BASH_STATE: BASH_CLF_OUTPUT = "repl"
-IS_IN_DOCKER: Optional[str] = ""
-CWD = os.getcwd()
+
+
+class BashState:
+    def __init__(self) -> None:
+        self._init()
+
+    def _init(self) -> None:
+        self._state: Literal["repl"] | datetime.datetime = "repl"
+        self._is_in_docker: Optional[str] = ""
+        self._cwd: str = os.getcwd()
+        self._shell = start_shell()
+
+        # Get exit info to ensure shell is ready
+        _get_exit_code(self._shell)
+
+    @property
+    def shell(self) -> pexpect.spawn:  # type: ignore
+        return self._shell
+
+    def set_pending(self) -> None:
+        if not isinstance(self._state, datetime.datetime):
+            self._state = datetime.datetime.now()
+
+    def set_repl(self) -> None:
+        self._state = "repl"
+
+    @property
+    def state(self) -> BASH_CLF_OUTPUT:
+        if self._state == "repl":
+            return "repl"
+        return "pending"
+
+    @property
+    def is_in_docker(self) -> Optional[str]:
+        return self._is_in_docker
+
+    def set_in_docker(self, docker_image_id: str) -> None:
+        self._is_in_docker = docker_image_id
+
+    @property
+    def cwd(self) -> str:
+        return self._cwd
+
+    def update_cwd(self) -> str:
+        BASH_STATE.shell.sendline("pwd")
+        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
+        assert isinstance(BASH_STATE.shell.before, str)
+        current_dir = render_terminal_output(BASH_STATE.shell.before).strip()
+        self._cwd = current_dir
+        return current_dir
+
+    def reset(self) -> None:
+        self.shell.close(True)
+        self._init()
+
+    def get_pending_for(self) -> str:
+        if isinstance(self._state, datetime.datetime):
+            timedelta = datetime.datetime.now() - self._state
+            return humanize.naturaldelta(
+                timedelta + datetime.timedelta(seconds=TIMEOUT)
+            )
+        return "Not pending"
+
+
+BASH_STATE = BashState()
 
 
 def initial_info() -> str:
@@ -183,18 +244,13 @@ def initial_info() -> str:
     return f"""
 System: {uname_sysname}
 Machine: {uname_machine}
-Current working directory: {CWD}
+Current working directory: {BASH_STATE.cwd}
 wcgw version: {importlib.metadata.version("wcgw")}
 """
 
 
 def reset_shell() -> str:
-    global SHELL, BASH_STATE, CWD, IS_IN_DOCKER
-    SHELL.close(True)
-    SHELL = start_shell()
-    BASH_STATE = "repl"
-    IS_IN_DOCKER = ""
-    CWD = os.getcwd()
+    BASH_STATE.reset()
     return "Reset successful" + get_status()
 
 
@@ -209,11 +265,11 @@ WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run mul
 def update_repl_prompt(command: str) -> bool:
     global PROMPT
     if re.match(r"^wcgw_update_prompt\(\)$", command.strip()):
-        SHELL.sendintr()
-        index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
+        BASH_STATE.shell.sendintr()
+        index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
         if index == 0:
             return False
-        before = SHELL.before or ""
+        before = BASH_STATE.shell.before or ""
         assert before, "Something went wrong updating repl prompt"
         PROMPT = before.split("\n")[-1].strip()
         # Escape all regex
@@ -222,33 +278,24 @@ def update_repl_prompt(command: str) -> bool:
         index = 0
         while index == 0:
             # Consume all REPL prompts till now
-            index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
+            index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
         print(f"Prompt updated to: {PROMPT}")
         return True
     return False
 
 
-def get_cwd() -> str:
-    SHELL.sendline("pwd")
-    SHELL.expect(PROMPT, timeout=0.2)
-    assert isinstance(SHELL.before, str)
-    current_dir = render_terminal_output(SHELL.before).strip()
-    return current_dir
-
-
 def get_status() -> str:
-    global CWD
     exit_code: Optional[int] = None
 
     status = "\n\n---\n\n"
-    if BASH_STATE == "pending":
+    if BASH_STATE.state == "pending":
         status += "status = still running\n"
-        status += "cwd = " + CWD + "\n"
+        status += "running for = " + BASH_STATE.get_pending_for() + "\n"
+        status += "cwd = " + BASH_STATE.cwd + "\n"
     else:
-        exit_code = _get_exit_code()
+        exit_code = _get_exit_code(BASH_STATE.shell)
         status += f"status = exited with code {exit_code}\n"
-        CWD = get_cwd()
-        status += "cwd = " + CWD + "\n"
+        status += "cwd = " + BASH_STATE.update_cwd() + "\n"
 
     return status.rstrip()
 
@@ -259,13 +306,12 @@ def execute_bash(
     max_tokens: Optional[int],
     timeout_s: Optional[float],
 ) -> tuple[str, float]:
-    global SHELL, BASH_STATE, CWD
     try:
         is_interrupt = False
         if isinstance(bash_arg, BashCommand):
             updated_repl_mode = update_repl_prompt(bash_arg.command)
             if updated_repl_mode:
-                BASH_STATE = "repl"
+                BASH_STATE.set_repl()
                 response = (
                     "Prompt updated, you can execute REPL lines using BashCommand now"
                 )
@@ -276,7 +322,7 @@ def execute_bash(
                 )
 
             console.print(f"$ {bash_arg.command}")
-            if BASH_STATE == "pending":
+            if BASH_STATE.state == "pending":
                 raise ValueError(WAITING_INPUT_MESSAGE)
             command = bash_arg.command.strip()
 
@@ -285,7 +331,7 @@ def execute_bash(
                     "Command should not contain newline character in middle. Run only one command at a time."
                 )
 
-            SHELL.sendline(command)
+            BASH_STATE.shell.sendline(command)
 
         else:
             if (
@@ -306,29 +352,29 @@ def execute_bash(
                 console.print(f"Sending special sequence: {bash_arg.send_specials}")
                 for char in bash_arg.send_specials:
                     if char == "Key-up":
-                        SHELL.send("\033[A")
+                        BASH_STATE.shell.send("\033[A")
                     elif char == "Key-down":
-                        SHELL.send("\033[B")
+                        BASH_STATE.shell.send("\033[B")
                     elif char == "Key-left":
-                        SHELL.send("\033[D")
+                        BASH_STATE.shell.send("\033[D")
                     elif char == "Key-right":
-                        SHELL.send("\033[C")
+                        BASH_STATE.shell.send("\033[C")
                     elif char == "Enter":
-                        SHELL.send("\n")
+                        BASH_STATE.shell.send("\n")
                     elif char == "Ctrl-c":
-                        SHELL.sendintr()
+                        BASH_STATE.shell.sendintr()
                         is_interrupt = True
                     elif char == "Ctrl-d":
-                        SHELL.sendintr()
+                        BASH_STATE.shell.sendintr()
                         is_interrupt = True
                     elif char == "Ctrl-z":
-                        SHELL.send("\x1a")
+                        BASH_STATE.shell.send("\x1a")
                     else:
                         raise Exception(f"Unknown special character: {char}")
             elif bash_arg.send_ascii:
                 console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
                 for ascii_char in bash_arg.send_ascii:
-                    SHELL.send(chr(ascii_char))
+                    BASH_STATE.shell.send(chr(ascii_char))
                     if ascii_char == 3:
                         is_interrupt = True
             else:
@@ -340,7 +386,7 @@ def execute_bash(
 
                 updated_repl_mode = update_repl_prompt(bash_arg.send_text)
                 if updated_repl_mode:
-                    BASH_STATE = "repl"
+                    BASH_STATE.set_repl()
                     response = "Prompt updated, you can execute REPL lines using BashCommand now"
                     console.print(response)
                     return (
@@ -348,20 +394,18 @@ def execute_bash(
                         0,
                     )
                 console.print(f"Interact text: {bash_arg.send_text}")
-                SHELL.sendline(bash_arg.send_text)
-
-        BASH_STATE = "repl"
+                BASH_STATE.shell.sendline(bash_arg.send_text)
 
     except KeyboardInterrupt:
-        SHELL.sendintr()
-        SHELL.expect(PROMPT)
+        BASH_STATE.shell.sendintr()
+        BASH_STATE.shell.expect(PROMPT)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
     wait = timeout_s or TIMEOUT
-    index = SHELL.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
+    index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
-        BASH_STATE = "pending"
-        text = SHELL.before or ""
+        BASH_STATE.set_pending()
+        text = BASH_STATE.shell.before or ""
 
         text = render_terminal_output(text[-100_000:])
         tokens = enc.encode(text)
@@ -386,11 +430,13 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
 
         return text, 0
 
+    BASH_STATE.set_repl()
+
     if is_interrupt:
         return "Interrupt successful", 0.0
 
-    assert isinstance(SHELL.before, str)
-    output = render_terminal_output(SHELL.before)
+    assert isinstance(BASH_STATE.shell.before, str)
+    output = render_terminal_output(BASH_STATE.shell.before)
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
@@ -404,8 +450,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
         traceback.print_exc()
         console.print("Malformed output, restarting shell", style="red")
         # Malformed output, restart shell
-        SHELL.close(True)
-        SHELL = start_shell()
+        BASH_STATE.reset()
         output = "(exit shell has restarted)"
     return output, 0
 
@@ -449,8 +494,7 @@ T = TypeVar("T")
 
 def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
-        global BASH_STATE
-        if BASH_STATE == "pending":
+        if BASH_STATE.state == "pending":
             raise ValueError(WAITING_INPUT_MESSAGE)
 
         return func(*args, **kwargs)
@@ -460,9 +504,9 @@ def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
 
 def read_image_from_shell(file_path: str) -> ImageData:
     if not os.path.isabs(file_path):
-        file_path = os.path.join(CWD, file_path)
+        file_path = os.path.join(BASH_STATE.cwd, file_path)
 
-    if not IS_IN_DOCKER:
+    if not BASH_STATE.is_in_docker:
         if not os.path.exists(file_path):
             raise ValueError(f"File {file_path} does not exist")
 
@@ -473,7 +517,9 @@ def read_image_from_shell(file_path: str) -> ImageData:
             return ImageData(media_type=image_type, data=image_b64)  # type: ignore
     else:
         with TemporaryDirectory() as tmpdir:
-            rcode = os.system(f"docker cp {IS_IN_DOCKER}:{file_path} {tmpdir}")
+            rcode = os.system(
+                f"docker cp {BASH_STATE.is_in_docker}:{file_path} {tmpdir}"
+            )
             if rcode != 0:
                 raise Exception(f"Error: Read failed with code {rcode}")
             path_ = os.path.join(tmpdir, os.path.basename(file_path))
@@ -486,11 +532,11 @@ def read_image_from_shell(file_path: str) -> ImageData:
 
 def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
     if not os.path.isabs(writefile.file_path):
-        return f"Failure: file_path should be absolute path, current working directory is {CWD}"
+        return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
     else:
         path_ = writefile.file_path
 
-    if not IS_IN_DOCKER:
+    if not BASH_STATE.is_in_docker:
         if error_on_exist and os.path.exists(path_):
             file_data = Path(path_).read_text()
             if file_data:
@@ -508,7 +554,7 @@ def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
         if error_on_exist:
             # Check if it exists using os.system
             cmd = f"test -f {path_}"
-            status = os.system(f'docker exec {IS_IN_DOCKER} bash -c "{cmd}"')
+            status = os.system(f'docker exec {BASH_STATE.is_in_docker} bash -c "{cmd}"')
             if status == 0:
                 return f"Error: can't write to existing file {path_}, use other functions to edit the file"
 
@@ -518,11 +564,13 @@ def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
                 f.write(writefile.file_content)
             os.chmod(tmppath, 0o777)
             parent_dir = os.path.dirname(path_)
-            rcode = os.system(f"docker exec {IS_IN_DOCKER} mkdir -p {parent_dir}")
+            rcode = os.system(
+                f"docker exec {BASH_STATE.is_in_docker} mkdir -p {parent_dir}"
+            )
             if rcode != 0:
                 return f"Error: Write failed with code while creating dirs {rcode}"
 
-            rcode = os.system(f"docker cp {tmppath} {IS_IN_DOCKER}:{path_}")
+            rcode = os.system(f"docker cp {tmppath} {BASH_STATE.is_in_docker}:{path_}")
             if rcode != 0:
                 return f"Error: Write failed with code {rcode}"
 
@@ -599,12 +647,12 @@ def do_diff_edit(fedit: FileEdit) -> str:
 
     if not os.path.isabs(fedit.file_path):
         raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {CWD}"
+            f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
         )
     else:
         path_ = fedit.file_path
 
-    if not IS_IN_DOCKER:
+    if not BASH_STATE.is_in_docker:
         if not os.path.exists(path_):
             raise Exception(f"Error: file {path_} does not exist")
 
@@ -613,7 +661,7 @@ def do_diff_edit(fedit: FileEdit) -> str:
     else:
         # Copy from docker
         with TemporaryDirectory() as tmpdir:
-            rcode = os.system(f"docker cp {IS_IN_DOCKER}:{path_} {tmpdir}")
+            rcode = os.system(f"docker cp {BASH_STATE.is_in_docker}:{path_} {tmpdir}")
             if rcode != 0:
                 raise Exception(f"Error: Read failed with code {rcode}")
             path_tmp = os.path.join(tmpdir, os.path.basename(path_))
@@ -666,7 +714,7 @@ def do_diff_edit(fedit: FileEdit) -> str:
             "Error: no valid search-replace blocks found, please check your syntax for FileEdit"
         )
 
-    if not IS_IN_DOCKER:
+    if not BASH_STATE.is_in_docker:
         with open(path_, "w") as f:
             f.write(apply_diff_to)
     else:
@@ -676,7 +724,7 @@ def do_diff_edit(fedit: FileEdit) -> str:
                 f.write(apply_diff_to)
             os.chmod(path_tmp, 0o777)
             # Copy to docker using docker cp
-            rcode = os.system(f"docker cp {path_tmp} {IS_IN_DOCKER}:{path_}")
+            rcode = os.system(f"docker cp {path_tmp} {BASH_STATE.is_in_docker}:{path_}")
             if rcode != 0:
                 raise Exception(f"Error: Write failed with code {rcode}")
 
@@ -870,7 +918,7 @@ def get_tool_output(
         if imgBs64:
             console.print("Captured screenshot")
             outputs.append(ImageData(media_type="image/png", data=imgBs64))
-            if not IS_IN_DOCKER and isinstance(arg, GetScreenInfo):
+            if not BASH_STATE.is_in_docker and isinstance(arg, GetScreenInfo):
                 try:
                     # At this point we should go into the docker env
                     res, _ = execute_bash(
@@ -896,7 +944,7 @@ def get_tool_output(
                     raise Exception(
                         f"Some error happened while going inside docker. I've reset the shell. Please start again. Error {e}"
                     )
-                IS_IN_DOCKER = arg.docker_image_id
+                BASH_STATE.set_in_docker(arg.docker_image_id)
         return outputs, outputs_cost[1]
     else:
         raise ValueError(f"Unknown tool: {arg}")
@@ -1001,9 +1049,9 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
     console.print(f"Reading file: {readfile.file_path}")
 
     if not os.path.isabs(readfile.file_path):
-        return f"Failure: file_path should be absolute path, current working directory is {CWD}"
+        return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
 
-    if not IS_IN_DOCKER:
+    if not BASH_STATE.is_in_docker:
         path = Path(readfile.file_path)
         if not path.exists():
             return f"Error: file {readfile.file_path} does not exist"
