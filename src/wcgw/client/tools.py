@@ -244,7 +244,7 @@ def initial_info() -> str:
     return f"""
 System: {uname_sysname}
 Machine: {uname_machine}
-Current working directory: {BASH_STATE.shell}
+Current working directory: {BASH_STATE.cwd}
 wcgw version: {importlib.metadata.version("wcgw")}
 """
 
