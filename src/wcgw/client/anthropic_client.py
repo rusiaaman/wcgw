@@ -185,7 +185,7 @@ def loop(
 - Send send_specials=["Enter"] to recheck status of a running program.
 - Only one of send_text, send_specials, send_ascii should be provided.
 - This returns within 5 seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
-    - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again usign ["Enter"].
+    - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
 
 """,
         ),
@@ -246,7 +246,7 @@ def loop(
                 description="""
 - Capture screenshot of the linux os on docker.
 - All actions on UI using mouse and keyboard return within 0.5 seconds.
-    * So if you're doing something that takes longer for UI to update like heavy page loading, keep checking UI for update usign ScreenShot upto 10 turns. 
+    * So if you're doing something that takes longer for UI to update like heavy page loading, keep checking UI for update using ScreenShot upto 10 turns. 
     * Notice for smallest of the loading icons to check if your action worked.
     * After 10 turns of no change, ask user for permission to keep checking.
     * If you don't notice even slightest of the change, it's likely you clicked on the wrong place.
@@ -287,7 +287,8 @@ Instructions:
     - You should use the provided bash execution, reading and writing file tools to complete objective.
     - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
     - Always read relevant files before editing.
-    - Do not provide code snippets unless asked by the user, instead directly edit the code.
+    - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
+    - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
 
 System information:
     - System: {uname_sysname}

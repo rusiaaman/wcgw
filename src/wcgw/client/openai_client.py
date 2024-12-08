@@ -228,7 +228,8 @@ Instructions:
     - You should use the provided bash execution, reading and writing file tools to complete objective.
     - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
     - Always read relevant files before editing.
-    - Do not provide code snippets unless asked by the user, instead directly edit the code.
+    - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
+    - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
 
 System information:
     - System: {uname_sysname}
