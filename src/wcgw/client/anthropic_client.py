@@ -44,8 +44,6 @@ from .computer_use import Computer
 from .tools import (
     DoneFlag,
     get_tool_output,
-    SHELL,
-    start_shell,
     which_tool_name,
 )
 import tiktoken

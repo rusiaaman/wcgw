@@ -38,8 +38,6 @@ from .tools import ImageData
 from .tools import (
     DoneFlag,
     get_tool_output,
-    SHELL,
-    start_shell,
     which_tool,
 )
 import tiktoken
