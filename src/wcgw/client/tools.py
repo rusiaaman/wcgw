@@ -1061,7 +1061,8 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
 
     else:
         return_code, content, stderr = command_run(
-            f"cat {readfile.file_path}", timeout=TIMEOUT
+            f"docker exec {BASH_STATE.is_in_docker} cat {readfile.file_path}",
+            timeout=TIMEOUT,
         )
         if return_code != 0:
             raise Exception(
