@@ -7,6 +7,7 @@ import json
 import mimetypes
 from pathlib import Path
 import re
+import shlex
 import sys
 import threading
 import importlib.metadata
@@ -518,7 +519,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
     else:
         with TemporaryDirectory() as tmpdir:
             rcode = os.system(
-                f"docker cp {BASH_STATE.is_in_docker}:{file_path} {tmpdir}"
+                f"docker cp {BASH_STATE.is_in_docker}:{shlex.quote(file_path)} {tmpdir}"
             )
             if rcode != 0:
                 raise Exception(f"Error: Read failed with code {rcode}")
@@ -553,7 +554,7 @@ def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
     else:
         if error_on_exist:
             # Check if it exists using os.system
-            cmd = f"test -f {path_}"
+            cmd = f"test -f {shlex.quote(path_)}"
             status = os.system(f'docker exec {BASH_STATE.is_in_docker} bash -c "{cmd}"')
             if status == 0:
                 return f"Error: can't write to existing file {path_}, use other functions to edit the file"
@@ -570,7 +571,9 @@ def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
             if rcode != 0:
                 return f"Error: Write failed with code while creating dirs {rcode}"
 
-            rcode = os.system(f"docker cp {tmppath} {BASH_STATE.is_in_docker}:{path_}")
+            rcode = os.system(
+                f"docker cp {shlex.quote(tmppath)} {BASH_STATE.is_in_docker}:{shlex.quote(path_)}"
+            )
             if rcode != 0:
                 return f"Error: Write failed with code {rcode}"
 
@@ -661,7 +664,9 @@ def do_diff_edit(fedit: FileEdit) -> str:
     else:
         # Copy from docker
         with TemporaryDirectory() as tmpdir:
-            rcode = os.system(f"docker cp {BASH_STATE.is_in_docker}:{path_} {tmpdir}")
+            rcode = os.system(
+                f"docker cp {BASH_STATE.is_in_docker}:{shlex.quote(path_)} {tmpdir}"
+            )
             if rcode != 0:
                 raise Exception(f"Error: Read failed with code {rcode}")
             path_tmp = os.path.join(tmpdir, os.path.basename(path_))
@@ -724,7 +729,9 @@ def do_diff_edit(fedit: FileEdit) -> str:
                 f.write(apply_diff_to)
             os.chmod(path_tmp, 0o777)
             # Copy to docker using docker cp
-            rcode = os.system(f"docker cp {path_tmp} {BASH_STATE.is_in_docker}:{path_}")
+            rcode = os.system(
+                f"docker cp {shlex.quote(path_tmp)} {BASH_STATE.is_in_docker}:{shlex.quote(path_)}"
+            )
             if rcode != 0:
                 raise Exception(f"Error: Write failed with code {rcode}")
 
@@ -1061,7 +1068,7 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
 
     else:
         return_code, content, stderr = command_run(
-            f"docker exec {BASH_STATE.is_in_docker} cat {readfile.file_path}",
+            f"docker exec {BASH_STATE.is_in_docker} cat {shlex.quote(readfile.file_path)}",
             timeout=TIMEOUT,
         )
         if return_code != 0:
