@@ -133,7 +133,6 @@ class ComputerTool:
     """
 
     name: Literal["computer"] = "computer"
-    api_type: Literal["computer_20241022"] = "computer_20241022"
     width: Optional[int]
     height: Optional[int]
     display_num: Optional[int]

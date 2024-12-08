@@ -23,6 +23,7 @@
 - ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
 
 ## Top use cases examples
+
 - Solve problem X using python, create and run test cases and fix any issues. Do it in a temporary directory
 - Find instances of code with X behavior in my repository
 - Git clone https://github.com/my/repo in my home directory, then understand the project, set up the environment and build
@@ -63,6 +64,13 @@ Then update `claude_desktop_config.json` (~/Library/Application Support/Claude/c
 
 Then restart claude app.
 
+_If there's an error in setting up_
+
+- Make sure `uv` in the system PATH by running `uv --version` and also ensure `uv tool run wcgw --version` works globally.
+  Otherwise, re-install uv and follow instructions to add it into your .zshrc or .bashrc
+- If there's still an issue, check that `uv tool run --from wcgw@latest --python 3.12 wcgw_mcp` runs in your terminal. It should have no output and shouldn't exit.
+- Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
+
 ### [Optional] Computer use support using desktop on docker
 
 Computer use is disabled by default. Add `--computer-use` to enable it. This will add necessary tools to Claude including ScreenShot, Mouse and Keyboard control.
@@ -99,6 +107,12 @@ Then ask claude desktop app to control the docker os. It'll connect to the docke
 
 Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker.
 
+The following requirements should be installed and working in the linux docker image:
+
+1. Needs `xdotool` to execute commands on the desktop.
+2. Needs `scrot` to take screenshots.
+3. Needs `convert` from imagemagick to convert images.
+
 ## Usage
 
 Wait for a few seconds. You should be able to see this icon if everything goes right.
@@ -111,7 +125,6 @@ over here
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
 If you've run the docker for LLM to access, you can ask it to control the "docker os". If you don't provide the docker container id to it, it'll try to search for available docker using `docker ps` command.
-
 
 ## Chatgpt Setup
 
@@ -126,7 +139,6 @@ Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
 ### Shell example
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
-
 
 ## [Optional] Local shell access with openai API key or anthropic API key
 
