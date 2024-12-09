@@ -133,7 +133,7 @@ If you've run the docker for LLM to access, you can ask it to control the "docke
 https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw
 
 Commands: 
-- Select a text and press `cmd+/` and then enter instructions. This will switch the app to Claude and paste a text containing your instructions, file path, workspace dir, and the selected text.
+- Select a text and press `cmd+'` and then enter instructions. This will switch the app to Claude and paste a text containing your instructions, file path, workspace dir, and the selected text.
 
 ## Chatgpt Setup
 
