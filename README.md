@@ -9,6 +9,8 @@
 
 ## Updates
 
+- [9 Dec 2024] [Vscode extension to paste context on Claude app](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw)  
+
 - [01 Dec 2024] Removed author hosted relay server for chatgpt.
 
 - [26 Nov 2024] Introduced claude desktop support through mcp
@@ -113,7 +115,7 @@ The following requirements should be installed and working in the linux docker i
 2. Needs `scrot` to take screenshots.
 3. Needs `convert` from imagemagick to convert images.
 
-## Usage
+### Usage
 
 Wait for a few seconds. You should be able to see this icon if everything goes right.
 
@@ -125,6 +127,13 @@ over here
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
 If you've run the docker for LLM to access, you can ask it to control the "docker os". If you don't provide the docker container id to it, it'll try to search for available docker using `docker ps` command.
+
+
+### [Optional] Vs code extension 
+https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw
+
+Commands: 
+- Select a text and press `cmd+/` and then enter instructions. This will switch the app to Claude and paste a text containing your instructions, file path, workspace dir, and the selected text.
 
 ## Chatgpt Setup
 
