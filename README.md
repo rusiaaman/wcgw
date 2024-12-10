@@ -3,6 +3,9 @@
 - Claude - An MCP server on claude desktop for autonomous shell, coding and desktop control agent. (mac only)
 - Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux or mac)
 
+
+⚠️ Warning: do not use this repo if you aren't scared of "Autonomous shell command execution"
+
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
