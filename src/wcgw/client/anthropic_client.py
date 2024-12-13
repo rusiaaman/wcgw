@@ -495,7 +495,12 @@ System information:
                             )
                         else:
                             _histories.append(
-                                {"role": "assistant", "content": full_response}
+                                {
+                                    "role": "assistant",
+                                    "content": full_response
+                                    if full_response.strip()
+                                    else "...",
+                                }  # Fixes anthropic issue of non empty response only
                             )
 
         except KeyboardInterrupt:
