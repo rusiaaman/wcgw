@@ -23,7 +23,7 @@ import uuid
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    CreateNewFile,
     FileEdit,
     ReadImage,
     ReadFile,
@@ -195,7 +195,7 @@ def loop(
 """,
         ),
         openai.pydantic_function_tool(
-            CreateFileNew,
+            CreateNewFile,
             description="""
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.

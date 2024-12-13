@@ -55,7 +55,7 @@ from nltk.metrics.distance import edit_distance  # type: ignore[import-untyped]
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    CreateNewFile,
     FileEditFindReplace,
     FileEdit,
     Initialize,
@@ -531,7 +531,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
             return ImageData(media_type=image_type, data=image_b64)  # type: ignore
 
 
-def write_file(writefile: CreateFileNew, error_on_exist: bool) -> str:
+def write_file(writefile: CreateNewFile, error_on_exist: bool) -> str:
     if not os.path.isabs(writefile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
     else:
@@ -765,7 +765,7 @@ TOOLS = (
     | BashCommand
     | BashInteraction
     | ResetShell
-    | CreateFileNew
+    | CreateNewFile
     | FileEditFindReplace
     | FileEdit
     | AIAssistant
@@ -794,8 +794,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return BashInteraction
     elif name == "ResetShell":
         return ResetShell
-    elif name == "CreateFileNew":
-        return CreateFileNew
+    elif name == "CreateNewFile":
+        return CreateNewFile
     elif name == "FileEditFindReplace":
         return FileEditFindReplace
     elif name == "FileEdit":
@@ -828,7 +828,7 @@ def get_tool_output(
     | BashCommand
     | BashInteraction
     | ResetShell
-    | CreateFileNew
+    | CreateNewFile
     | FileEditFindReplace
     | FileEdit
     | AIAssistant
@@ -852,7 +852,7 @@ def get_tool_output(
             | BashCommand
             | BashInteraction
             | ResetShell
-            | CreateFileNew
+            | CreateNewFile
             | FileEditFindReplace
             | FileEdit
             | AIAssistant
@@ -869,7 +869,7 @@ def get_tool_output(
             | BashCommand
             | BashInteraction
             | ResetShell
-            | CreateFileNew
+            | CreateNewFile
             | FileEditFindReplace
             | FileEdit
             | AIAssistant
@@ -892,7 +892,7 @@ def get_tool_output(
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
         output = execute_bash(enc, arg, max_tokens, None)
-    elif isinstance(arg, CreateFileNew):
+    elif isinstance(arg, CreateNewFile):
         console.print("Calling write file tool")
         output = write_file(arg, True), 0
     elif isinstance(arg, FileEdit):
@@ -974,7 +974,7 @@ class Mdata(BaseModel):
     data: (
         BashCommand
         | BashInteraction
-        | CreateFileNew
+        | CreateNewFile
         | ResetShell
         | FileEditFindReplace
         | FileEdit

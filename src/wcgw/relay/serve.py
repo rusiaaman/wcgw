@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    CreateNewFile,
     FileEditFindReplace,
     FileEdit,
     Initialize,
@@ -31,7 +31,7 @@ class Mdata(BaseModel):
     data: (
         BashCommand
         | BashInteraction
-        | CreateFileNew
+        | CreateNewFile
         | ResetShell
         | FileEditFindReplace
         | FileEdit
@@ -99,7 +99,7 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         print(f"Client {uuid} disconnected")
 
 
-class CreateFileNewWithUUID(CreateFileNew):
+class CreateFileNewWithUUID(CreateNewFile):
     user_id: UUID
 
 

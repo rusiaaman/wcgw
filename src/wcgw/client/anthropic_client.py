@@ -24,7 +24,7 @@ import uuid
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    CreateNewFile,
     FileEditFindReplace,
     FileEdit,
     Keyboard,
@@ -198,8 +198,8 @@ def loop(
 """,
         ),
         ToolParam(
-            input_schema=CreateFileNew.model_json_schema(),
-            name="CreateFileNew",
+            input_schema=CreateNewFile.model_json_schema(),
+            name="CreateNewFile",
             description="""
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.

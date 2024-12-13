@@ -17,7 +17,7 @@ from ..tools import DoneFlag, get_tool_output, which_tool_name, default_enc
 from ...types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    CreateNewFile,
     FileEdit,
     Keyboard,
     Mouse,
@@ -117,8 +117,8 @@ async def handle_list_tools() -> list[types.Tool]:
 """,
         ),
         ToolParam(
-            inputSchema=CreateFileNew.model_json_schema(),
-            name="CreateFileNew",
+            inputSchema=CreateNewFile.model_json_schema(),
+            name="CreateNewFile",
             description="""
 - Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.
