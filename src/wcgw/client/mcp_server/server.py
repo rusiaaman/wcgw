@@ -17,7 +17,7 @@ from ..tools import DoneFlag, get_tool_output, which_tool_name, default_enc
 from ...types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    WriteIfEmpty,
     FileEdit,
     Keyboard,
     Mouse,
@@ -117,10 +117,10 @@ async def handle_list_tools() -> list[types.Tool]:
 """,
         ),
         ToolParam(
-            inputSchema=CreateFileNew.model_json_schema(),
-            name="CreateFileNew",
+            inputSchema=WriteIfEmpty.model_json_schema(),
+            name="WriteIfEmpty",
             description="""
-- Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
+- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.
 - For editing existing files, use FileEdit instead of this tool.
 """,

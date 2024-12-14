@@ -24,7 +24,7 @@ import uuid
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    WriteIfEmpty,
     FileEditFindReplace,
     FileEdit,
     Keyboard,
@@ -198,10 +198,10 @@ def loop(
 """,
         ),
         ToolParam(
-            input_schema=CreateFileNew.model_json_schema(),
-            name="CreateFileNew",
+            input_schema=WriteIfEmpty.model_json_schema(),
+            name="WriteIfEmpty",
             description="""
-- Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
+- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.
 - For editing existing files, use FileEdit instead of this tool.
 """,
@@ -495,7 +495,12 @@ System information:
                             )
                         else:
                             _histories.append(
-                                {"role": "assistant", "content": full_response}
+                                {
+                                    "role": "assistant",
+                                    "content": full_response
+                                    if full_response.strip()
+                                    else "...",
+                                }  # Fixes anthropic issue of non empty response only
                             )
 
         except KeyboardInterrupt:

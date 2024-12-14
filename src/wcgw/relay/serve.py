@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateFileNew,
+    WriteIfEmpty,
     FileEditFindReplace,
     FileEdit,
     Initialize,
@@ -31,7 +31,7 @@ class Mdata(BaseModel):
     data: (
         BashCommand
         | BashInteraction
-        | CreateFileNew
+        | WriteIfEmpty
         | ResetShell
         | FileEditFindReplace
         | FileEdit
@@ -99,12 +99,12 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         print(f"Client {uuid} disconnected")
 
 
-class CreateFileNewWithUUID(CreateFileNew):
+class WriteIfEmptyWithUUID(WriteIfEmpty):
     user_id: UUID
 
 
 @app.post("/v1/create_file")
-async def create_file(write_file_data: CreateFileNewWithUUID) -> str:
+async def create_file(write_file_data: WriteIfEmptyWithUUID) -> str:
     user_id = write_file_data.user_id
     if user_id not in clients:
         return "Failure: id not found, ask the user to check it."

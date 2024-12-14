@@ -1,13 +1,12 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "2.1.2"
+version = "2.2.0"
 description = "Shell and coding agent on claude and chatgpt"
 readme = "README.md"
 requires-python = ">=3.11, <3.13"
 dependencies = [
     "openai>=1.46.0",
-    "mypy>=1.11.2",
     "typer>=0.12.5",
     "rich>=13.8.1",
     "python-dotenv>=1.0.1",

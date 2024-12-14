@@ -24,7 +24,7 @@ class ReadImage(BaseModel):
     type: Literal["ReadImage"]
 
 
-class CreateFileNew(BaseModel):
+class WriteIfEmpty(BaseModel):
     file_path: str
     file_content: str
 

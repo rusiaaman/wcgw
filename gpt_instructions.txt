@@ -24,8 +24,8 @@ Instructions for `Read File`
 - Read full content of a file.
 - Provide absolute file path only.
 
-Instructions for `Create File New`
-- Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
+Instructions for `Write if Empty`
+- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.
 - For editing existing files, use FileEdit.
 

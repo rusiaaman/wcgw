@@ -19,7 +19,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateFileNewWithUUID"
+                "$ref": "#/components/schemas/WriteIfEmptyWithUUID"
               }
             }
           },
@@ -384,7 +384,7 @@
         ],
         "title": "CommandWithUUID"
       },
-      "CreateFileNewWithUUID": {
+      "WriteIfEmptyWithUUID": {
         "properties": {
           "file_path": {
             "type": "string",
@@ -406,7 +406,7 @@
           "file_content",
           "user_id"
         ],
-        "title": "CreateFileNewWithUUID"
+        "title": "WriteIfEmptyWithUUID"
       },
       "FileEditWithUUID": {
         "properties": {
