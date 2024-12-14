@@ -24,7 +24,7 @@ import uuid
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateNewFile,
+    WriteIfEmpty,
     FileEditFindReplace,
     FileEdit,
     Keyboard,
@@ -198,10 +198,10 @@ def loop(
 """,
         ),
         ToolParam(
-            input_schema=CreateNewFile.model_json_schema(),
-            name="CreateNewFile",
+            input_schema=WriteIfEmpty.model_json_schema(),
+            name="WriteIfEmpty",
             description="""
-- Write content to a new file. Provide file path and content. Use this instead of BashCommand for writing new files.
+- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.
 - For editing existing files, use FileEdit instead of this tool.
 """,

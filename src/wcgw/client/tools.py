@@ -55,7 +55,7 @@ from nltk.metrics.distance import edit_distance  # type: ignore[import-untyped]
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    CreateNewFile,
+    WriteIfEmpty,
     FileEditFindReplace,
     FileEdit,
     Initialize,
@@ -531,7 +531,7 @@ def read_image_from_shell(file_path: str) -> ImageData:
             return ImageData(media_type=image_type, data=image_b64)  # type: ignore
 
 
-def write_file(writefile: CreateNewFile, error_on_exist: bool) -> str:
+def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
     if not os.path.isabs(writefile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
     else:
@@ -620,7 +620,7 @@ def find_least_edit_distance_substring(
                 + 1
             )
             min_edit_distance_lines = orig_content_lines[
-                orig_start_index:orig_end_index
+                max(0, orig_start_index - 10) : (orig_end_index + 10)
             ]
     return "\n".join(min_edit_distance_lines), min_edit_distance
 
@@ -638,7 +638,9 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
                 f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
             )
         raise Exception(
-            f"Error: no match found for the provided `find_lines` in the file. Closest match:\n---\n{closest_match}\n---\nFile not edited"
+            f"""Error: no match found for the provided search block.
+                Requested search block: \n```\n{find_lines}\n```
+                Possible relevant section in the file:\n---\n```\n{closest_match}\n```\n---\nFile not edited"""
         )
 
     content = content.replace(find_lines, replace_with_lines, 1)
@@ -765,7 +767,7 @@ TOOLS = (
     | BashCommand
     | BashInteraction
     | ResetShell
-    | CreateNewFile
+    | WriteIfEmpty
     | FileEditFindReplace
     | FileEdit
     | AIAssistant
@@ -794,8 +796,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return BashInteraction
     elif name == "ResetShell":
         return ResetShell
-    elif name == "CreateNewFile":
-        return CreateNewFile
+    elif name == "WriteIfEmpty":
+        return WriteIfEmpty
     elif name == "FileEditFindReplace":
         return FileEditFindReplace
     elif name == "FileEdit":
@@ -828,7 +830,7 @@ def get_tool_output(
     | BashCommand
     | BashInteraction
     | ResetShell
-    | CreateNewFile
+    | WriteIfEmpty
     | FileEditFindReplace
     | FileEdit
     | AIAssistant
@@ -852,7 +854,7 @@ def get_tool_output(
             | BashCommand
             | BashInteraction
             | ResetShell
-            | CreateNewFile
+            | WriteIfEmpty
             | FileEditFindReplace
             | FileEdit
             | AIAssistant
@@ -869,7 +871,7 @@ def get_tool_output(
             | BashCommand
             | BashInteraction
             | ResetShell
-            | CreateNewFile
+            | WriteIfEmpty
             | FileEditFindReplace
             | FileEdit
             | AIAssistant
@@ -892,7 +894,7 @@ def get_tool_output(
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
         output = execute_bash(enc, arg, max_tokens, None)
-    elif isinstance(arg, CreateNewFile):
+    elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
         output = write_file(arg, True), 0
     elif isinstance(arg, FileEdit):
@@ -915,6 +917,8 @@ def get_tool_output(
         output = reset_shell(), 0.0
     elif isinstance(arg, Initialize):
         console.print("Calling initial info tool")
+        # First force reset
+        reset_shell()
         output = initial_info(), 0.0
     elif isinstance(arg, (Mouse, Keyboard, ScreenShot, GetScreenInfo)):
         console.print(f"Calling {type(arg).__name__} tool")
@@ -974,7 +978,7 @@ class Mdata(BaseModel):
     data: (
         BashCommand
         | BashInteraction
-        | CreateNewFile
+        | WriteIfEmpty
         | ResetShell
         | FileEditFindReplace
         | FileEdit

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 from src.wcgw.client.tools import render_terminal_output, ask_confirmation, Confirmation
-from src.wcgw.types_ import CreateNewFile
+from src.wcgw.types_ import WriteIfEmpty
 
 
 class TestTools(unittest.TestCase):
@@ -32,7 +32,7 @@ class TestTools(unittest.TestCase):
 
     def test_writefile_model(self):
         # Test the Writefile Pydantic model
-        file = CreateNewFile(file_path="test.txt", file_content="This is a test.")
+        file = WriteIfEmpty(file_path="test.txt", file_content="This is a test.")
         self.assertEqual(file.file_path, "test.txt")
         self.assertEqual(file.file_content, "This is a test.")
 
