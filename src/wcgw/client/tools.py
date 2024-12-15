@@ -538,7 +538,11 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
         path_ = writefile.file_path
 
     error_on_exist = (
-        not (isinstance(LAST_TOOL_CALL, FileEdit) and LAST_TOOL_CALL.file_path == path_)
+        not (
+            len(TOOL_CALLS) > 1
+            and isinstance(TOOL_CALLS[-2], FileEdit)
+            and TOOL_CALLS[-2].file_path == path_
+        )
         and error_on_exist
     )
 
@@ -849,7 +853,7 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         raise ValueError(f"Unknown tool name: {name}")
 
 
-LAST_TOOL_CALL: Optional[TOOLS] = None
+TOOL_CALLS: list[TOOLS] = []
 
 
 def get_tool_output(
@@ -859,14 +863,14 @@ def get_tool_output(
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
-    global IS_IN_DOCKER, LAST_TOOL_CALL
+    global IS_IN_DOCKER, TOOL_CALLS
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS)
         arg = adapter.validate_python(args)
     else:
         arg = args
     output: tuple[str | DoneFlag | ImageData, float]
-    LAST_TOOL_CALL = arg
+    TOOL_CALLS.append(arg)
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
