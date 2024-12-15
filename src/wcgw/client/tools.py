@@ -537,6 +537,11 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
     else:
         path_ = writefile.file_path
 
+    error_on_exist = (
+        not (isinstance(LAST_TOOL_CALL, FileEdit) and LAST_TOOL_CALL.file_path == path_)
+        and error_on_exist
+    )
+
     if not BASH_STATE.is_in_docker:
         if error_on_exist and os.path.exists(path_):
             file_data = Path(path_).read_text()
@@ -826,70 +831,24 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         raise ValueError(f"Unknown tool name: {name}")
 
 
+LAST_TOOL_CALL: Optional[TOOLS] = None
+
+
 def get_tool_output(
-    args: dict[object, object]
-    | Confirmation
-    | BashCommand
-    | BashInteraction
-    | ResetShell
-    | WriteIfEmpty
-    | FileEditFindReplace
-    | FileEdit
-    | AIAssistant
-    | DoneFlag
-    | ReadImage
-    | Initialize
-    | ReadFile
-    | Mouse
-    | Keyboard
-    | ScreenShot
-    | GetScreenInfo,
+    args: dict[object, object] | TOOLS,
     enc: tiktoken.Encoding,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
-    global IS_IN_DOCKER
+    global IS_IN_DOCKER, LAST_TOOL_CALL
     if isinstance(args, dict):
-        adapter = TypeAdapter[
-            Confirmation
-            | BashCommand
-            | BashInteraction
-            | ResetShell
-            | WriteIfEmpty
-            | FileEditFindReplace
-            | FileEdit
-            | AIAssistant
-            | DoneFlag
-            | ReadImage
-            | ReadFile
-            | Initialize
-            | Mouse
-            | Keyboard
-            | ScreenShot
-            | GetScreenInfo,
-        ](
-            Confirmation
-            | BashCommand
-            | BashInteraction
-            | ResetShell
-            | WriteIfEmpty
-            | FileEditFindReplace
-            | FileEdit
-            | AIAssistant
-            | DoneFlag
-            | ReadImage
-            | ReadFile
-            | Initialize
-            | Mouse
-            | Keyboard
-            | ScreenShot
-            | GetScreenInfo
-        )
+        adapter = TypeAdapter[TOOLS](TOOLS)
         arg = adapter.validate_python(args)
     else:
         arg = args
     output: tuple[str | DoneFlag | ImageData, float]
+    LAST_TOOL_CALL = arg
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
