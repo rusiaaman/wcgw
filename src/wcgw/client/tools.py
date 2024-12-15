@@ -603,7 +603,7 @@ def find_least_edit_distance_substring(
     content_lines = new_content_lines
     find_lines = find_str.split("\n")
     find_lines = [
-        line.strip() for line in find_lines
+        line.strip() for line in find_lines if line.strip()
     ]  # Remove trailing and leading space for calculating edit distance
     # Slide window and find one with sum of edit distance least
     min_edit_distance = float("inf")
@@ -646,7 +646,7 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
             f"""Error: no match found for the provided search block.
                 Requested search block: \n```\n{find_lines}\n```
                 Possible relevant section in the file:\n---\n```\n{closest_match}\n```\n---\nFile not edited
-            \nPlease retry with exact search.    
+            \nPlease retry with exact search. Re-read the file if unsure.
             """
         )
 
@@ -655,6 +655,24 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
 
 
 def do_diff_edit(fedit: FileEdit) -> str:
+    try:
+        return _do_diff_edit(fedit)
+    except Exception as e:
+        # Try replacing \"
+        try:
+            fedit = FileEdit(
+                file_path=fedit.file_path,
+                file_edit_using_search_replace_blocks=fedit.file_edit_using_search_replace_blocks.replace(
+                    '\\"', '"'
+                ),
+            )
+            return _do_diff_edit(fedit)
+        except Exception:
+            pass
+        raise e
+
+
+def _do_diff_edit(fedit: FileEdit) -> str:
     console.log(f"Editing file: {fedit.file_path}")
 
     if not os.path.isabs(fedit.file_path):
