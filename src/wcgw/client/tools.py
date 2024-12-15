@@ -640,7 +640,9 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
         raise Exception(
             f"""Error: no match found for the provided search block.
                 Requested search block: \n```\n{find_lines}\n```
-                Possible relevant section in the file:\n---\n```\n{closest_match}\n```\n---\nFile not edited"""
+                Possible relevant section in the file:\n---\n```\n{closest_match}\n```\n---\nFile not edited
+            \nPlease retry with exact search.    
+            """
         )
 
     content = content.replace(find_lines, replace_with_lines, 1)
