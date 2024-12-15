@@ -24,8 +24,8 @@ dependencies = [
     "semantic-version>=2.10.0",
     "nltk>=3.9.1",
     "anthropic>=0.39.0",
-    "mcp",
     "humanize>=4.11.0",
+    "mcp",
 ]
 
 [project.urls]
@@ -51,4 +51,4 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-mcp = { git = "https://github.com/rusiaaman/python-sdk", rev = "53b69f397eae6ac81a51b84b34ff52b3119f11cb" }
+mcp = { git = "https://github.com/rusiaaman/python-sdk" }

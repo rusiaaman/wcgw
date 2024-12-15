@@ -885,7 +885,7 @@ def get_tool_output(
         output = ask_confirmation(arg), 0.0
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
-        output = execute_bash(enc, arg, max_tokens, None)
+        output = execute_bash(enc, arg, max_tokens, arg.wait_for_seconds)
     elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
         output = write_file(arg, True), 0
