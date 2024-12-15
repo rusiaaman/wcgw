@@ -537,6 +537,15 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
     else:
         path_ = writefile.file_path
 
+    error_on_exist = (
+        not (
+            len(TOOL_CALLS) > 1
+            and isinstance(TOOL_CALLS[-2], FileEdit)
+            and TOOL_CALLS[-2].file_path == path_
+        )
+        and error_on_exist
+    )
+
     if not BASH_STATE.is_in_docker:
         if error_on_exist and os.path.exists(path_):
             file_data = Path(path_).read_text()
@@ -598,7 +607,7 @@ def find_least_edit_distance_substring(
     content_lines = new_content_lines
     find_lines = find_str.split("\n")
     find_lines = [
-        line.strip() for line in find_lines
+        line.strip() for line in find_lines if line.strip()
     ]  # Remove trailing and leading space for calculating edit distance
     # Slide window and find one with sum of edit distance least
     min_edit_distance = float("inf")
@@ -640,7 +649,9 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
         raise Exception(
             f"""Error: no match found for the provided search block.
                 Requested search block: \n```\n{find_lines}\n```
-                Possible relevant section in the file:\n---\n```\n{closest_match}\n```\n---\nFile not edited"""
+                Possible relevant section in the file:\n---\n```\n{closest_match}\n```\n---\nFile not edited
+            \nPlease retry with exact search. Re-read the file if unsure.
+            """
         )
 
     content = content.replace(find_lines, replace_with_lines, 1)
@@ -648,6 +659,24 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
 
 
 def do_diff_edit(fedit: FileEdit) -> str:
+    try:
+        return _do_diff_edit(fedit)
+    except Exception as e:
+        # Try replacing \"
+        try:
+            fedit = FileEdit(
+                file_path=fedit.file_path,
+                file_edit_using_search_replace_blocks=fedit.file_edit_using_search_replace_blocks.replace(
+                    '\\"', '"'
+                ),
+            )
+            return _do_diff_edit(fedit)
+        except Exception:
+            pass
+        raise e
+
+
+def _do_diff_edit(fedit: FileEdit) -> str:
     console.log(f"Editing file: {fedit.file_path}")
 
     if not os.path.isabs(fedit.file_path):
@@ -824,70 +853,24 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         raise ValueError(f"Unknown tool name: {name}")
 
 
+TOOL_CALLS: list[TOOLS] = []
+
+
 def get_tool_output(
-    args: dict[object, object]
-    | Confirmation
-    | BashCommand
-    | BashInteraction
-    | ResetShell
-    | WriteIfEmpty
-    | FileEditFindReplace
-    | FileEdit
-    | AIAssistant
-    | DoneFlag
-    | ReadImage
-    | Initialize
-    | ReadFile
-    | Mouse
-    | Keyboard
-    | ScreenShot
-    | GetScreenInfo,
+    args: dict[object, object] | TOOLS,
     enc: tiktoken.Encoding,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
-    global IS_IN_DOCKER
+    global IS_IN_DOCKER, TOOL_CALLS
     if isinstance(args, dict):
-        adapter = TypeAdapter[
-            Confirmation
-            | BashCommand
-            | BashInteraction
-            | ResetShell
-            | WriteIfEmpty
-            | FileEditFindReplace
-            | FileEdit
-            | AIAssistant
-            | DoneFlag
-            | ReadImage
-            | ReadFile
-            | Initialize
-            | Mouse
-            | Keyboard
-            | ScreenShot
-            | GetScreenInfo,
-        ](
-            Confirmation
-            | BashCommand
-            | BashInteraction
-            | ResetShell
-            | WriteIfEmpty
-            | FileEditFindReplace
-            | FileEdit
-            | AIAssistant
-            | DoneFlag
-            | ReadImage
-            | ReadFile
-            | Initialize
-            | Mouse
-            | Keyboard
-            | ScreenShot
-            | GetScreenInfo
-        )
+        adapter = TypeAdapter[TOOLS](TOOLS)
         arg = adapter.validate_python(args)
     else:
         arg = args
     output: tuple[str | DoneFlag | ImageData, float]
+    TOOL_CALLS.append(arg)
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0

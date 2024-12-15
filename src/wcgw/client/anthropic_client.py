@@ -186,7 +186,7 @@ def loop(
 - Only one of send_text, send_specials, send_ascii should be provided.
 - This returns within 5 seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
     - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
-
+    - Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
 """,
         ),
         ToolParam(
@@ -222,6 +222,7 @@ def loop(
             description="""
 - Use absolute file path only.
 - Use SEARCH/REPLACE blocks to edit the file.
+- If the edit fails due to block not matching, please retry with correct block till it matches. Re-read the file to ensure you've all the lines correct.
 """,
         ),
     ]
