@@ -42,7 +42,7 @@ import rich
 import pyte
 from dotenv import load_dotenv
 
-import openai
+from syntax_checker import check_syntax
 from openai import OpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
@@ -586,7 +586,26 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
             if rcode != 0:
                 return f"Error: Write failed with code {rcode}"
 
+    extension = Path(path_).suffix.lstrip(".")
+
     console.print(f"File written to {path_}")
+
+    syntax_errors = ""
+    try:
+        check = check_syntax(extension, writefile.file_content)
+        syntax_errors = check.description
+        if syntax_errors:
+            console.print(f"W: Syntax errors encountered: {syntax_errors}")
+            return f"""Wrote file succesfully.
+---
+However, tree-sitter reported syntax errors, please re-read the file and fix if any errors. 
+Errors:
+{syntax_errors}
+            """
+
+    except Exception:
+        pass
+
     return "Success"
 
 
@@ -774,6 +793,22 @@ def _do_diff_edit(fedit: FileEdit) -> str:
             )
             if rcode != 0:
                 raise Exception(f"Error: Write failed with code {rcode}")
+
+    syntax_errors = ""
+    extension = Path(path_).suffix.lstrip(".")
+    try:
+        check = check_syntax(extension, apply_diff_to)
+        syntax_errors = check.description
+        if syntax_errors:
+            console.print(f"W: Syntax errors encountered: {syntax_errors}")
+            return f"""Wrote file succesfully.
+---
+However, tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
+Errors:
+{syntax_errors}
+            """
+    except Exception:
+        pass
 
     return "Success"
 
