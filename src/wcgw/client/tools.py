@@ -183,6 +183,7 @@ class BashState:
         self._is_in_docker: Optional[str] = ""
         self._cwd: str = os.getcwd()
         self._shell = start_shell()
+        self._whitelist_for_overwrite: set[str] = set()
 
         # Get exit info to ensure shell is ready
         _get_exit_code(self._shell)
@@ -234,6 +235,13 @@ class BashState:
                 timedelta + datetime.timedelta(seconds=TIMEOUT)
             )
         return "Not pending"
+
+    @property
+    def whitelist_for_overwrite(self) -> set[str]:
+        return self._whitelist_for_overwrite
+
+    def add_to_whitelist_for_overwrite(self, file_path: str) -> None:
+        self._whitelist_for_overwrite.add(file_path)
 
 
 BASH_STATE = BashState()
@@ -537,20 +545,19 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
     else:
         path_ = writefile.file_path
 
-    error_on_exist = (
-        not (
-            len(TOOL_CALLS) > 1
-            and isinstance(TOOL_CALLS[-2], FileEdit)
-            and TOOL_CALLS[-2].file_path == path_
-        )
-        and error_on_exist
-    )
-
+    error_on_exist_ = error_on_exist and path_ not in BASH_STATE.whitelist_for_overwrite
+    add_overwrite_warning = ""
     if not BASH_STATE.is_in_docker:
-        if error_on_exist and os.path.exists(path_):
-            file_data = Path(path_).read_text()
-            if file_data:
-                return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+        if (error_on_exist or error_on_exist_) and os.path.exists(path_):
+            content = Path(path_).read_text().strip()
+            if content:
+                if error_on_exist_:
+                    return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                elif error_on_exist:
+                    add_overwrite_warning = content
+
+        # Since we've already errored once, add this to whitelist
+        BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
         path = Path(path_)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -561,12 +568,19 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
         except OSError as e:
             return f"Error: {e}"
     else:
-        if error_on_exist:
-            # Check if it exists using os.system
-            cmd = f"test -f {shlex.quote(path_)}"
-            status = os.system(f'docker exec {BASH_STATE.is_in_docker} bash -c "{cmd}"')
-            if status == 0:
-                return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+        if error_on_exist or error_on_exist_:
+            return_code, content, stderr = command_run(
+                f"docker exec {BASH_STATE.is_in_docker} cat {shlex.quote(path_)}",
+                timeout=TIMEOUT,
+            )
+            if return_code != 0 and content.strip():
+                if error_on_exist_:
+                    return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                else:
+                    add_overwrite_warning = content
+
+        # Since we've already errored once, add this to whitelist
+        BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
         with TemporaryDirectory() as tmpdir:
             tmppath = os.path.join(tmpdir, os.path.basename(path_))
@@ -590,23 +604,31 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
 
     console.print(f"File written to {path_}")
 
-    syntax_errors = ""
+    warnings = []
     try:
         check = check_syntax(extension, writefile.file_content)
         syntax_errors = check.description
         if syntax_errors:
             console.print(f"W: Syntax errors encountered: {syntax_errors}")
-            return f"""Wrote file succesfully.
+            warnings.append(f"""
 ---
-However, tree-sitter reported syntax errors, please re-read the file and fix if any errors. 
+Warning: tree-sitter reported syntax errors, please re-read the file and fix if any errors. 
 Errors:
 {syntax_errors}
-            """
+---
+            """)
 
     except Exception:
         pass
 
-    return "Success"
+    if add_overwrite_warning:
+        warnings.append(
+            "\n---\nWarning: a file already existed and it's now overwritten. Was it a mistake? If yes please revert your action."
+            "Here's the previous content:\n```\n" + add_overwrite_warning + "\n```"
+            "\n---\n"
+        )
+
+    return "Success" + "".join(warnings)
 
 
 def find_least_edit_distance_substring(
@@ -713,6 +735,9 @@ def _do_diff_edit(fedit: FileEdit) -> str:
         )
     else:
         path_ = fedit.file_path
+
+    # The LLM is now aware that the file exists
+    BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
     if not BASH_STATE.is_in_docker:
         if not os.path.exists(path_):
@@ -1088,6 +1113,8 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
 
     if not os.path.isabs(readfile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
+
+    BASH_STATE.add_to_whitelist_for_overwrite(readfile.file_path)
 
     if not BASH_STATE.is_in_docker:
         path = Path(readfile.file_path)
