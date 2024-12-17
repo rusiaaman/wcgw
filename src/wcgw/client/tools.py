@@ -13,7 +13,7 @@ import threading
 import importlib.metadata
 import time
 import traceback
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
     Callable,
     Literal,
@@ -412,7 +412,7 @@ def execute_bash(
         tokens = enc.encode(text)
 
         if max_tokens and len(tokens) >= max_tokens:
-            text = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+            text = "(...truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
         if is_interrupt:
             text = (
@@ -441,7 +441,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
-        output = "...(truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+        output = "(...truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
 
     try:
         exit_status = get_status()
@@ -592,7 +592,7 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
 
 def find_least_edit_distance_substring(
     content: str, find_str: str
-) -> tuple[str, float]:
+) -> tuple[str, str, float]:
     orig_content_lines = content.split("\n")
     content_lines = [
         line.strip() for line in orig_content_lines
@@ -612,6 +612,7 @@ def find_least_edit_distance_substring(
     # Slide window and find one with sum of edit distance least
     min_edit_distance = float("inf")
     min_edit_distance_lines = []
+    context_lines = []
     for i in range(max(1, len(content_lines) - len(find_lines) + 1)):
         edit_distance_sum = 0
         for j in range(len(find_lines)):
@@ -629,19 +630,27 @@ def find_least_edit_distance_substring(
                 + 1
             )
             min_edit_distance_lines = orig_content_lines[
+                orig_start_index:orig_end_index
+            ]
+
+            context_lines = orig_content_lines[
                 max(0, orig_start_index - 10) : (orig_end_index + 10)
             ]
-    return "\n".join(min_edit_distance_lines), min_edit_distance
+    return (
+        "\n".join(min_edit_distance_lines),
+        "\n".join(context_lines),
+        min_edit_distance,
+    )
 
 
 def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
     count = content.count(find_lines)
     if count == 0:
-        closest_match, min_edit_distance = find_least_edit_distance_substring(
-            content, find_lines
+        closest_match, context_lines, min_edit_distance = (
+            find_least_edit_distance_substring(content, find_lines)
         )
         if min_edit_distance == 0:
-            return edit_content(content, closest_match, replace_with_lines)
+            return content.replace(closest_match, replace_with_lines, 1)
         else:
             print(
                 f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
@@ -649,7 +658,7 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
         raise Exception(
             f"""Error: no match found for the provided search block.
                 Requested search block: \n```\n{find_lines}\n```
-                Possible relevant section in the file:\n---\n```\n{closest_match}\n```\n---\nFile not edited
+                Possible relevant section in the file:\n---\n```\n{context_lines}\n```\n---\nFile not edited
             \nPlease retry with exact search. Re-read the file if unsure.
             """
         )

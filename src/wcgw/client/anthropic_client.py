@@ -169,7 +169,7 @@ def loop(
 - Do not use interactive commands like nano. Prefer writing simpler commands.
 - Status of the command and the current working directory will always be returned at the end.
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
-- The first line might be `(...truncated)` if the output is too long.
+- The first or the last line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 - The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
