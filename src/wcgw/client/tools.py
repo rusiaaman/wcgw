@@ -42,7 +42,7 @@ import rich
 import pyte
 from dotenv import load_dotenv
 
-from syntax_checker import check_syntax
+from syntax_checker import check_syntax  # type: ignore[import-untyped]
 from openai import OpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
