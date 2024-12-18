@@ -117,6 +117,7 @@ async def handle_list_tools() -> list[types.Tool]:
             description="""
 - Read full file content
 - Provide absolute file path only
+- Use this instead of 'cat' from BashCommand
 """,
         ),
         ToolParam(

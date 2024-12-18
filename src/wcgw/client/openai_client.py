@@ -192,6 +192,7 @@ def loop(
             description="""
 - Read full file content
 - Provide absolute file path only
+- Use this instead of 'cat' from BashCommand
 """,
         ),
         openai.pydantic_function_tool(
