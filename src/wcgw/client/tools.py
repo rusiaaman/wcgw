@@ -671,11 +671,10 @@ def find_least_edit_distance_substring(
         new_content_lines.append(content_lines[i])
         new_to_original_indices[len(new_content_lines) - 1] = i
     content_lines = new_content_lines
-    orig_find_lines = find_str.split("\n")
+    find_lines = find_str.split("\n")
     find_lines = [
-        line.strip() for line in orig_find_lines if line.strip()
+        line.strip() for line in find_lines if line.strip()
     ]  # Remove trailing and leading space for calculating edit distance
-    # Slide window and find one with sum of edit distance least
     min_edit_distance = float("inf")
     min_edit_distance_lines = []
     context_lines = []
@@ -691,7 +690,7 @@ def find_least_edit_distance_substring(
             orig_start_index = new_to_original_indices[i]
             orig_end_index = (
                 new_to_original_indices.get(
-                    i + len(find_lines) - 1, orig_start_index + len(orig_find_lines) - 1
+                    i + len(find_lines) - 1, len(orig_content_lines) - 1
                 )
                 + 1
             )
