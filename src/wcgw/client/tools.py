@@ -658,7 +658,7 @@ Errors:
 
 def find_least_edit_distance_substring(
     orig_content_lines: list[str], find_lines: list[str]
-) -> tuple[list[str], str, float]:
+) -> tuple[list[str], str]:
     # Prepare content lines, stripping whitespace and keeping track of original indices
     content_lines = [line.strip() for line in orig_content_lines]
     new_to_original_indices = {}
@@ -710,13 +710,9 @@ def find_least_edit_distance_substring(
                 max(0, orig_start_index - 10) : (orig_end_index + 10)
             ]
 
-    # Convert similarity score to a distance measure (0 = perfect match)
-    distance_score = 1.0 - max_similarity
-
     return (
         min_edit_distance_lines,
         "\n".join(context_lines),
-        distance_score,
     )
 
 
@@ -769,15 +765,8 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
     except ValueError:
         pass
 
-    closest_match_lines, context_lines, min_edit_distance = (
-        find_least_edit_distance_substring(content_lines_, find_lines_)
-    )
-    if min_edit_distance == 0:
-        return lines_replacer(content_lines_, closest_match_lines, replace_with_lines_)
-    else:
-        print(
-            f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
-        )
+    _, context_lines = find_least_edit_distance_substring(content_lines_, find_lines_)
+
     raise Exception(
         f"""Error: no match found for the provided search block.
             Requested search block: \n```\n{find_lines}\n```
