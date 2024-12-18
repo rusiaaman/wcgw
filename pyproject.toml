@@ -22,7 +22,6 @@ dependencies = [
     "websockets>=13.1",
     "pydantic>=2.9.2",
     "semantic-version>=2.10.0",
-    "nltk>=3.9.1",
     "anthropic>=0.39.0",
     "humanize>=4.11.0",
     "mcp",

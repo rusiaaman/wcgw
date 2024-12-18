@@ -50,7 +50,7 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ParsedChatCompletionMessage,
 )
-from nltk.metrics.distance import edit_distance  # type: ignore[import-untyped]
+from difflib import SequenceMatcher
 
 from ..types_ import (
     BashCommand,
@@ -659,35 +659,41 @@ Errors:
 def find_least_edit_distance_substring(
     orig_content_lines: list[str], find_lines: list[str]
 ) -> tuple[list[str], str, float]:
-    content_lines = [
-        line.strip() for line in orig_content_lines
-    ]  # Remove trailing and leading space for calculating edit distance
+    # Prepare content lines, stripping whitespace and keeping track of original indices
+    content_lines = [line.strip() for line in orig_content_lines]
     new_to_original_indices = {}
     new_content_lines = []
-    for i in range(len(content_lines)):
-        if not content_lines[i]:
+    for i, line in enumerate(content_lines):
+        if not line:
             continue
-        new_content_lines.append(content_lines[i])
+        new_content_lines.append(line)
         new_to_original_indices[len(new_content_lines) - 1] = i
     content_lines = new_content_lines
-    find_lines = [
-        line.strip() for line in find_lines if line.strip()
-    ]  # Remove trailing and leading space for calculating edit distance
-    min_edit_distance = float("inf")
+
+    # Prepare find lines, removing empty lines
+    find_lines = [line.strip() for line in find_lines if line.strip()]
+
+    # Initialize variables for best match tracking
+    max_similarity = 0.0
     min_edit_distance_lines = []
     context_lines = []
+
+    # For each possible starting position in content
     for i in range(max(1, len(content_lines) - len(find_lines) + 1)):
-        edit_distance_sum = 0
+        # Calculate similarity for the block starting at position i
+        block_similarity = 0.0
         for j in range(len(find_lines)):
             if (i + j) < len(content_lines):
-                edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
-            else:
-                edit_distance_sum += len(find_lines[j])
-            if edit_distance_sum > min_edit_distance:
-                break
+                # Use SequenceMatcher for more efficient similarity calculation
+                similarity = SequenceMatcher(
+                    None, content_lines[i + j], find_lines[j]
+                ).ratio()
+                block_similarity += similarity
 
-        if edit_distance_sum < min_edit_distance:
-            min_edit_distance = edit_distance_sum
+        # If this block is more similar than previous best
+        if block_similarity > max_similarity:
+            max_similarity = block_similarity
+            # Map back to original line indices
             orig_start_index = new_to_original_indices[i]
             orig_end_index = (
                 new_to_original_indices.get(
@@ -695,17 +701,22 @@ def find_least_edit_distance_substring(
                 )
                 + 1
             )
+            # Get the original lines
             min_edit_distance_lines = orig_content_lines[
                 orig_start_index:orig_end_index
             ]
-
+            # Get context (10 lines before and after)
             context_lines = orig_content_lines[
                 max(0, orig_start_index - 10) : (orig_end_index + 10)
             ]
+
+    # Convert similarity score to a distance measure (0 = perfect match)
+    distance_score = 1.0 - max_similarity
+
     return (
         min_edit_distance_lines,
         "\n".join(context_lines),
-        min_edit_distance,
+        distance_score,
     )
 
 
