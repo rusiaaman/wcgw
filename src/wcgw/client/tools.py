@@ -657,9 +657,8 @@ Errors:
 
 
 def find_least_edit_distance_substring(
-    content: str, find_str: str
-) -> tuple[str, str, float]:
-    orig_content_lines = content.split("\n")
+    orig_content_lines: list[str], find_lines: list[str]
+) -> tuple[list[str], str, float]:
     content_lines = [
         line.strip() for line in orig_content_lines
     ]  # Remove trailing and leading space for calculating edit distance
@@ -671,7 +670,6 @@ def find_least_edit_distance_substring(
         new_content_lines.append(content_lines[i])
         new_to_original_indices[len(new_content_lines) - 1] = i
     content_lines = new_content_lines
-    find_lines = find_str.split("\n")
     find_lines = [
         line.strip() for line in find_lines if line.strip()
     ]  # Remove trailing and leading space for calculating edit distance
@@ -685,6 +683,9 @@ def find_least_edit_distance_substring(
                 edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
             else:
                 edit_distance_sum += len(find_lines[j])
+            if edit_distance_sum > min_edit_distance:
+                break
+
         if edit_distance_sum < min_edit_distance:
             min_edit_distance = edit_distance_sum
             orig_start_index = new_to_original_indices[i]
@@ -702,34 +703,77 @@ def find_least_edit_distance_substring(
                 max(0, orig_start_index - 10) : (orig_end_index + 10)
             ]
     return (
-        "\n".join(min_edit_distance_lines),
+        min_edit_distance_lines,
         "\n".join(context_lines),
         min_edit_distance,
     )
 
 
-def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
-    count = content.count(find_lines)
-    if count == 0:
-        closest_match, context_lines, min_edit_distance = (
-            find_least_edit_distance_substring(content, find_lines)
-        )
-        if min_edit_distance == 0:
-            return content.replace(closest_match, replace_with_lines, 1)
-        else:
-            print(
-                f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
-            )
-        raise Exception(
-            f"""Error: no match found for the provided search block.
-                Requested search block: \n```\n{find_lines}\n```
-                Possible relevant section in the file:\n---\n```\n{context_lines}\n```\n---\nFile not edited
-            \nPlease retry with exact search. Re-read the file if unsure.
-            """
-        )
+def lines_replacer(
+    orig_content_lines: list[str], search_lines: list[str], replace_lines: list[str]
+) -> str:
+    # Validation for empty search
+    search_lines = list(filter(None, [x.strip() for x in search_lines]))
 
-    content = content.replace(find_lines, replace_with_lines, 1)
-    return content
+    # Create mapping of non-empty lines to original indices
+    new_to_original_indices = []
+    new_content_lines = []
+    for i, line in enumerate(orig_content_lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        new_content_lines.append(stripped)
+        new_to_original_indices.append(i)
+
+    if not new_content_lines and not search_lines:
+        return "\n".join(replace_lines)
+    elif not search_lines:
+        raise ValueError("Search block is empty")
+    elif not new_content_lines:
+        raise ValueError("File content is empty")
+
+    # Search for matching block
+    for i in range(len(new_content_lines) - len(search_lines) + 1):
+        if all(
+            new_content_lines[i + j] == search_lines[j]
+            for j in range(len(search_lines))
+        ):
+            start_idx = new_to_original_indices[i]
+            end_idx = new_to_original_indices[i + len(search_lines) - 1] + 1
+            return "\n".join(
+                orig_content_lines[:start_idx]
+                + replace_lines
+                + orig_content_lines[end_idx:]
+            )
+
+    raise ValueError("Search block not found in content")
+
+
+def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
+    replace_with_lines_ = replace_with_lines.split("\n")
+    find_lines_ = find_lines.split("\n")
+    content_lines_ = content.split("\n")
+    try:
+        return lines_replacer(content_lines_, find_lines_, replace_with_lines_)
+    except ValueError:
+        pass
+
+    closest_match_lines, context_lines, min_edit_distance = (
+        find_least_edit_distance_substring(content_lines_, find_lines_)
+    )
+    if min_edit_distance == 0:
+        return lines_replacer(content_lines_, closest_match_lines, replace_with_lines_)
+    else:
+        print(
+            f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
+        )
+    raise Exception(
+        f"""Error: no match found for the provided search block.
+            Requested search block: \n```\n{find_lines}\n```
+            Possible relevant section in the file:\n---\n```\n{context_lines}\n```\n---\nFile not edited
+        \nPlease retry with exact search. Re-read the file if unsure.
+        """
+    )
 
 
 def do_diff_edit(fedit: FileEdit) -> str:
