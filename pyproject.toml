@@ -52,4 +52,4 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-mcp = { git = "https://github.com/rusiaaman/python-sdk" }
+mcp = { git = "https://github.com/rusiaaman/python-sdk", rev = "53b69f397eae6ac81a51b84b34ff52b3119f11cb" }

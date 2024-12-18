@@ -309,6 +309,31 @@ def get_status() -> str:
     return status.rstrip()
 
 
+def save_out_of_context[T](
+    tokens: list[T],
+    max_tokens: int,
+    suffix: str,
+    tokens_converted: Callable[[list[T]], str],
+) -> tuple[str, list[Path]]:
+    file_contents = list[str]()
+    for i in range(0, len(tokens), max_tokens):
+        file_contents.append(tokens_converted(tokens[i : i + max_tokens]))
+
+    if len(file_contents) == 1:
+        return file_contents[0], []
+
+    rest_paths = list[Path]()
+    for i, content in enumerate(file_contents):
+        if i == 0:
+            continue
+        file_path = NamedTemporaryFile(delete=False, suffix=suffix).name
+        with open(file_path, "w") as f:
+            f.write(content)
+        rest_paths.append(Path(file_path))
+
+    return file_contents[0], rest_paths
+
+
 def execute_bash(
     enc: tiktoken.Encoding,
     bash_arg: BashCommand | BashInteraction,
@@ -1137,7 +1162,13 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
     if max_tokens is not None:
         tokens = default_enc.encode(content)
         if len(tokens) > max_tokens:
-            content = default_enc.decode(tokens[: max_tokens - 5])
-            content += "\n...(truncated)"
+            content, rest = save_out_of_context(
+                tokens,
+                max_tokens - 100,
+                Path(readfile.file_path).suffix,
+                default_enc.decode,
+            )
+            if rest:
+                content += f"\n(...truncated)\n---\nI've split the rest of the file into multiple files. Here are the remaining splits, please read them:\n{'\n'.join(map(str, rest))}"
 
     return content
