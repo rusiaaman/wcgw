@@ -915,7 +915,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.8.1" },
     { name = "semantic-version", specifier = ">=2.10.0" },
     { name = "shell", specifier = ">=1.0.1" },
-    { name = "syntax-checker", specifier = ">=0.2.5" },
+    { name = "syntax-checker", specifier = "==0.2.7" },
     { name = "tiktoken", specifier = "==0.7.0" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "typer", specifier = ">=0.12.5" },
