@@ -30,8 +30,6 @@ from ...types_ import (
 )
 from ..computer_use import SLEEP_TIME_MAX_S
 
-tools.TIMEOUT = SLEEP_TIME_MAX_S
-
 COMPUTER_USE_ON_DOCKER_ENABLED = False
 
 server = Server("wcgw")
@@ -275,6 +273,11 @@ async def handle_call_tool(
 
 async def main(computer_use: bool) -> None:
     global COMPUTER_USE_ON_DOCKER_ENABLED
+
+    tools.TIMEOUT = SLEEP_TIME_MAX_S
+
+    tools.console = tools.DisableConsole()
+
     if computer_use:
         COMPUTER_USE_ON_DOCKER_ENABLED = True
 

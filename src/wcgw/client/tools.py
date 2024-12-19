@@ -72,7 +72,18 @@ from .common import CostData, Models, discard_input
 from .sys_utils import command_run
 from .openai_utils import get_input_cost, get_output_cost
 
-console = rich.console.Console(style="magenta", highlight=False, markup=False)
+
+class DisableConsole:
+    def print(self, *args, **kwargs):  # type: ignore
+        pass
+
+    def log(self, *args, **kwargs):  # type: ignore
+        pass
+
+
+console: rich.console.Console | DisableConsole = rich.console.Console(
+    style="magenta", highlight=False, markup=False
+)
 
 TIMEOUT = 5
 
@@ -159,7 +170,7 @@ def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
         try:
             shell.expect(PROMPT, timeout=0.2)
         except pexpect.TIMEOUT:
-            print(f"Couldn't get exit code, before: {before}")
+            console.print(f"Couldn't get exit code, before: {before}")
             raise
         assert isinstance(shell.before, str)
         # Render because there could be some anscii escape sequences still set like in google colab env
@@ -283,12 +294,12 @@ def update_repl_prompt(command: str) -> bool:
         PROMPT = before.split("\n")[-1].strip()
         # Escape all regex
         PROMPT = re.escape(PROMPT)
-        print(f"Trying to update prompt to: {PROMPT.encode()!r}")
+        console.print(f"Trying to update prompt to: {PROMPT.encode()!r}")
         index = 0
         while index == 0:
             # Consume all REPL prompts till now
             index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
-        print(f"Prompt updated to: {PROMPT}")
+        console.print(f"Prompt updated to: {PROMPT}")
         return True
     return False
 
@@ -508,7 +519,7 @@ def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
         try:
             websocket.send(json.dumps(uu))
         except websockets.ConnectionClosed:
-            print(f"Connection closed for UUID: {client_uuid}, retrying")
+            console.print(f"Connection closed for UUID: {client_uuid}, retrying")
             serve_image_in_bg(file_path, client_uuid, name)
 
 
