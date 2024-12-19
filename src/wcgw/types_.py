@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class BashCommand(BaseModel):
     command: str
+    wait_for_seconds: Optional[int] = None
 
 
 Specials = Literal[
@@ -17,6 +18,7 @@ class BashInteraction(BaseModel):
     send_text: Optional[str] = None
     send_specials: Optional[Sequence[Specials]] = None
     send_ascii: Optional[Sequence[int]] = None
+    wait_for_seconds: Optional[int] = None
 
 
 class ReadImage(BaseModel):

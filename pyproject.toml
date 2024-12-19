@@ -1,7 +1,7 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "2.2.2"
+version = "2.3.0"
 description = "Shell and coding agent on claude and chatgpt"
 readme = "README.md"
 requires-python = ">=3.11, <3.13"
@@ -22,10 +22,10 @@ dependencies = [
     "websockets>=13.1",
     "pydantic>=2.9.2",
     "semantic-version>=2.10.0",
-    "nltk>=3.9.1",
     "anthropic>=0.39.0",
-    "mcp",
     "humanize>=4.11.0",
+    "mcp",
+    "syntax-checker==0.2.10",
 ]
 
 [project.urls]

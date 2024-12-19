@@ -173,6 +173,7 @@ def loop(
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 - The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
+- Use longer wait_for_seconds if the command is expected to run for a long time.
 """,
         ),
         ToolParam(
@@ -185,8 +186,9 @@ def loop(
 - Send send_specials=["Enter"] to recheck status of a running program.
 - Only one of send_text, send_specials, send_ascii should be provided.
 - This returns within 5 seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
-    - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
-    - Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
+- Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
+- Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
+- Set longer wait_for_seconds when program is expected to run for a long time.
 """,
         ),
         ToolParam(
@@ -195,6 +197,7 @@ def loop(
             description="""
 - Read full file content
 - Provide absolute file path only
+- Use this instead of 'cat' from BashCommand
 """,
         ),
         ToolParam(

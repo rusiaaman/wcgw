@@ -91,8 +91,9 @@ async def handle_list_tools() -> list[types.Tool]:
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first or the last line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
-- The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
+- The control will return to you in 3 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
+- Use longer wait_for_seconds if the command is expected to run for a long time.
 """,
         ),
         ToolParam(
@@ -105,8 +106,9 @@ async def handle_list_tools() -> list[types.Tool]:
 - Send send_specials=["Enter"] to recheck status of a running program.
 - Only one of send_text, send_specials, send_ascii should be provided.
 - This returns within 3 seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
-    - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
-    - Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
+- Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
+- Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
+- Set longer wait_for_seconds when program is expected to run for a long time.
 """,
         ),
         ToolParam(
@@ -115,6 +117,7 @@ async def handle_list_tools() -> list[types.Tool]:
             description="""
 - Read full file content
 - Provide absolute file path only
+- Use this instead of 'cat' from BashCommand
 """,
         ),
         ToolParam(
@@ -247,7 +250,9 @@ async def handle_call_tool(
         - Always read relevant files before editing.
         - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
         - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
-
+        - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using shell tools.
+        - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the program don't show any update but they still are running.
+        - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
         
     Additional instructions:
         Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.

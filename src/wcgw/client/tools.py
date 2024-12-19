@@ -42,7 +42,7 @@ import rich
 import pyte
 from dotenv import load_dotenv
 
-import openai
+from syntax_checker import check_syntax
 from openai import OpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
@@ -50,7 +50,7 @@ from openai.types.chat import (
     ChatCompletionMessage,
     ParsedChatCompletionMessage,
 )
-from nltk.metrics.distance import edit_distance  # type: ignore[import-untyped]
+from difflib import SequenceMatcher
 
 from ..types_ import (
     BashCommand,
@@ -183,6 +183,7 @@ class BashState:
         self._is_in_docker: Optional[str] = ""
         self._cwd: str = os.getcwd()
         self._shell = start_shell()
+        self._whitelist_for_overwrite: set[str] = set()
 
         # Get exit info to ensure shell is ready
         _get_exit_code(self._shell)
@@ -235,6 +236,13 @@ class BashState:
             )
         return "Not pending"
 
+    @property
+    def whitelist_for_overwrite(self) -> set[str]:
+        return self._whitelist_for_overwrite
+
+    def add_to_whitelist_for_overwrite(self, file_path: str) -> None:
+        self._whitelist_for_overwrite.add(file_path)
+
 
 BASH_STATE = BashState()
 
@@ -269,7 +277,7 @@ def update_repl_prompt(command: str) -> bool:
         BASH_STATE.shell.sendintr()
         index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
         if index == 0:
-            return False
+            return True
         before = BASH_STATE.shell.before or ""
         assert before, "Something went wrong updating repl prompt"
         PROMPT = before.split("\n")[-1].strip()
@@ -299,6 +307,34 @@ def get_status() -> str:
         status += "cwd = " + BASH_STATE.update_cwd() + "\n"
 
     return status.rstrip()
+
+
+T = TypeVar("T")
+
+
+def save_out_of_context(
+    tokens: list[T],
+    max_tokens: int,
+    suffix: str,
+    tokens_converted: Callable[[list[T]], str],
+) -> tuple[str, list[Path]]:
+    file_contents = list[str]()
+    for i in range(0, len(tokens), max_tokens):
+        file_contents.append(tokens_converted(tokens[i : i + max_tokens]))
+
+    if len(file_contents) == 1:
+        return file_contents[0], []
+
+    rest_paths = list[Path]()
+    for i, content in enumerate(file_contents):
+        if i == 0:
+            continue
+        file_path = NamedTemporaryFile(delete=False, suffix=suffix).name
+        with open(file_path, "w") as f:
+            f.write(content)
+        rest_paths.append(Path(file_path))
+
+    return file_contents[0], rest_paths
 
 
 def execute_bash(
@@ -490,8 +526,6 @@ class ImageData(BaseModel):
 
 Param = ParamSpec("Param")
 
-T = TypeVar("T")
-
 
 def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
@@ -537,20 +571,19 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
     else:
         path_ = writefile.file_path
 
-    error_on_exist = (
-        not (
-            len(TOOL_CALLS) > 1
-            and isinstance(TOOL_CALLS[-2], FileEdit)
-            and TOOL_CALLS[-2].file_path == path_
-        )
-        and error_on_exist
-    )
-
+    error_on_exist_ = error_on_exist and path_ not in BASH_STATE.whitelist_for_overwrite
+    add_overwrite_warning = ""
     if not BASH_STATE.is_in_docker:
-        if error_on_exist and os.path.exists(path_):
-            file_data = Path(path_).read_text()
-            if file_data:
-                return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+        if (error_on_exist or error_on_exist_) and os.path.exists(path_):
+            content = Path(path_).read_text().strip()
+            if content:
+                if error_on_exist_:
+                    return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                elif error_on_exist:
+                    add_overwrite_warning = content
+
+        # Since we've already errored once, add this to whitelist
+        BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
         path = Path(path_)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -561,12 +594,19 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
         except OSError as e:
             return f"Error: {e}"
     else:
-        if error_on_exist:
-            # Check if it exists using os.system
-            cmd = f"test -f {shlex.quote(path_)}"
-            status = os.system(f'docker exec {BASH_STATE.is_in_docker} bash -c "{cmd}"')
-            if status == 0:
-                return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+        if error_on_exist or error_on_exist_:
+            return_code, content, stderr = command_run(
+                f"docker exec {BASH_STATE.is_in_docker} cat {shlex.quote(path_)}",
+                timeout=TIMEOUT,
+            )
+            if return_code != 0 and content.strip():
+                if error_on_exist_:
+                    return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                else:
+                    add_overwrite_warning = content
+
+        # Since we've already errored once, add this to whitelist
+        BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
         with TemporaryDirectory() as tmpdir:
             tmppath = os.path.join(tmpdir, os.path.basename(path_))
@@ -586,42 +626,75 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
             if rcode != 0:
                 return f"Error: Write failed with code {rcode}"
 
+    extension = Path(path_).suffix.lstrip(".")
+
     console.print(f"File written to {path_}")
-    return "Success"
+
+    warnings = []
+    try:
+        check = check_syntax(extension, writefile.file_content)
+        syntax_errors = check.description
+        if syntax_errors:
+            console.print(f"W: Syntax errors encountered: {syntax_errors}")
+            warnings.append(f"""
+---
+Warning: tree-sitter reported syntax errors, please re-read the file and fix if any errors. 
+Errors:
+{syntax_errors}
+---
+            """)
+
+    except Exception:
+        pass
+
+    if add_overwrite_warning:
+        warnings.append(
+            "\n---\nWarning: a file already existed and it's now overwritten. Was it a mistake? If yes please revert your action."
+            "Here's the previous content:\n```\n" + add_overwrite_warning + "\n```"
+            "\n---\n"
+        )
+
+    return "Success" + "".join(warnings)
 
 
 def find_least_edit_distance_substring(
-    content: str, find_str: str
-) -> tuple[str, str, float]:
-    orig_content_lines = content.split("\n")
-    content_lines = [
-        line.strip() for line in orig_content_lines
-    ]  # Remove trailing and leading space for calculating edit distance
+    orig_content_lines: list[str], find_lines: list[str]
+) -> tuple[list[str], str]:
+    # Prepare content lines, stripping whitespace and keeping track of original indices
+    content_lines = [line.strip() for line in orig_content_lines]
     new_to_original_indices = {}
     new_content_lines = []
-    for i in range(len(content_lines)):
-        if not content_lines[i]:
+    for i, line in enumerate(content_lines):
+        if not line:
             continue
-        new_content_lines.append(content_lines[i])
+        new_content_lines.append(line)
         new_to_original_indices[len(new_content_lines) - 1] = i
     content_lines = new_content_lines
-    find_lines = find_str.split("\n")
-    find_lines = [
-        line.strip() for line in find_lines if line.strip()
-    ]  # Remove trailing and leading space for calculating edit distance
-    # Slide window and find one with sum of edit distance least
-    min_edit_distance = float("inf")
+
+    # Prepare find lines, removing empty lines
+    find_lines = [line.strip() for line in find_lines if line.strip()]
+
+    # Initialize variables for best match tracking
+    max_similarity = 0.0
     min_edit_distance_lines = []
     context_lines = []
+
+    # For each possible starting position in content
     for i in range(max(1, len(content_lines) - len(find_lines) + 1)):
-        edit_distance_sum = 0
+        # Calculate similarity for the block starting at position i
+        block_similarity = 0.0
         for j in range(len(find_lines)):
             if (i + j) < len(content_lines):
-                edit_distance_sum += edit_distance(content_lines[i + j], find_lines[j])
-            else:
-                edit_distance_sum += len(find_lines[j])
-        if edit_distance_sum < min_edit_distance:
-            min_edit_distance = edit_distance_sum
+                # Use SequenceMatcher for more efficient similarity calculation
+                similarity = SequenceMatcher(
+                    None, content_lines[i + j], find_lines[j]
+                ).ratio()
+                block_similarity += similarity
+
+        # If this block is more similar than previous best
+        if block_similarity > max_similarity:
+            max_similarity = block_similarity
+            # Map back to original line indices
             orig_start_index = new_to_original_indices[i]
             orig_end_index = (
                 new_to_original_indices.get(
@@ -629,42 +702,79 @@ def find_least_edit_distance_substring(
                 )
                 + 1
             )
+            # Get the original lines
             min_edit_distance_lines = orig_content_lines[
                 orig_start_index:orig_end_index
             ]
-
+            # Get context (10 lines before and after)
             context_lines = orig_content_lines[
                 max(0, orig_start_index - 10) : (orig_end_index + 10)
             ]
+
     return (
-        "\n".join(min_edit_distance_lines),
+        min_edit_distance_lines,
         "\n".join(context_lines),
-        min_edit_distance,
     )
 
 
-def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
-    count = content.count(find_lines)
-    if count == 0:
-        closest_match, context_lines, min_edit_distance = (
-            find_least_edit_distance_substring(content, find_lines)
-        )
-        if min_edit_distance == 0:
-            return content.replace(closest_match, replace_with_lines, 1)
-        else:
-            print(
-                f"Exact match not found, found with whitespace removed edit distance: {min_edit_distance}"
-            )
-        raise Exception(
-            f"""Error: no match found for the provided search block.
-                Requested search block: \n```\n{find_lines}\n```
-                Possible relevant section in the file:\n---\n```\n{context_lines}\n```\n---\nFile not edited
-            \nPlease retry with exact search. Re-read the file if unsure.
-            """
-        )
+def lines_replacer(
+    orig_content_lines: list[str], search_lines: list[str], replace_lines: list[str]
+) -> str:
+    # Validation for empty search
+    search_lines = list(filter(None, [x.strip() for x in search_lines]))
 
-    content = content.replace(find_lines, replace_with_lines, 1)
-    return content
+    # Create mapping of non-empty lines to original indices
+    new_to_original_indices = []
+    new_content_lines = []
+    for i, line in enumerate(orig_content_lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        new_content_lines.append(stripped)
+        new_to_original_indices.append(i)
+
+    if not new_content_lines and not search_lines:
+        return "\n".join(replace_lines)
+    elif not search_lines:
+        raise ValueError("Search block is empty")
+    elif not new_content_lines:
+        raise ValueError("File content is empty")
+
+    # Search for matching block
+    for i in range(len(new_content_lines) - len(search_lines) + 1):
+        if all(
+            new_content_lines[i + j] == search_lines[j]
+            for j in range(len(search_lines))
+        ):
+            start_idx = new_to_original_indices[i]
+            end_idx = new_to_original_indices[i + len(search_lines) - 1] + 1
+            return "\n".join(
+                orig_content_lines[:start_idx]
+                + replace_lines
+                + orig_content_lines[end_idx:]
+            )
+
+    raise ValueError("Search block not found in content")
+
+
+def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
+    replace_with_lines_ = replace_with_lines.split("\n")
+    find_lines_ = find_lines.split("\n")
+    content_lines_ = content.split("\n")
+    try:
+        return lines_replacer(content_lines_, find_lines_, replace_with_lines_)
+    except ValueError:
+        pass
+
+    _, context_lines = find_least_edit_distance_substring(content_lines_, find_lines_)
+
+    raise Exception(
+        f"""Error: no match found for the provided search block.
+            Requested search block: \n```\n{find_lines}\n```
+            Possible relevant section in the file:\n---\n```\n{context_lines}\n```\n---\nFile not edited
+        \nPlease retry with exact search. Re-read the file if unsure.
+        """
+    )
 
 
 def do_diff_edit(fedit: FileEdit) -> str:
@@ -694,6 +804,9 @@ def _do_diff_edit(fedit: FileEdit) -> str:
         )
     else:
         path_ = fedit.file_path
+
+    # The LLM is now aware that the file exists
+    BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
     if not BASH_STATE.is_in_docker:
         if not os.path.exists(path_):
@@ -774,6 +887,22 @@ def _do_diff_edit(fedit: FileEdit) -> str:
             )
             if rcode != 0:
                 raise Exception(f"Error: Write failed with code {rcode}")
+
+    syntax_errors = ""
+    extension = Path(path_).suffix.lstrip(".")
+    try:
+        check = check_syntax(extension, apply_diff_to)
+        syntax_errors = check.description
+        if syntax_errors:
+            console.print(f"W: Syntax errors encountered: {syntax_errors}")
+            return f"""Wrote file succesfully.
+---
+However, tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
+Errors:
+{syntax_errors}
+            """
+    except Exception:
+        pass
 
     return "Success"
 
@@ -885,7 +1014,7 @@ def get_tool_output(
         output = ask_confirmation(arg), 0.0
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
-        output = execute_bash(enc, arg, max_tokens, None)
+        output = execute_bash(enc, arg, max_tokens, arg.wait_for_seconds)
     elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
         output = write_file(arg, True), 0
@@ -1054,6 +1183,8 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
     if not os.path.isabs(readfile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
 
+    BASH_STATE.add_to_whitelist_for_overwrite(readfile.file_path)
+
     if not BASH_STATE.is_in_docker:
         path = Path(readfile.file_path)
         if not path.exists():
@@ -1075,7 +1206,14 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
     if max_tokens is not None:
         tokens = default_enc.encode(content)
         if len(tokens) > max_tokens:
-            content = default_enc.decode(tokens[: max_tokens - 5])
-            content += "\n...(truncated)"
+            content, rest = save_out_of_context(
+                tokens,
+                max_tokens - 100,
+                Path(readfile.file_path).suffix,
+                default_enc.decode,
+            )
+            if rest:
+                rest_ = "\n".join(map(str, rest))
+                content += f"\n(...truncated)\n---\nI've split the rest of the file into multiple files. Here are the remaining splits, please read them:\n{rest_}"
 
     return content
