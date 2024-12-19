@@ -526,8 +526,6 @@ class ImageData(BaseModel):
 
 Param = ParamSpec("Param")
 
-T = TypeVar("T")
-
 
 def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
