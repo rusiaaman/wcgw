@@ -130,7 +130,7 @@ def start_shell() -> pexpect.spawn:  # type: ignore
         )
         shell.sendline(f"export PS1={PROMPT}")
     except Exception as e:
-        traceback.print_exc()
+        console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
 
         shell = pexpect.spawn(
@@ -495,7 +495,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
         output += exit_status
     except ValueError as e:
         console.print(output)
-        traceback.print_exc()
+        console.print(traceback.format_exc())
         console.print("Malformed output, restarting shell", style="red")
         # Malformed output, restart shell
         BASH_STATE.reset()
@@ -1150,7 +1150,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                     print(f"{curr_cost=}")
                 except Exception as e:
                     output = f"GOT EXCEPTION while calling tool. Error: {e}"
-                    traceback.print_exc()
+                    console.print(traceback.format_exc())
                 assert isinstance(output, str)
                 websocket.send(output)
 
