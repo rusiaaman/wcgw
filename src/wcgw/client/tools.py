@@ -1,15 +1,10 @@
-import asyncio
 import base64
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime
-from io import BytesIO
 import json
 import mimetypes
 from pathlib import Path
 import re
 import shlex
-import sys
-import threading
 import importlib.metadata
 import time
 import traceback
@@ -17,12 +12,10 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
     Callable,
     Literal,
-    NewType,
     Optional,
     ParamSpec,
     Type,
     TypeVar,
-    TypedDict,
 )
 import uuid
 import humanize
@@ -33,22 +26,16 @@ from websockets.sync.client import connect as syncconnect
 
 import os
 import tiktoken
-import petname  # type: ignore[import-untyped]
 import pexpect
 from typer import Typer
 import websockets
 
 import rich
 import pyte
-from dotenv import load_dotenv
 
 from syntax_checker import check_syntax
-from openai import OpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionMessage,
-    ParsedChatCompletionMessage,
 )
 from difflib import SequenceMatcher
 
@@ -68,9 +55,7 @@ from ..types_ import (
     GetScreenInfo,
 )
 
-from .common import CostData, Models, discard_input
 from .sys_utils import command_run
-from .openai_utils import get_input_cost, get_output_cost
 
 
 class DisableConsole:
@@ -1101,8 +1086,6 @@ def get_tool_output(
 History = list[ChatCompletionMessageParam]
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
-default_model: Models = "gpt-4o-2024-08-06"
-default_cost = CostData(cost_per_1m_input_tokens=0.15, cost_per_1m_output_tokens=0.6)
 curr_cost = 0.0
 
 
@@ -1121,7 +1104,7 @@ class Mdata(BaseModel):
 
 
 def register_client(server_url: str, client_uuid: str = "") -> None:
-    global default_enc, default_model, curr_cost
+    global default_enc, curr_cost
     # Generate a unique UUID for this client
     if not client_uuid:
         client_uuid = str(uuid.uuid4())
