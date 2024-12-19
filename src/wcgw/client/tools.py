@@ -1213,6 +1213,7 @@ def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
                 default_enc.decode,
             )
             if rest:
-                content += f"\n(...truncated)\n---\nI've split the rest of the file into multiple files. Here are the remaining splits, please read them:\n{'\n'.join(map(str, rest))}"
+                rest_ = "\n".join(map(str, rest))
+                content += f"\n(...truncated)\n---\nI've split the rest of the file into multiple files. Here are the remaining splits, please read them:\n{rest_}"
 
     return content
