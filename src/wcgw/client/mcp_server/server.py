@@ -229,8 +229,6 @@ async def handle_call_tool(
 
     except Exception as e:
         output_or_dones = [f"GOT EXCEPTION while calling tool. Error: {e}"]
-        tb = traceback.format_exc()
-        print(str(output_or_dones[0]) + "\n" + tb)
 
     content: list[types.TextContent | types.ImageContent | types.EmbeddedResource] = []
     for output_or_done in output_or_dones:
