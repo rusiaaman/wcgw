@@ -309,7 +309,10 @@ def get_status() -> str:
     return status.rstrip()
 
 
-def save_out_of_context[T](
+T = TypeVar("T")
+
+
+def save_out_of_context(
     tokens: list[T],
     max_tokens: int,
     suffix: str,
