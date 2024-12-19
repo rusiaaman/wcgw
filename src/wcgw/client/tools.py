@@ -277,7 +277,7 @@ def update_repl_prompt(command: str) -> bool:
         BASH_STATE.shell.sendintr()
         index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
         if index == 0:
-            return False
+            return True
         before = BASH_STATE.shell.before or ""
         assert before, "Something went wrong updating repl prompt"
         PROMPT = before.split("\n")[-1].strip()

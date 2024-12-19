@@ -25,7 +25,7 @@ dependencies = [
     "anthropic>=0.39.0",
     "humanize>=4.11.0",
     "mcp",
-    "syntax-checker>=0.1.4",
+    "syntax-checker>=0.2.5",
 ]
 
 [project.urls]
