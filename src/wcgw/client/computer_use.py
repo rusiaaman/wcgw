@@ -26,7 +26,7 @@ from ..types_ import (
 OUTPUT_DIR = "/tmp/outputs"
 TYPING_DELAY_MS = 12
 TYPING_GROUP_SIZE = 50
-SLEEP_TIME_MAX_S = 5
+SLEEP_TIME_MAX_S = 3
 
 Action = Literal[
     "key",

@@ -273,7 +273,8 @@ async def main(computer_use: bool) -> None:
     global COMPUTER_USE_ON_DOCKER_ENABLED
 
     tools.TIMEOUT = SLEEP_TIME_MAX_S
-
+    tools.TIMEOUT_WHILE_OUTPUT = 55
+    tools.OUTPUT_WAIT_PATIENCE = 5
     tools.console = tools.DisableConsole()
 
     if computer_use:

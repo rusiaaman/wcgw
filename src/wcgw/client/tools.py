@@ -11,6 +11,7 @@ import traceback
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
     Callable,
+    DefaultDict,
     Literal,
     Optional,
     ParamSpec,
@@ -71,6 +72,8 @@ console: rich.console.Console | DisableConsole = rich.console.Console(
 )
 
 TIMEOUT = 5
+TIMEOUT_WHILE_OUTPUT = 20
+OUTPUT_WAIT_PATIENCE = 3
 
 
 def render_terminal_output(text: str) -> str:
@@ -89,6 +92,26 @@ def render_terminal_output(text: str) -> str:
     # Strip trailing space
     lines = [line.rstrip() for line in lines]
     return "\n".join(lines)
+
+
+def get_incremental_output(old_output_: str, new_output_: str) -> str:
+    old_output = old_output_.split("\n")
+    new_output = new_output_.split("\n")
+    nold = len(old_output)
+    nnew = len(new_output)
+    if not old_output:
+        return new_output_
+    for i in range(nnew - 1, -1, -1):
+        if new_output[i] != old_output[-1]:
+            continue
+        for j in range(i - 1, -1, -1):
+            if (nold - 1 + j - i) < 0:
+                break
+            if new_output[j] != old_output[-1 + j - i]:
+                break
+        else:
+            return "\n".join(new_output[i + 1 :])
+    return new_output_
 
 
 class Confirmation(BaseModel):
@@ -180,6 +203,7 @@ class BashState:
         self._cwd: str = os.getcwd()
         self._shell = start_shell()
         self._whitelist_for_overwrite: set[str] = set()
+        self._pending_output = ""
 
         # Get exit info to ensure shell is ready
         _get_exit_code(self._shell)
@@ -188,12 +212,14 @@ class BashState:
     def shell(self) -> pexpect.spawn:  # type: ignore
         return self._shell
 
-    def set_pending(self) -> None:
+    def set_pending(self, last_pending_output: str) -> None:
         if not isinstance(self._state, datetime.datetime):
             self._state = datetime.datetime.now()
+        self._pending_output = last_pending_output
 
     def set_repl(self) -> None:
         self._state = "repl"
+        self._pending_output = ""
 
     @property
     def state(self) -> BASH_CLF_OUTPUT:
@@ -238,6 +264,10 @@ class BashState:
 
     def add_to_whitelist_for_overwrite(self, file_path: str) -> None:
         self._whitelist_for_overwrite.add(file_path)
+
+    @property
+    def pending_output(self) -> str:
+        return self._pending_output
 
 
 BASH_STATE = BashState()
@@ -331,6 +361,18 @@ def save_out_of_context(
         rest_paths.append(Path(file_path))
 
     return file_contents[0], rest_paths
+
+
+def _incremental_text(text: str) -> str:
+    last_pending_output = BASH_STATE.pending_output
+    # text = render_terminal_output(text[-100_000:])
+    text = text[-100_000:]
+    last_pending_output = "\n".join(last_pending_output.split("\n")[:-2])
+    text = get_incremental_output(last_pending_output, text)
+    old_rendered = render_terminal_output(last_pending_output)
+    old_rendered_applied = render_terminal_output(old_rendered + "\n" + text)
+    # True incremental is then
+    return get_incremental_output(old_rendered, old_rendered_applied)
 
 
 def execute_bash(
@@ -436,32 +478,64 @@ def execute_bash(
 
     wait = timeout_s or TIMEOUT
     index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
+
     if index == 1:
-        BASH_STATE.set_pending()
         text = BASH_STATE.shell.before or ""
+        incremental_text = _incremental_text(text)
 
-        text = render_terminal_output(text[-100_000:])
-        tokens = enc.encode(text)
+        second_wait_success = False
+        if incremental_text and isinstance(bash_arg, BashInteraction):
+            # There's some text in BashInteraction mode wait for TIMEOUT_WHILE_OUTPUT
+            remaining = TIMEOUT_WHILE_OUTPUT - wait
+            patience = OUTPUT_WAIT_PATIENCE
+            itext = incremental_text
+            while remaining > 0 and patience > 0:
+                print(remaining, TIMEOUT_WHILE_OUTPUT)
+                index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
+                if index == 0:
+                    second_wait_success = True
+                    break
+                else:
+                    _itext = BASH_STATE.shell.before or ""
+                    _itext = _incremental_text(_itext)
+                    if _itext != itext:
+                        patience = 3
+                    else:
+                        patience -= 1
+                    itext = _itext
 
-        if max_tokens and len(tokens) >= max_tokens:
-            text = "(...truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+                remaining = remaining - wait
 
-        if is_interrupt:
-            text = (
-                text
-                + """---
-----
-Failure interrupting.
-If any REPL session was previously running or if bashrc was sourced, or if there is issue to other REPL related reasons:
-    Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
-Otherwise, you may want to try Ctrl-c again or program specific exit interactive commands.
-"""
-            )
+            if not second_wait_success:
+                text = BASH_STATE.shell.before or ""
+                incremental_text = _incremental_text(text)
 
-        exit_status = get_status()
-        text += exit_status
+        if not second_wait_success:
+            BASH_STATE.set_pending(text)
 
-        return text, 0
+            tokens = enc.encode(incremental_text)
+
+            if max_tokens and len(tokens) >= max_tokens:
+                incremental_text = "(...truncated)\n" + enc.decode(
+                    tokens[-(max_tokens - 1) :]
+                )
+
+            if is_interrupt:
+                incremental_text = (
+                    incremental_text
+                    + """---
+    ----
+    Failure interrupting.
+    If any REPL session was previously running or if bashrc was sourced, or if there is issue to other REPL related reasons:
+        Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
+    Otherwise, you may want to try Ctrl-c again or program specific exit interactive commands.
+    """
+                )
+
+            exit_status = get_status()
+            incremental_text += exit_status
+
+            return incremental_text, 0
 
     BASH_STATE.set_repl()
 
@@ -469,7 +543,7 @@ Otherwise, you may want to try Ctrl-c again or program specific exit interactive
         return "Interrupt successful", 0.0
 
     assert isinstance(BASH_STATE.shell.before, str)
-    output = render_terminal_output(BASH_STATE.shell.before)
+    output = _incremental_text(BASH_STATE.shell.before)
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
