@@ -152,6 +152,8 @@ def start_shell() -> pexpect.spawn:  # type: ignore
     shell.expect(PROMPT, timeout=TIMEOUT)
     shell.sendline("stty -icanon -echo")
     shell.expect(PROMPT, timeout=TIMEOUT)
+    shell.sendline("set +o pipefail")
+    shell.expect(PROMPT, timeout=TIMEOUT)
     return shell
 
 
@@ -171,6 +173,8 @@ def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
     shell.expect(PROMPT, timeout=0.2)
     # Reset echo also if it was enabled
     shell.sendline("stty -icanon -echo")
+    shell.expect(PROMPT, timeout=0.2)
+    shell.sendline("set +o pipefail")
     shell.expect(PROMPT, timeout=0.2)
     shell.sendline("echo $?")
     before = ""
@@ -399,7 +403,7 @@ def execute_bash(
             console.print(f"$ {bash_arg.command}")
             if BASH_STATE.state == "pending":
                 raise ValueError(WAITING_INPUT_MESSAGE)
-            command = bash_arg.command.strip()
+            command = bash_arg.command.strip() + " | cat"  # disables the pager
 
             if "\n" in command:
                 raise ValueError(
