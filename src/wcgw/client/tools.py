@@ -163,9 +163,9 @@ def _is_int(mystr: str) -> bool:
         return False
 
 
-def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
+def _ensure_env(shell: pexpect.spawn) -> None:  # type: ignore
     if PROMPT != PROMPT_CONST:
-        return 0
+        return
     # First reset the prompt in case venv was sourced or other reasons.
     shell.sendline(f"export PS1={PROMPT}")
     shell.expect(PROMPT, timeout=0.2)
@@ -190,7 +190,7 @@ def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
         before = "\n".join(before_lines).strip()
 
     try:
-        return int((before))
+        int((before))
     except ValueError:
         raise ValueError(f"Malformed output: {before}")
 
@@ -211,7 +211,7 @@ class BashState:
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
-        _get_exit_code(self._shell)
+        _ensure_env(self._shell)
 
     @property
     def shell(self) -> pexpect.spawn:  # type: ignore
@@ -334,8 +334,8 @@ def get_status() -> str:
         status += "running for = " + BASH_STATE.get_pending_for() + "\n"
         status += "cwd = " + BASH_STATE.cwd + "\n"
     else:
-        exit_code = _get_exit_code(BASH_STATE.shell)
-        status += f"status = exited with code {exit_code}\n"
+        _ensure_env(BASH_STATE.shell)
+        status += "status = exited\n"
         status += "cwd = " + BASH_STATE.update_cwd() + "\n"
 
     return status.rstrip()
