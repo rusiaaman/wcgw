@@ -1,0 +1,3 @@
+[submodule "src/mcp_wcgw"]
+	path = src/mcp_wcgw
+	url = https://github.com/rusiaaman/python-sdk.git
