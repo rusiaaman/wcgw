@@ -71,7 +71,7 @@ console: rich.console.Console | DisableConsole = rich.console.Console(
     style="magenta", highlight=False, markup=False
 )
 
-TIMEOUT = 0.5
+TIMEOUT = 5
 TIMEOUT_WHILE_OUTPUT = 20
 OUTPUT_WAIT_PATIENCE = 3
 
