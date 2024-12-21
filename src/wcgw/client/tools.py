@@ -1,28 +1,22 @@
-import asyncio
 import base64
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime
-from io import BytesIO
 import json
 import mimetypes
 from pathlib import Path
 import re
 import shlex
-import sys
-import threading
 import importlib.metadata
 import time
 import traceback
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
     Callable,
+    DefaultDict,
     Literal,
-    NewType,
     Optional,
     ParamSpec,
     Type,
     TypeVar,
-    TypedDict,
 )
 import uuid
 import humanize
@@ -33,22 +27,16 @@ from websockets.sync.client import connect as syncconnect
 
 import os
 import tiktoken
-import petname  # type: ignore[import-untyped]
 import pexpect
 from typer import Typer
 import websockets
 
 import rich
 import pyte
-from dotenv import load_dotenv
 
 from syntax_checker import check_syntax
-from openai import OpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionMessage,
-    ParsedChatCompletionMessage,
 )
 from difflib import SequenceMatcher
 
@@ -68,9 +56,7 @@ from ..types_ import (
     GetScreenInfo,
 )
 
-from .common import CostData, Models, discard_input
 from .sys_utils import command_run
-from .openai_utils import get_input_cost, get_output_cost
 
 
 class DisableConsole:
@@ -86,9 +72,11 @@ console: rich.console.Console | DisableConsole = rich.console.Console(
 )
 
 TIMEOUT = 5
+TIMEOUT_WHILE_OUTPUT = 20
+OUTPUT_WAIT_PATIENCE = 3
 
 
-def render_terminal_output(text: str) -> str:
+def render_terminal_output(text: str) -> list[str]:
     screen = pyte.Screen(160, 500)
     screen.set_mode(pyte.modes.LNM)
     stream = pyte.Stream(screen)
@@ -101,9 +89,25 @@ def render_terminal_output(text: str) -> str:
     else:
         i = len(dsp)
     lines = screen.display[: len(dsp) - i]
-    # Strip trailing space
-    lines = [line.rstrip() for line in lines]
-    return "\n".join(lines)
+    return lines
+
+
+def get_incremental_output(old_output: list[str], new_output: list[str]) -> list[str]:
+    nold = len(old_output)
+    nnew = len(new_output)
+    if not old_output:
+        return new_output
+    for i in range(nnew - 1, -1, -1):
+        if new_output[i] != old_output[-1]:
+            continue
+        for j in range(i - 1, -1, -1):
+            if (nold - 1 + j - i) < 0:
+                break
+            if new_output[j] != old_output[-1 + j - i]:
+                break
+        else:
+            return new_output[i + 1 :]
+    return new_output
 
 
 class Confirmation(BaseModel):
@@ -144,6 +148,10 @@ def start_shell() -> pexpect.spawn:  # type: ignore
     shell.expect(PROMPT, timeout=TIMEOUT)
     shell.sendline("stty -icanon -echo")
     shell.expect(PROMPT, timeout=TIMEOUT)
+    shell.sendline("set +o pipefail")
+    shell.expect(PROMPT, timeout=TIMEOUT)
+    shell.sendline("export GIT_PAGER=cat PAGER=cat")
+    shell.expect(PROMPT, timeout=TIMEOUT)
     return shell
 
 
@@ -155,16 +163,20 @@ def _is_int(mystr: str) -> bool:
         return False
 
 
-def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
+def _ensure_env_and_bg_jobs(shell: pexpect.spawn) -> Optional[int]:  # type: ignore
     if PROMPT != PROMPT_CONST:
-        return 0
+        return None
     # First reset the prompt in case venv was sourced or other reasons.
     shell.sendline(f"export PS1={PROMPT}")
     shell.expect(PROMPT, timeout=0.2)
     # Reset echo also if it was enabled
     shell.sendline("stty -icanon -echo")
     shell.expect(PROMPT, timeout=0.2)
-    shell.sendline("echo $?")
+    shell.sendline("set +o pipefail")
+    shell.expect(PROMPT, timeout=0.2)
+    shell.sendline("export GIT_PAGER=cat PAGER=cat")
+    shell.expect(PROMPT, timeout=0.2)
+    shell.sendline("jobs | wc -l")
     before = ""
     while not _is_int(before):  # Consume all previous output
         try:
@@ -174,7 +186,8 @@ def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
             raise
         assert isinstance(shell.before, str)
         # Render because there could be some anscii escape sequences still set like in google colab env
-        before = render_terminal_output(shell.before).strip()
+        before_lines = render_terminal_output(shell.before)
+        before = "\n".join(before_lines).strip()
 
     try:
         return int((before))
@@ -195,20 +208,23 @@ class BashState:
         self._cwd: str = os.getcwd()
         self._shell = start_shell()
         self._whitelist_for_overwrite: set[str] = set()
+        self._pending_output = ""
 
         # Get exit info to ensure shell is ready
-        _get_exit_code(self._shell)
+        _ensure_env_and_bg_jobs(self._shell)
 
     @property
     def shell(self) -> pexpect.spawn:  # type: ignore
         return self._shell
 
-    def set_pending(self) -> None:
+    def set_pending(self, last_pending_output: str) -> None:
         if not isinstance(self._state, datetime.datetime):
             self._state = datetime.datetime.now()
+        self._pending_output = last_pending_output
 
     def set_repl(self) -> None:
         self._state = "repl"
+        self._pending_output = ""
 
     @property
     def state(self) -> BASH_CLF_OUTPUT:
@@ -231,7 +247,8 @@ class BashState:
         BASH_STATE.shell.sendline("pwd")
         BASH_STATE.shell.expect(PROMPT, timeout=0.2)
         assert isinstance(BASH_STATE.shell.before, str)
-        current_dir = render_terminal_output(BASH_STATE.shell.before).strip()
+        before_lines = render_terminal_output(BASH_STATE.shell.before)
+        current_dir = "\n".join(before_lines).strip()
         self._cwd = current_dir
         return current_dir
 
@@ -253,6 +270,10 @@ class BashState:
 
     def add_to_whitelist_for_overwrite(self, file_path: str) -> None:
         self._whitelist_for_overwrite.add(file_path)
+
+    @property
+    def pending_output(self) -> str:
+        return self._pending_output
 
 
 BASH_STATE = BashState()
@@ -305,16 +326,17 @@ def update_repl_prompt(command: str) -> bool:
 
 
 def get_status() -> str:
-    exit_code: Optional[int] = None
-
     status = "\n\n---\n\n"
     if BASH_STATE.state == "pending":
         status += "status = still running\n"
         status += "running for = " + BASH_STATE.get_pending_for() + "\n"
         status += "cwd = " + BASH_STATE.cwd + "\n"
     else:
-        exit_code = _get_exit_code(BASH_STATE.shell)
-        status += f"status = exited with code {exit_code}\n"
+        bg_jobs = _ensure_env_and_bg_jobs(BASH_STATE.shell)
+        bg_desc = ""
+        if bg_jobs and bg_jobs > 0:
+            bg_desc = f"; {bg_jobs} background jobs running"
+        status += "status = process exited" + bg_desc + "\n"
         status += "cwd = " + BASH_STATE.update_cwd() + "\n"
 
     return status.rstrip()
@@ -346,6 +368,33 @@ def save_out_of_context(
         rest_paths.append(Path(file_path))
 
     return file_contents[0], rest_paths
+
+
+def rstrip(lines: list[str]) -> str:
+    return "\n".join([line.rstrip() for line in lines])
+
+
+def _incremental_text(text: str, last_pending_output: str) -> str:
+    # text = render_terminal_output(text[-100_000:])
+    text = text[-100_000:]
+
+    last_pending_output_rendered_lines = render_terminal_output(last_pending_output)
+    last_pending_output_rendered = "\n".join(last_pending_output_rendered_lines)
+    last_rendered_lines = last_pending_output_rendered.split("\n")
+    if not last_rendered_lines:
+        return rstrip(render_terminal_output(text))
+
+    text = text[len(last_pending_output) :]
+    old_rendered_applied = render_terminal_output(last_pending_output_rendered + text)
+    # True incremental is then
+    rendered = get_incremental_output(last_rendered_lines[:-1], old_rendered_applied)
+
+    if not rendered:
+        return ""
+
+    if rendered[0] == last_rendered_lines[-1]:
+        rendered = rendered[1:]
+    return rstrip(rendered)
 
 
 def execute_bash(
@@ -452,39 +501,69 @@ def execute_bash(
     wait = timeout_s or TIMEOUT
     index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
-        BASH_STATE.set_pending()
         text = BASH_STATE.shell.before or ""
+        incremental_text = _incremental_text(text, BASH_STATE.pending_output)
 
-        text = render_terminal_output(text[-100_000:])
-        tokens = enc.encode(text)
+        second_wait_success = False
+        if incremental_text and isinstance(bash_arg, BashInteraction):
+            # There's some text in BashInteraction mode wait for TIMEOUT_WHILE_OUTPUT
+            remaining = TIMEOUT_WHILE_OUTPUT - wait
+            patience = OUTPUT_WAIT_PATIENCE
+            itext = incremental_text
+            while remaining > 0 and patience > 0:
+                print(remaining, TIMEOUT_WHILE_OUTPUT)
+                index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
+                if index == 0:
+                    second_wait_success = True
+                    break
+                else:
+                    _itext = BASH_STATE.shell.before or ""
+                    _itext = _incremental_text(_itext, BASH_STATE.pending_output)
+                    if _itext != itext:
+                        patience = 3
+                    else:
+                        patience -= 1
+                    itext = _itext
 
-        if max_tokens and len(tokens) >= max_tokens:
-            text = "(...truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+                remaining = remaining - wait
 
-        if is_interrupt:
-            text = (
-                text
-                + """---
-----
-Failure interrupting.
-If any REPL session was previously running or if bashrc was sourced, or if there is issue to other REPL related reasons:
-    Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
-Otherwise, you may want to try Ctrl-c again or program specific exit interactive commands.
-"""
-            )
+            if not second_wait_success:
+                text = BASH_STATE.shell.before or ""
+                incremental_text = _incremental_text(text, BASH_STATE.pending_output)
 
-        exit_status = get_status()
-        text += exit_status
+        if not second_wait_success:
+            BASH_STATE.set_pending(text)
 
-        return text, 0
+            tokens = enc.encode(incremental_text)
 
+            if max_tokens and len(tokens) >= max_tokens:
+                incremental_text = "(...truncated)\n" + enc.decode(
+                    tokens[-(max_tokens - 1) :]
+                )
+
+            if is_interrupt:
+                incremental_text = (
+                    incremental_text
+                    + """---
+    ----
+    Failure interrupting.
+    If any REPL session was previously running or if bashrc was sourced, or if there is issue to other REPL related reasons:
+        Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
+    Otherwise, you may want to try Ctrl-c again or program specific exit interactive commands.
+    """
+                )
+
+            exit_status = get_status()
+            incremental_text += exit_status
+
+            return incremental_text, 0
+
+    assert isinstance(BASH_STATE.shell.before, str)
+    output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
     BASH_STATE.set_repl()
 
     if is_interrupt:
         return "Interrupt successful", 0.0
-
-    assert isinstance(BASH_STATE.shell.before, str)
-    output = render_terminal_output(BASH_STATE.shell.before)
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
@@ -1101,8 +1180,6 @@ def get_tool_output(
 History = list[ChatCompletionMessageParam]
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
-default_model: Models = "gpt-4o-2024-08-06"
-default_cost = CostData(cost_per_1m_input_tokens=0.15, cost_per_1m_output_tokens=0.6)
 curr_cost = 0.0
 
 
@@ -1121,7 +1198,7 @@ class Mdata(BaseModel):
 
 
 def register_client(server_url: str, client_uuid: str = "") -> None:
-    global default_enc, default_model, curr_cost
+    global default_enc, curr_cost
     # Generate a unique UUID for this client
     if not client_uuid:
         client_uuid = str(uuid.uuid4())

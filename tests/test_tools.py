@@ -5,7 +5,7 @@ from src.wcgw.types_ import WriteIfEmpty
 
 
 class TestTools(unittest.TestCase):
-    def test_render_terminal_output(self):
+    def test_render_terminal_output(self) -> None:
         # Simulated terminal output
         terminal_output = (
             "\x1b[1;31mHello\x1b[0m\nThis is a test\n\x1b[2K\rLine to clear\n"
@@ -14,9 +14,7 @@ class TestTools(unittest.TestCase):
         expected_result = "Hello\nThis is a test\nLine to clear"
         result = render_terminal_output(terminal_output)
         # Stripping extra whitespace and ensuring content matches
-        self.assertEqual(
-            "\n".join(line.strip() for line in result.splitlines()), expected_result
-        )
+        self.assertEqual("\n".join(line.strip() for line in result), expected_result)
 
     @patch("builtins.input", return_value="y")
     def test_ask_confirmation_yes(self, mock_input):
