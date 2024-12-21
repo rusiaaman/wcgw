@@ -163,9 +163,9 @@ def _is_int(mystr: str) -> bool:
         return False
 
 
-def _ensure_env(shell: pexpect.spawn) -> None:  # type: ignore
+def _ensure_env_and_bg_jobs(shell: pexpect.spawn) -> Optional[int]:  # type: ignore
     if PROMPT != PROMPT_CONST:
-        return
+        return None
     # First reset the prompt in case venv was sourced or other reasons.
     shell.sendline(f"export PS1={PROMPT}")
     shell.expect(PROMPT, timeout=0.2)
@@ -176,7 +176,7 @@ def _ensure_env(shell: pexpect.spawn) -> None:  # type: ignore
     shell.expect(PROMPT, timeout=0.2)
     shell.sendline("export GIT_PAGER=cat PAGER=cat")
     shell.expect(PROMPT, timeout=0.2)
-    shell.sendline("echo $?")
+    shell.sendline("jobs | wc -l")
     before = ""
     while not _is_int(before):  # Consume all previous output
         try:
@@ -190,7 +190,7 @@ def _ensure_env(shell: pexpect.spawn) -> None:  # type: ignore
         before = "\n".join(before_lines).strip()
 
     try:
-        int((before))
+        return int((before))
     except ValueError:
         raise ValueError(f"Malformed output: {before}")
 
@@ -211,7 +211,7 @@ class BashState:
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
-        _ensure_env(self._shell)
+        _ensure_env_and_bg_jobs(self._shell)
 
     @property
     def shell(self) -> pexpect.spawn:  # type: ignore
@@ -326,16 +326,17 @@ def update_repl_prompt(command: str) -> bool:
 
 
 def get_status() -> str:
-    exit_code: Optional[int] = None
-
     status = "\n\n---\n\n"
     if BASH_STATE.state == "pending":
         status += "status = still running\n"
         status += "running for = " + BASH_STATE.get_pending_for() + "\n"
         status += "cwd = " + BASH_STATE.cwd + "\n"
     else:
-        _ensure_env(BASH_STATE.shell)
-        status += "status = exited\n"
+        bg_jobs = _ensure_env_and_bg_jobs(BASH_STATE.shell)
+        bg_desc = ""
+        if bg_jobs and bg_jobs > 0:
+            bg_desc = f"; {bg_jobs} background jobs running"
+        status += "status = process exited" + bg_desc + "\n"
         status += "cwd = " + BASH_STATE.update_cwd() + "\n"
 
     return status.rstrip()
