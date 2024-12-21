@@ -71,12 +71,12 @@ console: rich.console.Console | DisableConsole = rich.console.Console(
     style="magenta", highlight=False, markup=False
 )
 
-TIMEOUT = 5
+TIMEOUT = 0.5
 TIMEOUT_WHILE_OUTPUT = 20
 OUTPUT_WAIT_PATIENCE = 3
 
 
-def render_terminal_output(text: str) -> str:
+def render_terminal_output(text: str) -> list[str]:
     screen = pyte.Screen(160, 500)
     screen.set_mode(pyte.modes.LNM)
     stream = pyte.Stream(screen)
@@ -89,18 +89,14 @@ def render_terminal_output(text: str) -> str:
     else:
         i = len(dsp)
     lines = screen.display[: len(dsp) - i]
-    # Strip trailing space
-    lines = [line.rstrip() for line in lines]
-    return "\n".join(lines)
+    return lines
 
 
-def get_incremental_output(old_output_: str, new_output_: str) -> str:
-    old_output = old_output_.split("\n")
-    new_output = new_output_.split("\n")
+def get_incremental_output(old_output: list[str], new_output: list[str]) -> list[str]:
     nold = len(old_output)
     nnew = len(new_output)
     if not old_output:
-        return new_output_
+        return new_output
     for i in range(nnew - 1, -1, -1):
         if new_output[i] != old_output[-1]:
             continue
@@ -110,8 +106,8 @@ def get_incremental_output(old_output_: str, new_output_: str) -> str:
             if new_output[j] != old_output[-1 + j - i]:
                 break
         else:
-            return "\n".join(new_output[i + 1 :])
-    return new_output_
+            return new_output[i + 1 :]
+    return new_output
 
 
 class Confirmation(BaseModel):
@@ -186,7 +182,8 @@ def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
             raise
         assert isinstance(shell.before, str)
         # Render because there could be some anscii escape sequences still set like in google colab env
-        before = render_terminal_output(shell.before).strip()
+        before_lines = render_terminal_output(shell.before)
+        before = "\n".join(before_lines).strip()
 
     try:
         return int((before))
@@ -246,7 +243,8 @@ class BashState:
         BASH_STATE.shell.sendline("pwd")
         BASH_STATE.shell.expect(PROMPT, timeout=0.2)
         assert isinstance(BASH_STATE.shell.before, str)
-        current_dir = render_terminal_output(BASH_STATE.shell.before).strip()
+        before_lines = render_terminal_output(BASH_STATE.shell.before)
+        current_dir = "\n".join(before_lines).strip()
         self._cwd = current_dir
         return current_dir
 
@@ -367,16 +365,31 @@ def save_out_of_context(
     return file_contents[0], rest_paths
 
 
-def _incremental_text(text: str) -> str:
-    last_pending_output = BASH_STATE.pending_output
+def rstrip(lines: list[str]) -> str:
+    return "\n".join([line.rstrip() for line in lines])
+
+
+def _incremental_text(text: str, last_pending_output: str) -> str:
     # text = render_terminal_output(text[-100_000:])
     text = text[-100_000:]
-    last_pending_output = "\n".join(last_pending_output.split("\n")[:-2])
-    text = get_incremental_output(last_pending_output, text)
-    old_rendered = render_terminal_output(last_pending_output)
-    old_rendered_applied = render_terminal_output(old_rendered + "\n" + text)
+
+    last_pending_output_rendered_lines = render_terminal_output(last_pending_output)
+    last_pending_output_rendered = "\n".join(last_pending_output_rendered_lines)
+    last_rendered_lines = last_pending_output_rendered.split("\n")
+    if not last_rendered_lines:
+        return rstrip(render_terminal_output(text))
+
+    text = text[len(last_pending_output) :]
+    old_rendered_applied = render_terminal_output(last_pending_output_rendered + text)
     # True incremental is then
-    return get_incremental_output(old_rendered, old_rendered_applied)
+    rendered = get_incremental_output(last_rendered_lines[:-1], old_rendered_applied)
+
+    if not rendered:
+        return ""
+
+    if rendered[0] == last_rendered_lines[-1]:
+        rendered = rendered[1:]
+    return rstrip(rendered)
 
 
 def execute_bash(
@@ -403,7 +416,7 @@ def execute_bash(
             console.print(f"$ {bash_arg.command}")
             if BASH_STATE.state == "pending":
                 raise ValueError(WAITING_INPUT_MESSAGE)
-            command = bash_arg.command.strip() + " | cat"  # disables the pager
+            command = bash_arg.command.strip()
 
             if "\n" in command:
                 raise ValueError(
@@ -482,10 +495,9 @@ def execute_bash(
 
     wait = timeout_s or TIMEOUT
     index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
-
     if index == 1:
         text = BASH_STATE.shell.before or ""
-        incremental_text = _incremental_text(text)
+        incremental_text = _incremental_text(text, BASH_STATE.pending_output)
 
         second_wait_success = False
         if incremental_text and isinstance(bash_arg, BashInteraction):
@@ -501,7 +513,7 @@ def execute_bash(
                     break
                 else:
                     _itext = BASH_STATE.shell.before or ""
-                    _itext = _incremental_text(_itext)
+                    _itext = _incremental_text(_itext, BASH_STATE.pending_output)
                     if _itext != itext:
                         patience = 3
                     else:
@@ -512,7 +524,7 @@ def execute_bash(
 
             if not second_wait_success:
                 text = BASH_STATE.shell.before or ""
-                incremental_text = _incremental_text(text)
+                incremental_text = _incremental_text(text, BASH_STATE.pending_output)
 
         if not second_wait_success:
             BASH_STATE.set_pending(text)
@@ -541,13 +553,12 @@ def execute_bash(
 
             return incremental_text, 0
 
-    BASH_STATE.set_repl()
-
     if is_interrupt:
         return "Interrupt successful", 0.0
 
     assert isinstance(BASH_STATE.shell.before, str)
-    output = _incremental_text(BASH_STATE.shell.before)
+    output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
+    BASH_STATE.set_repl()
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
