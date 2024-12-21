@@ -6,12 +6,12 @@ import sys
 import traceback
 from typing import Any
 
-from mcp.server.models import InitializationOptions
-import mcp.types as types
-from mcp.types import Tool as ToolParam
-from mcp.server import NotificationOptions, Server
+from mcp_wcgw.server.models import InitializationOptions
+import mcp_wcgw.types as types
+from mcp_wcgw.types import Tool as ToolParam
+from mcp_wcgw.server import NotificationOptions, Server
 from pydantic import AnyUrl, BaseModel, ValidationError
-import mcp.server.stdio
+import mcp_wcgw.server.stdio
 from .. import tools
 from ..tools import DoneFlag, get_tool_output, which_tool_name, default_enc
 from ...types_ import (
@@ -282,7 +282,7 @@ async def main(computer_use: bool) -> None:
 
     version = importlib.metadata.version("wcgw")
     # Run the server using stdin/stdout streams
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+    async with mcp_wcgw.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
             write_stream,

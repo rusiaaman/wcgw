@@ -498,7 +498,7 @@ def execute_bash(
         BASH_STATE.shell.expect(PROMPT)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
-    wait = timeout_s or TIMEOUT
+    wait = min(timeout_s or TIMEOUT, TIMEOUT_WHILE_OUTPUT)
     index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
         text = BASH_STATE.shell.before or ""
