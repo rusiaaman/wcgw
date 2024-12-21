@@ -26,7 +26,7 @@ from ..types_ import (
     WriteIfEmpty,
     FileEdit,
     ReadImage,
-    ReadFile,
+    ReadFiles,
     ResetShell,
 )
 
@@ -188,7 +188,7 @@ def loop(
 - Only one of send_text, send_specials, send_ascii should be provided.""",
         ),
         openai.pydantic_function_tool(
-            ReadFile,
+            ReadFiles,
             description="""
 - Read full file content
 - Provide absolute file path only

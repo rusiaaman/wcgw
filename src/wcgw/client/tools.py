@@ -47,7 +47,7 @@ from ..types_ import (
     FileEditFindReplace,
     FileEdit,
     Initialize,
-    ReadFile,
+    ReadFiles,
     ReadImage,
     ResetShell,
     Mouse,
@@ -573,9 +573,6 @@ def execute_bash(
     output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
     BASH_STATE.set_repl()
 
-    if is_interrupt:
-        return "Interrupt successful", 0.0
-
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
         output = "(...truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
@@ -1041,7 +1038,7 @@ TOOLS = (
     | AIAssistant
     | DoneFlag
     | ReadImage
-    | ReadFile
+    | ReadFiles
     | Initialize
     | Mouse
     | Keyboard
@@ -1076,8 +1073,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return DoneFlag
     elif name == "ReadImage":
         return ReadImage
-    elif name == "ReadFile":
-        return ReadFile
+    elif name == "ReadFiles":
+        return ReadFiles
     elif name == "Initialize":
         return Initialize
     elif name == "Mouse":
@@ -1131,9 +1128,9 @@ def get_tool_output(
     elif isinstance(arg, ReadImage):
         console.print("Calling read image tool")
         output = read_image_from_shell(arg.file_path), 0.0
-    elif isinstance(arg, ReadFile):
+    elif isinstance(arg, ReadFiles):
         console.print("Calling read file tool")
-        output = read_file(arg, max_tokens), 0.0
+        output = read_files(arg.file_paths, max_tokens), 0.0
     elif isinstance(arg, ResetShell):
         console.print("Calling reset shell tool")
         output = reset_shell(), 0.0
@@ -1203,7 +1200,7 @@ class Mdata(BaseModel):
         | FileEditFindReplace
         | FileEdit
         | str
-        | ReadFile
+        | ReadFiles
         | Initialize
     )
 
@@ -1276,43 +1273,73 @@ def app(
     register_client(server_url, client_uuid or "")
 
 
-def read_file(readfile: ReadFile, max_tokens: Optional[int]) -> str:
-    console.print(f"Reading file: {readfile.file_path}")
+def read_files(file_paths: list[str], max_tokens: Optional[int]) -> str:
+    message = ""
+    for i, file in enumerate(file_paths):
+        try:
+            content, truncated, tokens = read_file(file, max_tokens)
+        except ValueError as e:
+            message += f"\n{file}: {str(e)}\n"
+            continue
 
-    if not os.path.isabs(readfile.file_path):
-        return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
+        if max_tokens:
+            max_tokens = max_tokens - tokens
 
-    BASH_STATE.add_to_whitelist_for_overwrite(readfile.file_path)
+        message += f"\n``` {file}\n{content}\n"
+
+        if truncated or (max_tokens and max_tokens <= 0):
+            not_reading = file_paths[i + 1 :]
+            if not_reading:
+                message += f'\nNot reading the rest of the files: {", ".join(not_reading)} due to token limit, please call again'
+            break
+        else:
+            message += "```"
+
+    return message
+
+
+def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int]:
+    console.print(f"Reading file: {file_path}")
+
+    if not os.path.isabs(file_path):
+        raise ValueError(
+            f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
+        )
+
+    BASH_STATE.add_to_whitelist_for_overwrite(file_path)
 
     if not BASH_STATE.is_in_docker:
-        path = Path(readfile.file_path)
+        path = Path(file_path)
         if not path.exists():
-            return f"Error: file {readfile.file_path} does not exist"
+            raise ValueError(f"Error: file {file_path} does not exist")
 
         with path.open("r") as f:
             content = f.read()
 
     else:
         return_code, content, stderr = command_run(
-            f"docker exec {BASH_STATE.is_in_docker} cat {shlex.quote(readfile.file_path)}",
+            f"docker exec {BASH_STATE.is_in_docker} cat {shlex.quote(file_path)}",
             timeout=TIMEOUT,
         )
         if return_code != 0:
             raise Exception(
-                f"Error: cat {readfile.file_path} failed with code {return_code}\nstdout: {content}\nstderr: {stderr}"
+                f"Error: cat {file_path} failed with code {return_code}\nstdout: {content}\nstderr: {stderr}"
             )
 
+    truncated = False
+    tokens_counts = 0
     if max_tokens is not None:
         tokens = default_enc.encode(content)
+        tokens_counts = len(tokens)
         if len(tokens) > max_tokens:
             content, rest = save_out_of_context(
                 tokens,
                 max_tokens - 100,
-                Path(readfile.file_path).suffix,
+                Path(file_path).suffix,
                 default_enc.decode,
             )
             if rest:
                 rest_ = "\n".join(map(str, rest))
                 content += f"\n(...truncated)\n---\nI've split the rest of the file into multiple files. Here are the remaining splits, please read them:\n{rest_}"
-
-    return content
+                truncated = True
+    return content, truncated, tokens_counts

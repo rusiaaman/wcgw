@@ -29,7 +29,7 @@ from ..types_ import (
     FileEdit,
     Keyboard,
     Mouse,
-    ReadFile,
+    ReadFiles,
     ReadImage,
     ResetShell,
     ScreenShot,
@@ -192,8 +192,8 @@ def loop(
 """,
         ),
         ToolParam(
-            input_schema=ReadFile.model_json_schema(),
-            name="ReadFile",
+            input_schema=ReadFiles.model_json_schema(),
+            name="ReadFiles",
             description="""
 - Read full file content
 - Provide absolute file path only

@@ -21,7 +21,7 @@ from ...types_ import (
     FileEdit,
     Keyboard,
     Mouse,
-    ReadFile,
+    ReadFiles,
     ReadImage,
     ResetShell,
     Initialize,
@@ -110,8 +110,8 @@ async def handle_list_tools() -> list[types.Tool]:
 """,
         ),
         ToolParam(
-            inputSchema=ReadFile.model_json_schema(),
-            name="ReadFile",
+            inputSchema=ReadFiles.model_json_schema(),
+            name="ReadFiles",
             description="""
 - Read full file content
 - Provide absolute file path only
