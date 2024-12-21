@@ -150,7 +150,7 @@ def start_shell() -> pexpect.spawn:  # type: ignore
     shell.expect(PROMPT, timeout=TIMEOUT)
     shell.sendline("set +o pipefail")
     shell.expect(PROMPT, timeout=TIMEOUT)
-    shell.sendline("export GIT_PAGER=cat")
+    shell.sendline("export GIT_PAGER=cat PAGER=cat")
     shell.expect(PROMPT, timeout=TIMEOUT)
     return shell
 
@@ -174,7 +174,7 @@ def _get_exit_code(shell: pexpect.spawn) -> int:  # type: ignore
     shell.expect(PROMPT, timeout=0.2)
     shell.sendline("set +o pipefail")
     shell.expect(PROMPT, timeout=0.2)
-    shell.sendline("export GIT_PAGER=cat")
+    shell.sendline("export GIT_PAGER=cat PAGER=cat")
     shell.expect(PROMPT, timeout=0.2)
     shell.sendline("echo $?")
     before = ""
