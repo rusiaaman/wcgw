@@ -341,7 +341,7 @@ wheels = [
 [[package]]
 name = "mcp-wcgw"
 version = "1.1.2.dev0"
-source = { git = "https://github.com/rusiaaman/python-sdk.git#7469d1596e4cbdf2bd0a164eefca8182cd2687eb" }
+source = { git = "https://github.com/rusiaaman/python-sdk.git?rev=7469d1596e4cbdf2bd0a164eefca8182cd2687eb#7469d1596e4cbdf2bd0a164eefca8182cd2687eb" }
 dependencies = [
     { name = "anyio" },
     { name = "httpx" },
@@ -904,7 +904,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.39.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "humanize", specifier = ">=4.11.0" },
-    { name = "mcp-wcgw", git = "https://github.com/rusiaaman/python-sdk.git" },
+    { name = "mcp-wcgw", git = "https://github.com/rusiaaman/python-sdk.git?rev=7469d1596e4cbdf2bd0a164eefca8182cd2687eb" },
     { name = "openai", specifier = ">=1.46.0" },
     { name = "petname", specifier = ">=2.6" },
     { name = "pexpect", specifier = ">=4.9.0" },

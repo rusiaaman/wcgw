@@ -51,4 +51,4 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-mcp-wcgw = { git = "https://github.com/rusiaaman/python-sdk.git" }
+mcp-wcgw = { git = "https://github.com/rusiaaman/python-sdk.git", rev = '7469d1596e4cbdf2bd0a164eefca8182cd2687eb' }
