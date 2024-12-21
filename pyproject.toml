@@ -10,7 +10,6 @@ dependencies = [
     "typer>=0.12.5",
     "rich>=13.8.1",
     "python-dotenv>=1.0.1",
-    "tiktoken==0.7.0",
     "pexpect>=4.9.0",
     "shell>=1.0.1",
     "types-pexpect>=4.9.0.20240806",
@@ -25,6 +24,7 @@ dependencies = [
     "anthropic>=0.39.0",
     "humanize>=4.11.0",
     "syntax-checker==0.2.10",
+    "tokenizers>=0.21.0",
 ]
 
 [project.urls]

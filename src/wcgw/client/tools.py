@@ -26,7 +26,7 @@ from .computer_use import run_computer_tool
 from websockets.sync.client import connect as syncconnect
 
 import os
-import tiktoken
+import tokenizers  # type: ignore
 import pexpect
 from typer import Typer
 import websockets
@@ -279,15 +279,23 @@ class BashState:
 BASH_STATE = BashState()
 
 
-def initial_info() -> str:
+def initialize(workspace_dir: str = "") -> str:
+    reset_shell()
+    if workspace_dir:
+        BASH_STATE.shell.sendline(f"cd {shlex.quote(workspace_dir)}")
+        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
+        BASH_STATE.update_cwd()
+
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
-    return f"""
+
+    output = f"""
 System: {uname_sysname}
 Machine: {uname_machine}
 Current working directory: {BASH_STATE.cwd}
-wcgw version: {importlib.metadata.version("wcgw")}
 """
+
+    return output
 
 
 def reset_shell() -> str:
@@ -404,7 +412,7 @@ def is_status_check(arg: BashInteraction | BashCommand) -> bool:
 
 
 def execute_bash(
-    enc: tiktoken.Encoding,
+    enc: tokenizers.Tokenizer,
     bash_arg: BashCommand | BashInteraction,
     max_tokens: Optional[int],
     timeout_s: Optional[float],
@@ -635,6 +643,19 @@ def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
     return wrapper
 
 
+def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
+    if max_tokens and max_tokens > 0:
+        tokens = default_enc.encode(content)
+        n_tokens = len(tokens)
+        if n_tokens > max_tokens:
+            content = (
+                default_enc.decode(tokens[: max(0, max_tokens - 100)])
+                + "\n(...truncated)"
+            )
+
+    return content
+
+
 def read_image_from_shell(file_path: str) -> ImageData:
     if not os.path.isabs(file_path):
         file_path = os.path.join(BASH_STATE.cwd, file_path)
@@ -663,7 +684,25 @@ def read_image_from_shell(file_path: str) -> ImageData:
             return ImageData(media_type=image_type, data=image_b64)  # type: ignore
 
 
-def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
+def get_context_for_errors(
+    errors: list[tuple[int, int]], file_content: str, max_tokens: Optional[int]
+) -> str:
+    file_lines = file_content.split("\n")
+    min_line_num = max(0, min([error[0] for error in errors]) - 10)
+    max_line_num = min(len(file_lines), max([error[0] for error in errors]) + 10)
+    context_lines = file_lines[min_line_num:max_line_num]
+    context = "\n".join(context_lines)
+
+    if max_tokens is not None and max_tokens > 0:
+        ntokens = len(default_enc.encode(context))
+        if ntokens > max_tokens:
+            return "Please re-read the file to understand the context"
+    return f"Here's relevant snippet from the file where the syntax errors occured:\n```\n{context}\n```"
+
+
+def write_file(
+    writefile: WriteIfEmpty, error_on_exist: bool, max_tokens: Optional[int]
+) -> str:
     if not os.path.isabs(writefile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
     else:
@@ -675,9 +714,14 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
         if (error_on_exist or error_on_exist_) and os.path.exists(path_):
             content = Path(path_).read_text().strip()
             if content:
+                content = truncate_if_over(content, max_tokens)
+
                 if error_on_exist_:
-                    return f"Error: can't write to existing file {path_}, use other functions to edit the file"
-                elif error_on_exist:
+                    return (
+                        f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                        + f"\nHere's the existing content:\n```\n{content}\n```"
+                    )
+                else:
                     add_overwrite_warning = content
 
         # Since we've already errored once, add this to whitelist
@@ -698,8 +742,13 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
                 timeout=TIMEOUT,
             )
             if return_code != 0 and content.strip():
+                content = truncate_if_over(content, max_tokens)
+
                 if error_on_exist_:
-                    return f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                    return (
+                        f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                        + f"\nHere's the existing content:\n```\n{content}\n```"
+                    )
                 else:
                     add_overwrite_warning = content
 
@@ -732,13 +781,19 @@ def write_file(writefile: WriteIfEmpty, error_on_exist: bool) -> str:
     try:
         check = check_syntax(extension, writefile.file_content)
         syntax_errors = check.description
+
         if syntax_errors:
+            context_for_errors = get_context_for_errors(
+                check.errors, writefile.file_content, max_tokens
+            )
             console.print(f"W: Syntax errors encountered: {syntax_errors}")
             warnings.append(f"""
 ---
-Warning: tree-sitter reported syntax errors, please re-read the file and fix if any errors. 
-Errors:
+Warning: tree-sitter reported syntax errors
+Syntax errors:
 {syntax_errors}
+
+{context_for_errors}
 ---
             """)
 
@@ -748,8 +803,10 @@ Errors:
     if add_overwrite_warning:
         warnings.append(
             "\n---\nWarning: a file already existed and it's now overwritten. Was it a mistake? If yes please revert your action."
-            "Here's the previous content:\n```\n" + add_overwrite_warning + "\n```"
             "\n---\n"
+            + "Here's the previous content:\n```\n"
+            + add_overwrite_warning
+            + "\n```"
         )
 
     return "Success" + "".join(warnings)
@@ -875,9 +932,9 @@ def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
     )
 
 
-def do_diff_edit(fedit: FileEdit) -> str:
+def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
     try:
-        return _do_diff_edit(fedit)
+        return _do_diff_edit(fedit, max_tokens)
     except Exception as e:
         # Try replacing \"
         try:
@@ -887,13 +944,13 @@ def do_diff_edit(fedit: FileEdit) -> str:
                     '\\"', '"'
                 ),
             )
-            return _do_diff_edit(fedit)
+            return _do_diff_edit(fedit, max_tokens)
         except Exception:
             pass
         raise e
 
 
-def _do_diff_edit(fedit: FileEdit) -> str:
+def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
     console.log(f"Editing file: {fedit.file_path}")
 
     if not os.path.isabs(fedit.file_path):
@@ -992,13 +1049,19 @@ def _do_diff_edit(fedit: FileEdit) -> str:
         check = check_syntax(extension, apply_diff_to)
         syntax_errors = check.description
         if syntax_errors:
+            context_for_errors = get_context_for_errors(
+                check.errors, apply_diff_to, max_tokens
+            )
+
             console.print(f"W: Syntax errors encountered: {syntax_errors}")
             return f"""Wrote file succesfully.
 ---
 However, tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
-Errors:
+Syntax errors:
 {syntax_errors}
-            """
+
+{context_for_errors}
+"""
     except Exception:
         pass
 
@@ -1094,7 +1157,7 @@ TOOL_CALLS: list[TOOLS] = []
 
 def get_tool_output(
     args: dict[object, object] | TOOLS,
-    enc: tiktoken.Encoding,
+    enc: tokenizers.Tokenizer,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
@@ -1115,10 +1178,10 @@ def get_tool_output(
         output = execute_bash(enc, arg, max_tokens, arg.wait_for_seconds)
     elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
-        output = write_file(arg, True), 0
+        output = write_file(arg, True, max_tokens), 0
     elif isinstance(arg, FileEdit):
         console.print("Calling full file edit tool")
-        output = do_diff_edit(arg), 0.0
+        output = do_diff_edit(arg, max_tokens), 0.0
     elif isinstance(arg, DoneFlag):
         console.print("Calling mark finish tool")
         output = mark_finish(arg), 0.0
@@ -1136,9 +1199,7 @@ def get_tool_output(
         output = reset_shell(), 0.0
     elif isinstance(arg, Initialize):
         console.print("Calling initial info tool")
-        # First force reset
-        reset_shell()
-        output = initial_info(), 0.0
+        output = initialize(), 0.0
     elif isinstance(arg, (Mouse, Keyboard, ScreenShot, GetScreenInfo)):
         console.print(f"Calling {type(arg).__name__} tool")
         outputs_cost = run_computer_tool(arg), 0.0
@@ -1187,7 +1248,9 @@ def get_tool_output(
 
 History = list[ChatCompletionMessageParam]
 
-default_enc = tiktoken.encoding_for_model("gpt-4o")
+default_enc: tokenizers.Tokenizer = tokenizers.Tokenizer.from_pretrained(
+    "Xenova/claude-tokenizer"
+)
 curr_cost = 0.0
 
 
@@ -1314,7 +1377,7 @@ def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int
             raise ValueError(f"Error: file {file_path} does not exist")
 
         with path.open("r") as f:
-            content = f.read()
+            content = f.read(10_000_000)
 
     else:
         return_code, content, stderr = command_run(
@@ -1334,7 +1397,7 @@ def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int
         if len(tokens) > max_tokens:
             content, rest = save_out_of_context(
                 tokens,
-                max_tokens - 100,
+                max(0, max_tokens - 100),
                 Path(file_path).suffix,
                 default_enc.decode,
             )

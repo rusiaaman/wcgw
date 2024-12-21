@@ -17,6 +17,7 @@ from openai.types.chat import (
 )
 import rich
 import petname  # type: ignore[import-untyped]
+import tokenizers
 from typer import Typer
 import uuid
 
@@ -40,7 +41,7 @@ from .tools import (
     get_tool_output,
     which_tool,
 )
-import tiktoken
+from tokenizers import Tokenizer
 
 from urllib import parse
 import subprocess
@@ -160,9 +161,7 @@ def loop(
         config.cost_limit = limit
     limit = config.cost_limit
 
-    enc = tiktoken.encoding_for_model(
-        config.model if not config.model.startswith("o1") else "gpt-4o"
-    )
+    enc = tokenizers.Tokenizer.from_pretrained("Xenova/gpt-4o")
 
     tools = [
         openai.pydantic_function_tool(
