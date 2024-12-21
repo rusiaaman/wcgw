@@ -558,12 +558,12 @@ def execute_bash(
 
             return incremental_text, 0
 
-    if is_interrupt:
-        return "Interrupt successful", 0.0
-
     assert isinstance(BASH_STATE.shell.before, str)
     output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
     BASH_STATE.set_repl()
+
+    if is_interrupt:
+        return "Interrupt successful", 0.0
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
