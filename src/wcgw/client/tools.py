@@ -19,7 +19,7 @@ from typing import (
     TypeVar,
 )
 import uuid
-import humanize
+
 from pydantic import BaseModel, TypeAdapter
 import typer
 from .computer_use import run_computer_tool
@@ -259,9 +259,17 @@ class BashState:
     def get_pending_for(self) -> str:
         if isinstance(self._state, datetime.datetime):
             timedelta = datetime.datetime.now() - self._state
-            return humanize.naturaldelta(
-                timedelta + datetime.timedelta(seconds=TIMEOUT)
+            return (
+                str(
+                    int(
+                        (
+                            timedelta + datetime.timedelta(seconds=TIMEOUT)
+                        ).total_seconds()
+                    )
+                )
+                + " seconds"
             )
+
         return "Not pending"
 
     @property
