@@ -515,6 +515,8 @@ def execute_bash(
             # There's some text in BashInteraction mode wait for TIMEOUT_WHILE_OUTPUT
             remaining = TIMEOUT_WHILE_OUTPUT - wait
             patience = OUTPUT_WAIT_PATIENCE
+            if not incremental_text:
+                patience -= 1
             itext = incremental_text
             while remaining > 0 and patience > 0:
                 index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
