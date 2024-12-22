@@ -397,6 +397,12 @@ def _incremental_text(text: str, last_pending_output: str) -> str:
     return rstrip(rendered)
 
 
+def is_status_check(arg: BashInteraction | BashCommand) -> bool:
+    return isinstance(arg, BashInteraction) and (
+        arg.send_specials == ["Enter"] or arg.send_ascii == [10]
+    )
+
+
 def execute_bash(
     enc: tiktoken.Encoding,
     bash_arg: BashCommand | BashInteraction,
@@ -505,7 +511,7 @@ def execute_bash(
         incremental_text = _incremental_text(text, BASH_STATE.pending_output)
 
         second_wait_success = False
-        if incremental_text and isinstance(bash_arg, BashInteraction):
+        if incremental_text and is_status_check(bash_arg):
             # There's some text in BashInteraction mode wait for TIMEOUT_WHILE_OUTPUT
             remaining = TIMEOUT_WHILE_OUTPUT - wait
             patience = OUTPUT_WAIT_PATIENCE
