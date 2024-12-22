@@ -511,7 +511,7 @@ def execute_bash(
         incremental_text = _incremental_text(text, BASH_STATE.pending_output)
 
         second_wait_success = False
-        if incremental_text and is_status_check(bash_arg):
+        if is_status_check(bash_arg):
             # There's some text in BashInteraction mode wait for TIMEOUT_WHILE_OUTPUT
             remaining = TIMEOUT_WHILE_OUTPUT - wait
             patience = OUTPUT_WAIT_PATIENCE
