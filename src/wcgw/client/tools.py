@@ -511,7 +511,6 @@ def execute_bash(
             patience = OUTPUT_WAIT_PATIENCE
             itext = incremental_text
             while remaining > 0 and patience > 0:
-                print(remaining, TIMEOUT_WHILE_OUTPUT)
                 index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
                 if index == 0:
                     second_wait_success = True
