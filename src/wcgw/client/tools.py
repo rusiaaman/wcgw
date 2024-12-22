@@ -434,7 +434,9 @@ def execute_bash(
                     "Command should not contain newline character in middle. Run only one command at a time."
                 )
 
-            BASH_STATE.shell.sendline(command)
+            for i in range(0, len(command), 128):
+                BASH_STATE.shell.send(command[i : i + 128])
+            BASH_STATE.shell.send(BASH_STATE.shell.linesep)
 
         else:
             if (
@@ -497,7 +499,9 @@ def execute_bash(
                         0,
                     )
                 console.print(f"Interact text: {bash_arg.send_text}")
-                BASH_STATE.shell.sendline(bash_arg.send_text)
+                for i in range(0, len(bash_arg.send_text), 128):
+                    BASH_STATE.shell.send(bash_arg.send_text[i : i + 128])
+                BASH_STATE.shell.send(BASH_STATE.shell.linesep)
 
     except KeyboardInterrupt:
         BASH_STATE.shell.sendintr()
