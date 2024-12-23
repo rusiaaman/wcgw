@@ -24,6 +24,8 @@ dependencies = [
     "anthropic>=0.39.0",
     "syntax-checker==0.2.10",
     "tokenizers>=0.21.0",
+    "pygit2>=1.16.0",
+    "protobuf>=5.29.2",
 ]
 
 [project.urls]

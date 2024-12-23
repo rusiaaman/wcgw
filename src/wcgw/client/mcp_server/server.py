@@ -1,34 +1,33 @@
-import asyncio
 import importlib
 import json
 import os
-import sys
-import traceback
 from typing import Any
 
-from mcp_wcgw.server.models import InitializationOptions
-import mcp_wcgw.types as types
-from mcp_wcgw.types import Tool as ToolParam
-from mcp_wcgw.server import NotificationOptions, Server
-from pydantic import AnyUrl, BaseModel, ValidationError
+from pydantic import AnyUrl, ValidationError
+
 import mcp_wcgw.server.stdio
-from .. import tools
-from ..tools import DoneFlag, get_tool_output, which_tool_name, default_enc
+import mcp_wcgw.types as types
+from mcp_wcgw.server import NotificationOptions, Server
+from mcp_wcgw.server.models import InitializationOptions
+from mcp_wcgw.types import Tool as ToolParam
+
 from ...types_ import (
     BashCommand,
     BashInteraction,
-    WriteIfEmpty,
     FileEdit,
+    GetScreenInfo,
+    Initialize,
     Keyboard,
     Mouse,
     ReadFiles,
     ReadImage,
     ResetShell,
-    Initialize,
     ScreenShot,
-    GetScreenInfo,
+    WriteIfEmpty,
 )
+from .. import tools
 from ..computer_use import SLEEP_TIME_MAX_S
+from ..tools import DoneFlag, default_enc, get_tool_output, which_tool_name
 
 COMPUTER_USE_ON_DOCKER_ENABLED = False
 
@@ -77,6 +76,12 @@ async def handle_list_tools() -> list[types.Tool]:
             name="Initialize",
             description="""
 - Always call this at the start of the conversation before using any of the shell tools from wcgw.
+- This will reset the shell.
+- Use `any_workspace_path` to initialize the shell in the appropriate project directory.
+- If the user has mentioned a workspace or project root, use it to set `any_workspace_path`.
+- If the user has mentioned a folder or file with unclear project root, use the file or folder as `any_workspace_path`.
+- If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
+- If `any_workspace_path` is provided, a tree structure of the workspace will be shown.
 """,
         ),
         ToolParam(
@@ -236,24 +241,24 @@ async def handle_call_tool(
         if isinstance(output_or_done, str):
             if issubclass(tool_type, Initialize):
                 output_or_done += """
-                
-    You're an expert software engineer with shell and code knowledge.
+---
+You're an expert software engineer with shell and code knowledge.
 
-    Instructions:
+Instructions:
+
+    - You should use the provided bash execution, reading and writing file tools to complete objective.
+    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
+    - Always read relevant files before editing.
+    - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
+    - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
+    - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using shell tools.
+    - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the program don't show any update but they still are running.
+    - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
     
-        - You should use the provided bash execution, reading and writing file tools to complete objective.
-        - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
-        - Always read relevant files before editing.
-        - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
-        - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
-        - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using shell tools.
-        - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the program don't show any update but they still are running.
-        - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
-        
-    Additional instructions:
-        Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
+Additional instructions:
+    Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
 
-        Always write production ready, syntactically correct code.
+    Always write production ready, syntactically correct code.
     """
 
             content.append(types.TextContent(type="text", text=output_or_done))

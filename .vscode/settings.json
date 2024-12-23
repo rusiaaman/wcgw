@@ -14,4 +14,11 @@
     ],
     "editor.formatOnSave": true,
     "editor.renderWhitespace": "selection",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.codeActionsOnSave": {
+          "source.fixAll": "always",
+          "source.organizeImports": "always",
+      }
+    }
 }

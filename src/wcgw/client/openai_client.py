@@ -1,57 +1,45 @@
 import base64
 import json
 import mimetypes
-from pathlib import Path
-import sys
+import os
+import subprocess
+import tempfile
 import traceback
-from typing import Callable, DefaultDict, Optional, cast
+import uuid
+from pathlib import Path
+from typing import DefaultDict, Optional, cast
+
 import openai
+import petname  # type: ignore[import-untyped]
+import rich
+import tokenizers  # type: ignore[import-untyped]
+from dotenv import load_dotenv
 from openai import OpenAI
 from openai.types.chat import (
-    ChatCompletionMessageParam,
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionUserMessageParam,
     ChatCompletionContentPartParam,
-    ChatCompletionMessage,
-    ParsedChatCompletionMessage,
+    ChatCompletionMessageParam,
+    ChatCompletionUserMessageParam,
 )
-import rich
-import petname  # type: ignore[import-untyped]
-import tokenizers  # type: ignore[import-untyped]
+from pydantic import BaseModel
 from typer import Typer
-import uuid
 
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    WriteIfEmpty,
     FileEdit,
-    ReadImage,
     ReadFiles,
+    ReadImage,
     ResetShell,
+    WriteIfEmpty,
 )
-
-from .common import Models, discard_input
-from .common import CostData, History
+from .common import CostData, History, Models, discard_input
 from .openai_utils import get_input_cost, get_output_cost
-from .tools import ImageData
-
 from .tools import (
     DoneFlag,
+    ImageData,
     get_tool_output,
     which_tool,
 )
-
-from urllib import parse
-import subprocess
-import os
-import tempfile
-
-import toml
-from pydantic import BaseModel
-
-
-from dotenv import load_dotenv
 
 
 class Config(BaseModel):
