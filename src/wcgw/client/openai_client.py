@@ -17,7 +17,7 @@ from openai.types.chat import (
 )
 import rich
 import petname  # type: ignore[import-untyped]
-import tokenizers
+import tokenizers  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
@@ -41,7 +41,6 @@ from .tools import (
     get_tool_output,
     which_tool,
 )
-from tokenizers import Tokenizer
 
 from urllib import parse
 import subprocess
@@ -189,9 +188,8 @@ def loop(
         openai.pydantic_function_tool(
             ReadFiles,
             description="""
-- Read full file content
-- Provide absolute file path only
-- Use this instead of 'cat' from BashCommand
+- Read full file content of one or more files.
+- Provide absolute file paths only
 """,
         ),
         openai.pydantic_function_tool(

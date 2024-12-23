@@ -21,9 +21,8 @@ Instructions for `BashCommand`:
 - Run long running commands in background using screen instead of "&".
 
 Instructions for `Read Files`
-- Read full content of multiple files.
-- Provide absolute file path only.
-- Use this instead of 'cat' from BashCommand
+- Read full file content of one or more files.
+- Provide absolute file paths only
 
 Instructions for `Write if Empty`
 - Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.

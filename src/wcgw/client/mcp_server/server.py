@@ -114,8 +114,8 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema=ReadFiles.model_json_schema(),
             name="ReadFiles",
             description="""
-- Read full file content
-- Provide absolute file path only
+- Read full file content of one or more files.
+- Provide absolute file paths only
 """,
         ),
         ToolParam(

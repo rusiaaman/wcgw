@@ -186,9 +186,8 @@ def loop(
             input_schema=ReadFiles.model_json_schema(),
             name="ReadFiles",
             description="""
-- Read full file content
-- Provide absolute file path only
-- Use this instead of 'cat' from BashCommand
+- Read full file content of one or more files.
+- Provide absolute file paths only
 """,
         ),
         ToolParam(
