@@ -1,7 +1,7 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "2.4.3"
+version = "2.5.0"
 description = "Shell and coding agent on claude and chatgpt"
 readme = "README.md"
 requires-python = ">=3.11, <3.13"
@@ -10,7 +10,6 @@ dependencies = [
     "typer>=0.12.5",
     "rich>=13.8.1",
     "python-dotenv>=1.0.1",
-    "tiktoken==0.7.0",
     "pexpect>=4.9.0",
     "shell>=1.0.1",
     "types-pexpect>=4.9.0.20240806",
@@ -23,8 +22,8 @@ dependencies = [
     "pydantic>=2.9.2",
     "semantic-version>=2.10.0",
     "anthropic>=0.39.0",
-    "humanize>=4.11.0",
     "syntax-checker==0.2.10",
+    "tokenizers>=0.21.0",
 ]
 
 [project.urls]

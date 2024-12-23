@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "https://a0e8-125-99-67-222.ngrok-free.app"
+      "url": "https://04df-103-212-152-58.ngrok-free.app"
     }
   ],
   "paths": {
@@ -297,9 +297,6 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "BashInteraction"
-            ],
             "const": "BashInteraction",
             "title": "Type"
           },
@@ -352,6 +349,17 @@
             ],
             "title": "Send Ascii"
           },
+          "wait_for_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait For Seconds"
+          },
           "user_id": {
             "type": "string",
             "format": "uuid",
@@ -383,30 +391,6 @@
           "user_id"
         ],
         "title": "CommandWithUUID"
-      },
-      "WriteIfEmptyWithUUID": {
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
-          },
-          "file_content": {
-            "type": "string",
-            "title": "File Content"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file_path",
-          "file_content",
-          "user_id"
-        ],
-        "title": "WriteIfEmptyWithUUID"
       },
       "FileEditWithUUID": {
         "properties": {
@@ -449,9 +433,6 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": [
-              "Initialize"
-            ],
             "const": "Initialize",
             "title": "Type"
           },
@@ -470,16 +451,16 @@
       },
       "ReadFileWithUUID": {
         "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
+          "file_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "File Paths"
           },
           "type": {
             "type": "string",
-            "enum": [
-              "ReadFile"
-            ],
-            "const": "ReadFile",
+            "const": "ReadFiles",
             "title": "Type"
           },
           "user_id": {
@@ -490,7 +471,7 @@
         },
         "type": "object",
         "required": [
-          "file_path",
+          "file_paths",
           "type",
           "user_id"
         ],
@@ -500,9 +481,6 @@
         "properties": {
           "should_reset": {
             "type": "boolean",
-            "enum": [
-              true
-            ],
             "const": true,
             "title": "Should Reset"
           },
@@ -551,6 +529,30 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WriteIfEmptyWithUUID": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "title": "File Path"
+          },
+          "file_content": {
+            "type": "string",
+            "title": "File Content"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "file_content",
+          "user_id"
+        ],
+        "title": "WriteIfEmptyWithUUID"
       }
     }
   }

@@ -21,7 +21,7 @@ from ...types_ import (
     FileEdit,
     Keyboard,
     Mouse,
-    ReadFile,
+    ReadFiles,
     ReadImage,
     ResetShell,
     Initialize,
@@ -76,7 +76,7 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema=Initialize.model_json_schema(),
             name="Initialize",
             description="""
-- Always call this at the start of the conversation before anything else.
+- Always call this at the start of the conversation before using any of the shell tools from wcgw.
 """,
         ),
         ToolParam(
@@ -92,6 +92,7 @@ async def handle_list_tools() -> list[types.Tool]:
 - The control will return to you in {SLEEP_TIME_MAX_S} seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
 - Use longer wait_for_seconds if the command is expected to run for a long time.
+- Do not use 'cat' to read files, use ReadFiles tool instead.
 """,
         ),
         ToolParam(
@@ -110,12 +111,11 @@ async def handle_list_tools() -> list[types.Tool]:
 """,
         ),
         ToolParam(
-            inputSchema=ReadFile.model_json_schema(),
-            name="ReadFile",
+            inputSchema=ReadFiles.model_json_schema(),
+            name="ReadFiles",
             description="""
-- Read full file content
-- Provide absolute file path only
-- Use this instead of 'cat' from BashCommand
+- Read full file content of one or more files.
+- Provide absolute file paths only
 """,
         ),
         ToolParam(

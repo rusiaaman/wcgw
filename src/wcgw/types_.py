@@ -31,9 +31,9 @@ class WriteIfEmpty(BaseModel):
     file_content: str
 
 
-class ReadFile(BaseModel):
-    file_path: str  # The path to the file to read
-    type: Literal["ReadFile"]
+class ReadFiles(BaseModel):
+    file_paths: list[str]
+    type: Literal["ReadFiles"]
 
 
 class FileEditFindReplace(BaseModel):

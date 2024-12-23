@@ -21,7 +21,7 @@ from ..types_ import (
     FileEditFindReplace,
     FileEdit,
     Initialize,
-    ReadFile,
+    ReadFiles,
     ResetShell,
     Specials,
 )
@@ -35,7 +35,7 @@ class Mdata(BaseModel):
         | ResetShell
         | FileEditFindReplace
         | FileEdit
-        | ReadFile
+        | ReadFiles
         | Initialize
         | str
     )
@@ -259,7 +259,7 @@ async def bash_interaction(bash_interaction: BashInteractionWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class ReadFileWithUUID(ReadFile):
+class ReadFileWithUUID(ReadFiles):
     user_id: UUID
 
 

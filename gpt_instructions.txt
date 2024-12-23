@@ -20,10 +20,9 @@ Instructions for `BashCommand`:
 - The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
 
-Instructions for `Read File`
-- Read full content of a file.
-- Provide absolute file path only.
-- Use this instead of 'cat' from BashCommand
+Instructions for `Read Files`
+- Read full file content of one or more files.
+- Provide absolute file paths only
 
 Instructions for `Write if Empty`
 - Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.

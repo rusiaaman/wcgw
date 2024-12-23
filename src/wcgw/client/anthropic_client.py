@@ -29,7 +29,7 @@ from ..types_ import (
     FileEdit,
     Keyboard,
     Mouse,
-    ReadFile,
+    ReadFiles,
     ReadImage,
     ResetShell,
     ScreenShot,
@@ -41,12 +41,7 @@ from .common import CostData
 from .tools import ImageData
 from .computer_use import Computer
 
-from .tools import (
-    DoneFlag,
-    get_tool_output,
-    which_tool_name,
-)
-import tiktoken
+from .tools import DoneFlag, get_tool_output, which_tool_name, default_enc
 
 from urllib import parse
 import subprocess
@@ -156,10 +151,6 @@ def loop(
 
     limit = 1
 
-    enc = tiktoken.encoding_for_model(
-        "gpt-4o-2024-08-06",
-    )
-
     tools = [
         ToolParam(
             input_schema=BashCommand.model_json_schema(),
@@ -192,12 +183,11 @@ def loop(
 """,
         ),
         ToolParam(
-            input_schema=ReadFile.model_json_schema(),
-            name="ReadFile",
+            input_schema=ReadFiles.model_json_schema(),
+            name="ReadFiles",
             description="""
-- Read full file content
-- Provide absolute file path only
-- Use this instead of 'cat' from BashCommand
+- Read full file content of one or more files.
+- Provide absolute file paths only
 """,
         ),
         ToolParam(
@@ -451,7 +441,7 @@ System information:
                             try:
                                 output_or_dones, _ = get_tool_output(
                                     tool_parsed,
-                                    enc,
+                                    default_enc,
                                     limit - cost,
                                     loop,
                                     max_tokens=8000,

@@ -15,7 +15,7 @@ from openai.types.chat import (
     ParsedChatCompletionMessage,
 )
 import rich
-import tiktoken
+from tokenizers import Tokenizer  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
@@ -23,7 +23,7 @@ from .common import CostData, History
 
 
 def get_input_cost(
-    cost_map: CostData, enc: tiktoken.Encoding, history: History
+    cost_map: CostData, enc: Tokenizer, history: History
 ) -> tuple[float, int]:
     input_tokens = 0
     for msg in history:
@@ -31,8 +31,8 @@ def get_input_cost(
         refusal = msg.get("refusal")
         if isinstance(content, list):
             for part in content:
-                if 'text' in part:
-                    input_tokens += len(enc.encode(part['text']))
+                if "text" in part:
+                    input_tokens += len(enc.encode(part["text"]))
         elif content is None:
             if refusal is None:
                 raise ValueError("Expected content or refusal to be present")
@@ -47,7 +47,7 @@ def get_input_cost(
 
 def get_output_cost(
     cost_map: CostData,
-    enc: tiktoken.Encoding,
+    enc: Tokenizer,
     item: ChatCompletionMessage | ChatCompletionMessageParam,
 ) -> tuple[float, int]:
     if isinstance(item, ChatCompletionMessage):

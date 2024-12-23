@@ -17,6 +17,7 @@ from openai.types.chat import (
 )
 import rich
 import petname  # type: ignore[import-untyped]
+import tokenizers  # type: ignore[import-untyped]
 from typer import Typer
 import uuid
 
@@ -26,7 +27,7 @@ from ..types_ import (
     WriteIfEmpty,
     FileEdit,
     ReadImage,
-    ReadFile,
+    ReadFiles,
     ResetShell,
 )
 
@@ -40,7 +41,6 @@ from .tools import (
     get_tool_output,
     which_tool,
 )
-import tiktoken
 
 from urllib import parse
 import subprocess
@@ -160,9 +160,7 @@ def loop(
         config.cost_limit = limit
     limit = config.cost_limit
 
-    enc = tiktoken.encoding_for_model(
-        config.model if not config.model.startswith("o1") else "gpt-4o"
-    )
+    enc = tokenizers.Tokenizer.from_pretrained("Xenova/gpt-4o")
 
     tools = [
         openai.pydantic_function_tool(
@@ -188,11 +186,10 @@ def loop(
 - Only one of send_text, send_specials, send_ascii should be provided.""",
         ),
         openai.pydantic_function_tool(
-            ReadFile,
+            ReadFiles,
             description="""
-- Read full file content
-- Provide absolute file path only
-- Use this instead of 'cat' from BashCommand
+- Read full file content of one or more files.
+- Provide absolute file paths only
 """,
         ),
         openai.pydantic_function_tool(
