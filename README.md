@@ -6,6 +6,7 @@
 
 ⚠️ Warning: do not use this repo if you aren't scared of "Autonomous shell command execution"
 
+[![smithery badge](https://smithery.ai/badge/wcgw)](https://smithery.ai/server/wcgw)
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
@@ -75,6 +76,14 @@ _If there's an error in setting up_
   Otherwise, re-install uv and follow instructions to add it into your .zshrc or .bashrc
 - If there's still an issue, check that `uv tool run --from wcgw@latest --python 3.12 wcgw_mcp` runs in your terminal. It should have no output and shouldn't exit.
 - Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
+
+### Installing via Smithery
+
+To install wcgw for Claude Desktop automatically via [Smithery](https://smithery.ai/server/wcgw):
+
+```bash
+npx -y @smithery/cli install wcgw --client claude
+```
 
 ### [Optional] Computer use support using desktop on docker
 
