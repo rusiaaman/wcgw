@@ -361,29 +361,11 @@ def get_status() -> str:
 T = TypeVar("T")
 
 
-def save_out_of_context(
-    tokens: list[T],
-    max_tokens: int,
-    suffix: str,
-    tokens_converted: Callable[[list[T]], str],
-) -> tuple[str, list[Path]]:
-    file_contents = list[str]()
-    for i in range(0, len(tokens), max_tokens):
-        file_contents.append(tokens_converted(tokens[i : i + max_tokens]))
-
-    if len(file_contents) == 1:
-        return file_contents[0], []
-
-    rest_paths = list[Path]()
-    for i, content in enumerate(file_contents):
-        if i == 0:
-            continue
-        file_path = NamedTemporaryFile(delete=False, suffix=suffix).name
-        with open(file_path, "w") as f:
-            f.write(content)
-        rest_paths.append(Path(file_path))
-
-    return file_contents[0], rest_paths
+def save_out_of_context(content: str, suffix: str) -> str:
+    file_path = NamedTemporaryFile(delete=False, suffix=suffix).name
+    with open(file_path, "w") as f:
+        f.write(content)
+    return file_path
 
 
 def rstrip(lines: list[str]) -> str:
@@ -565,7 +547,7 @@ def execute_bash(
 
             if max_tokens and len(tokens) >= max_tokens:
                 incremental_text = "(...truncated)\n" + enc.decode(
-                    tokens[-(max_tokens - 1) :]
+                    tokens.ids[-(max_tokens - 1) :]
                 )
 
             if is_interrupt:
@@ -591,7 +573,7 @@ def execute_bash(
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
-        output = "(...truncated)\n" + enc.decode(tokens[-(max_tokens - 1) :])
+        output = "(...truncated)\n" + enc.decode(tokens.ids[-(max_tokens - 1) :])
 
     try:
         exit_status = get_status()
@@ -657,7 +639,7 @@ def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
         n_tokens = len(tokens)
         if n_tokens > max_tokens:
             content = (
-                default_enc.decode(tokens[: max(0, max_tokens - 100)])
+                default_enc.decode(tokens.ids[: max(0, max_tokens - 100)])
                 + "\n(...truncated)"
             )
 
@@ -1403,14 +1385,10 @@ def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int
         tokens = default_enc.encode(content)
         tokens_counts = len(tokens)
         if len(tokens) > max_tokens:
-            content, rest = save_out_of_context(
-                tokens,
-                max(0, max_tokens - 100),
-                Path(file_path).suffix,
-                default_enc.decode,
+            content = default_enc.decode(tokens.ids[:max_tokens])
+            rest = save_out_of_context(
+                default_enc.decode(tokens.ids[max_tokens:]), Path(file_path).suffix
             )
-            if rest:
-                rest_ = "\n".join(map(str, rest))
-                content += f"\n(...truncated)\n---\nI've split the rest of the file into multiple files. Here are the remaining splits, please read them:\n{rest_}"
-                truncated = True
+            content += f"\n(...truncated)\n---\nI've saved the continuation in a new file. Please read: `{rest}`"
+            truncated = True
     return content, truncated, tokens_counts
