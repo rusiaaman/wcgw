@@ -26,6 +26,12 @@ jobs:
         run: |
           pip install uv
           uv venv --python "${{ matrix.python-version }}"
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          uv run python -m unittest discover -s tests
+          uv pip install pytest pytest-cov
+          uv run pytest --cov=wcgw --cov-report=xml --cov-report=term-missing:skip-covered
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        if: success()
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
