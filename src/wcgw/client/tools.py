@@ -295,14 +295,18 @@ def initialize(
     reset_shell()
 
     repo_context = ""
+
     if any_workspace_path:
-        repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
+        if os.path.exists(any_workspace_path):
+            repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
 
-        BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
-        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-        BASH_STATE.update_cwd()
+            BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
+            BASH_STATE.shell.expect(PROMPT, timeout=0.2)
+            BASH_STATE.update_cwd()
 
-        repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
+            repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
+        else:
+            return f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
 
     initial_files_context = ""
     if read_files_:

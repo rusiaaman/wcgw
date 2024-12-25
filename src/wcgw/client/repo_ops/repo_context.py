@@ -3,8 +3,8 @@ from typing import Optional
 
 from pygit2 import GitError, Repository
 
-from .display_tree import DirectoryTree
-from .path_prob import FastPathAnalyzer
+from wcgw.client.repo_ops.display_tree import DirectoryTree
+from wcgw.client.repo_ops.path_prob import FastPathAnalyzer
 
 curr_folder = Path(__file__).parent
 vocab_file = curr_folder / "paths_model.vocab"
@@ -51,7 +51,7 @@ def get_all_files_max_depth(
 
 
 def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
-    file_or_repo_path_ = Path(file_or_repo_path)
+    file_or_repo_path_ = Path(file_or_repo_path).absolute()
 
     repo = find_ancestor_with_git(file_or_repo_path_)
 
