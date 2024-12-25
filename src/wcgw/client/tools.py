@@ -174,19 +174,23 @@ def _ensure_env_and_bg_jobs(shell: pexpect.spawn) -> Optional[int]:  # type: ign
     shell.expect(PROMPT, timeout=0.2)
     shell.sendline("jobs | wc -l")
     before = ""
+
     while not _is_int(before):  # Consume all previous output
         try:
             shell.expect(PROMPT, timeout=0.2)
         except pexpect.TIMEOUT:
             console.print(f"Couldn't get exit code, before: {before}")
             raise
-        assert isinstance(shell.before, str)
-        # Render because there could be some anscii escape sequences still set like in google colab env
-        before_lines = render_terminal_output(shell.before)
+
+        before_val = shell.before
+        if not isinstance(before_val, str):
+            before_val = str(before_val)
+        assert isinstance(before_val, str)
+        before_lines = render_terminal_output(before_val)
         before = "\n".join(before_lines).strip()
 
     try:
-        return int((before))
+        return int(before)
     except ValueError:
         raise ValueError(f"Malformed output: {before}")
 
@@ -240,10 +244,12 @@ class BashState:
         return self._cwd
 
     def update_cwd(self) -> str:
-        BASH_STATE.shell.sendline("pwd")
-        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-        assert isinstance(BASH_STATE.shell.before, str)
-        before_lines = render_terminal_output(BASH_STATE.shell.before)
+        self.shell.sendline("pwd")
+        self.shell.expect(PROMPT, timeout=0.2)
+        before_val = self.shell.before
+        if not isinstance(before_val, str):
+            before_val = str(before_val)
+        before_lines = render_terminal_output(before_val)
         current_dir = "\n".join(before_lines).strip()
         self._cwd = current_dir
         return current_dir
@@ -581,7 +587,8 @@ def execute_bash(
 
             return incremental_text, 0
 
-    assert isinstance(BASH_STATE.shell.before, str)
+        if not isinstance(BASH_STATE.shell.before, str):
+            BASH_STATE.shell.before = str(BASH_STATE.shell.before)
     output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
     BASH_STATE.set_repl()
 

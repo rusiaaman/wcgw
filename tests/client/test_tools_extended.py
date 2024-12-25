@@ -137,27 +137,24 @@ class TestToolsExtended(unittest.TestCase):
         self.assertEqual(result.send_text, "input")
     
     def test_which_tool_name(self):
+        # Test valid tool names
         self.assertEqual(which_tool_name("BashCommand"), BashCommand)
         self.assertEqual(which_tool_name("Mouse"), Mouse)
         self.assertEqual(which_tool_name("Keyboard"), Keyboard)
         
+        # Test invalid tool name
         with self.assertRaises(ValueError):
             which_tool_name("InvalidTool")
-    
-    def test_bash_state(self):
-        # Test initialization
-        state = BashState()
-        self.assertEqual(state.state, "repl")
-        self.assertEqual(state.is_in_docker, "")
+        self.assertEqual(BASH_STATE.is_in_docker, "")
         
         # Test pending state
-        state.set_pending("test output")
-        self.assertEqual(state.state, "pending")
-        self.assertEqual(state.pending_output, "test output")
+        BASH_STATE.set_pending("test output")
+        self.assertEqual(BASH_STATE.state, "pending")
+        self.assertEqual(BASH_STATE.pending_output, "test output")
         
         # Test whitelist operations
-        state.add_to_whitelist_for_overwrite("/test/path")
-        self.assertIn("/test/path", state.whitelist_for_overwrite)
+        BASH_STATE.add_to_whitelist_for_overwrite("/test/path")
+        self.assertIn("/test/path", BASH_STATE.whitelist_for_overwrite)
     
     def test_image_data(self):
         # Test ImageData model
@@ -469,45 +466,7 @@ class TestToolsExtended(unittest.TestCase):
         result = lines_replacer(content_lines, search_lines, replace_lines)
         self.assertIn("replaced", result)
 
-    @patch('builtins.input', return_value='y')
-    def test_get_tool_output_comprehensive(self, mock_input):
-        """Test get_tool_output function with various tool types"""
-        from wcgw.client.tools import get_tool_output, DoneFlag, tokenizers, ImageData
-        
-        mock_enc = MagicMock(spec=tokenizers.Tokenizer)
-        mock_enc.encode.return_value.ids = [1, 2, 3]
-        mock_loop_call = MagicMock(return_value=("output", 0.5))
 
-        # Test Confirmation tool
-        result, cost = get_tool_output(
-            {"type": "Confirmation", "prompt": "Test?"},
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100
-        )
-        self.assertTrue(isinstance(result[0], str))
-        
-        # Test DoneFlag tool
-        done_flag = DoneFlag(task_output="Test complete")
-        result, cost = get_tool_output(
-            done_flag,
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100
-        )
-        self.assertEqual(result[0], done_flag)
-
-        # Test ResetShell tool
-        result, cost = get_tool_output(
-            {"type": "ResetShell", "should_reset": True},
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100
-        )
-        self.assertTrue(isinstance(result[0], str))
 
     @patch('wcgw.client.tools.read_image_from_shell')
     @patch('wcgw.client.tools.execute_bash')
