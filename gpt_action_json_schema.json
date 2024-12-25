@@ -436,6 +436,17 @@
             "const": "Initialize",
             "title": "Type"
           },
+          "any_workspace_path": {
+            "type": "string",
+            "title": "Any Workspace Path"
+          },
+          "initial_files_to_read": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Initial Files To Read"
+          },
           "user_id": {
             "type": "string",
             "format": "uuid",
@@ -445,6 +456,8 @@
         "type": "object",
         "required": [
           "type",
+          "any_workspace_path",
+          "initial_files_to_read",
           "user_id"
         ],
         "title": "InitializeWithUUID"

@@ -1,61 +1,57 @@
 import base64
 import datetime
+import importlib.metadata
 import json
 import mimetypes
-from pathlib import Path
+import os
 import re
 import shlex
-import importlib.metadata
 import time
 import traceback
+import uuid
+from difflib import SequenceMatcher
+from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
     Callable,
-    DefaultDict,
     Literal,
     Optional,
     ParamSpec,
     Type,
     TypeVar,
 )
-import uuid
 
-from pydantic import BaseModel, TypeAdapter
-import typer
-from .computer_use import run_computer_tool
-from websockets.sync.client import connect as syncconnect
-
-import os
-import tokenizers  # type: ignore
 import pexpect
-from typer import Typer
-import websockets
-
-import rich
 import pyte
-
-from syntax_checker import check_syntax
+import rich
+import tokenizers  # type: ignore
+import typer
+import websockets
 from openai.types.chat import (
     ChatCompletionMessageParam,
 )
-from difflib import SequenceMatcher
+from pydantic import BaseModel, TypeAdapter
+from syntax_checker import check_syntax
+from typer import Typer
+from websockets.sync.client import connect as syncconnect
 
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    WriteIfEmpty,
-    FileEditFindReplace,
     FileEdit,
+    FileEditFindReplace,
+    GetScreenInfo,
     Initialize,
+    Keyboard,
+    Mouse,
     ReadFiles,
     ReadImage,
     ResetShell,
-    Mouse,
-    Keyboard,
     ScreenShot,
-    GetScreenInfo,
+    WriteIfEmpty,
 )
-
+from .computer_use import run_computer_tool
+from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
 
 
@@ -178,19 +174,23 @@ def _ensure_env_and_bg_jobs(shell: pexpect.spawn) -> Optional[int]:  # type: ign
     shell.expect(PROMPT, timeout=0.2)
     shell.sendline("jobs | wc -l")
     before = ""
+
     while not _is_int(before):  # Consume all previous output
         try:
             shell.expect(PROMPT, timeout=0.2)
         except pexpect.TIMEOUT:
             console.print(f"Couldn't get exit code, before: {before}")
             raise
-        assert isinstance(shell.before, str)
-        # Render because there could be some anscii escape sequences still set like in google colab env
-        before_lines = render_terminal_output(shell.before)
+
+        before_val = shell.before
+        if not isinstance(before_val, str):
+            before_val = str(before_val)
+        assert isinstance(before_val, str)
+        before_lines = render_terminal_output(before_val)
         before = "\n".join(before_lines).strip()
 
     try:
-        return int((before))
+        return int(before)
     except ValueError:
         raise ValueError(f"Malformed output: {before}")
 
@@ -244,10 +244,12 @@ class BashState:
         return self._cwd
 
     def update_cwd(self) -> str:
-        BASH_STATE.shell.sendline("pwd")
-        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-        assert isinstance(BASH_STATE.shell.before, str)
-        before_lines = render_terminal_output(BASH_STATE.shell.before)
+        self.shell.sendline("pwd")
+        self.shell.expect(PROMPT, timeout=0.2)
+        before_val = self.shell.before
+        if not isinstance(before_val, str):
+            before_val = str(before_val)
+        before_lines = render_terminal_output(before_val)
         current_dir = "\n".join(before_lines).strip()
         self._cwd = current_dir
         return current_dir
@@ -287,20 +289,42 @@ class BashState:
 BASH_STATE = BashState()
 
 
-def initialize(workspace_dir: str = "") -> str:
+def initialize(
+    any_workspace_path: str, read_files_: list[str], max_tokens: Optional[int]
+) -> str:
     reset_shell()
-    if workspace_dir:
-        BASH_STATE.shell.sendline(f"cd {shlex.quote(workspace_dir)}")
-        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-        BASH_STATE.update_cwd()
+
+    repo_context = ""
+
+    if any_workspace_path:
+        if os.path.exists(any_workspace_path):
+            repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
+
+            BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
+            BASH_STATE.shell.expect(PROMPT, timeout=0.2)
+            BASH_STATE.update_cwd()
+
+            repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
+        else:
+            return f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
+
+    initial_files_context = ""
+    if read_files_:
+        initial_files = read_files(read_files_, max_tokens)
+        initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
 
     output = f"""
+# Environment
 System: {uname_sysname}
 Machine: {uname_machine}
 Current working directory: {BASH_STATE.cwd}
+
+{repo_context}
+
+{initial_files_context}
 """
 
     return output
@@ -567,7 +591,9 @@ def execute_bash(
 
             return incremental_text, 0
 
-    assert isinstance(BASH_STATE.shell.before, str)
+    if not isinstance(BASH_STATE.shell.before, str):
+        BASH_STATE.shell.before = str(BASH_STATE.shell.before)
+
     output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
     BASH_STATE.set_repl()
 
@@ -578,7 +604,7 @@ def execute_bash(
     try:
         exit_status = get_status()
         output += exit_status
-    except ValueError as e:
+    except ValueError:
         console.print(output)
         console.print(traceback.format_exc())
         console.print("Malformed output, restarting shell", style="red")
@@ -1189,7 +1215,10 @@ def get_tool_output(
         output = reset_shell(), 0.0
     elif isinstance(arg, Initialize):
         console.print("Calling initial info tool")
-        output = initialize(), 0.0
+        output = (
+            initialize(arg.any_workspace_path, arg.initial_files_to_read, max_tokens),
+            0.0,
+        )
     elif isinstance(arg, (Mouse, Keyboard, ScreenShot, GetScreenInfo)):
         console.print(f"Calling {type(arg).__name__} tool")
         outputs_cost = run_computer_tool(arg), 0.0
@@ -1331,7 +1360,7 @@ def read_files(file_paths: list[str], max_tokens: Optional[int]) -> str:
     for i, file in enumerate(file_paths):
         try:
             content, truncated, tokens = read_file(file, max_tokens)
-        except ValueError as e:
+        except Exception as e:
             message += f"\n{file}: {str(e)}\n"
             continue
 

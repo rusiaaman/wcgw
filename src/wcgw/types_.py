@@ -1,5 +1,5 @@
-import re
 from typing import Literal, Optional, Sequence
+
 from pydantic import BaseModel
 
 
@@ -53,6 +53,8 @@ class FileEdit(BaseModel):
 
 class Initialize(BaseModel):
     type: Literal["Initialize"]
+    any_workspace_path: str
+    initial_files_to_read: list[str]
 
 
 class GetScreenInfo(BaseModel):

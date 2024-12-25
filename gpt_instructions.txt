@@ -9,7 +9,12 @@ Instructions:
     - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
 
 Instructions for `Initialize`:
-    - Always call this at the start of the conversation.
+    - Always call this at the start of the conversation.- This will reset the shell.
+    - Use `any_workspace_path` to initialize the shell in the appropriate project directory.
+    - If the user has mentioned a workspace or project root, use it to set `any_workspace_path`.
+    - If the user has mentioned a folder or file with unclear project root, use the file or folder as `any_workspace_path`.
+    - If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
+    - If `any_workspace_path` is provided, a tree structure of the workspace will be shown.
 
 Instructions for `BashCommand`:
 - Execute a bash command. This is stateful (beware with subsequent calls).

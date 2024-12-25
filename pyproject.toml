@@ -24,6 +24,7 @@ dependencies = [
     "anthropic>=0.39.0",
     "syntax-checker==0.2.10",
     "tokenizers>=0.21.0",
+    "pygit2>=1.16.0",
 ]
 
 [project.urls]
@@ -53,4 +54,10 @@ dev-dependencies = [
     "autoflake",
     "ipython>=8.12.3",
     "gunicorn>=23.0.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
 ]
+
+[tool.pytest.ini_options]
+addopts = "--cov=wcgw --cov-report=term-missing:skip-covered --cov-report=html"
+testpaths = ["tests"]
