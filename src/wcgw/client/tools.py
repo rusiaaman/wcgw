@@ -591,8 +591,9 @@ def execute_bash(
 
             return incremental_text, 0
 
-        if not isinstance(BASH_STATE.shell.before, str):
-            BASH_STATE.shell.before = str(BASH_STATE.shell.before)
+    if not isinstance(BASH_STATE.shell.before, str):
+        BASH_STATE.shell.before = str(BASH_STATE.shell.before)
+
     output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
     BASH_STATE.set_repl()
 

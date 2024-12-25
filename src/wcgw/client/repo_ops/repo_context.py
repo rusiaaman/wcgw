@@ -3,8 +3,8 @@ from typing import Optional
 
 from pygit2 import GitError, Repository
 
-from wcgw.client.repo_ops.display_tree import DirectoryTree
-from wcgw.client.repo_ops.path_prob import FastPathAnalyzer
+from .display_tree import DirectoryTree
+from .path_prob import FastPathAnalyzer
 
 curr_folder = Path(__file__).parent
 vocab_file = curr_folder / "paths_model.vocab"
