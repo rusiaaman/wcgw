@@ -1,6 +1,6 @@
 # Shell and Coding agent for Claude and Chatgpt
 
-- Claude - An MCP server on claude desktop for autonomous shell, coding and desktop control agent. (mac only)
+- Claude - An MCP server on claude desktop for autonomous shell and coding agent. (mac only)
 - Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux or mac)
 
 
@@ -21,12 +21,11 @@
 
 ## 🚀 Highlights
 
-- ⚡ **Full Shell Access**: No restrictions, complete control.
-- ⚡ **Desktop control on Claude**: Screen capture, mouse control, keyboard control on claude desktop (on mac with docker linux)
 - ⚡ **Create, Execute, Iterate**: Ask claude to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
 - ⚡ **Large file edit**: Supports large file incremental edits to avoid token limit issues. Faster than full file write.
+- ⚡ **Syntax checking on edits**: Reports feedback to the LLM if its edits have any syntax errors, so that it can redo it.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
-- ⚡ **REPL support**: [beta] Supports python/node and other REPL execution.
+- ⚡ **Full Shell Access**: No restrictions, complete control.
 
 ## Top use cases examples
 
@@ -45,7 +44,9 @@
 
 ## Claude Setup
 
-First install `uv` https://docs.astral.sh/uv/getting-started/installation/#installation-methods
+First install `uv` using homebrew `brew install uv`
+
+(**Important:** use homebrew to install uv. Otherwise make sure `uv` is present in a global location like /usr/bin/)
 
 Then update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
 
@@ -72,52 +73,10 @@ Then restart claude app.
 
 _If there's an error in setting up_
 
-- Make sure `uv` in the system PATH by running `uv --version` and also ensure `uv tool run wcgw --version` works globally.
-  Otherwise, re-install uv and follow instructions to add it into your .zshrc or .bashrc
+- If there's an error like "uv ENOENT", make sure `uv` is installed. Then run 'which uv' in the terminal, and use its output in place of "uv" in the configuration.
 - If there's still an issue, check that `uv tool run --from wcgw@latest --python 3.12 wcgw_mcp` runs in your terminal. It should have no output and shouldn't exit.
 - Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
 
-### [Optional] Computer use support using desktop on docker
-
-Computer use is disabled by default. Add `--computer-use` to enable it. This will add necessary tools to Claude including ScreenShot, Mouse and Keyboard control.
-
-```json
-{
-  "mcpServers": {
-    "wcgw": {
-      "command": "uv",
-      "args": [
-        "tool",
-        "run",
-        "--from",
-        "wcgw@latest",
-        "--python",
-        "3.12",
-        "wcgw_mcp",
-        "--computer-use"
-      ]
-    }
-  }
-}
-```
-
-Claude will be able to connect to any docker container with linux environment. Native system control isn't supported outside docker.
-
-You'll need to run a docker image with desktop and optional VNC connection. Here's a demo image:
-
-```sh
-docker run -p 6080:6080 ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
-```
-
-Then ask claude desktop app to control the docker os. It'll connect to the docker container and control it.
-
-Connect to `http://localhost:6080/vnc.html` for desktop view (VNC) of the system running in the docker.
-
-The following requirements should be installed and working in the linux docker image:
-
-1. Needs `xdotool` to execute commands on the desktop.
-2. Needs `scrot` to take screenshots.
-3. Needs `convert` from imagemagick to convert images.
 
 ### Usage
 
@@ -129,8 +88,6 @@ over here
 ![mcp icon](https://github.com/rusiaaman/wcgw/blob/main/static/claude-ss.jpg?raw=true)
 
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
-
-If you've run the docker for LLM to access, you can ask it to control the "docker os". If you don't provide the docker container id to it, it'll try to search for available docker using `docker ps` command.
 
 
 ### [Optional] Vs code extension 
@@ -144,12 +101,6 @@ Commands:
 Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
 
 ## Examples
-
-### Computer use example
-
-![computer-use](https://github.com/rusiaaman/wcgw/blob/main/static/computer-use.jpg?raw=true)
-
-### Shell example
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
 
