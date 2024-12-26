@@ -23,7 +23,7 @@ class FastPathAnalyzer:
     def tokenize_batch(self, texts: List[str]) -> List[List[str]]:
         """Tokenize multiple texts at once."""
         encodings = self.encoder.encode_batch(texts)
-        return [encoding.tokens for encoding in encodings]  # type: ignore[no-any-return]
+        return [encoding.tokens for encoding in encodings]
 
     def detokenize(self, tokens: List[str]) -> str:
         """Convert tokens back to text, handling special tokens."""
@@ -35,7 +35,7 @@ class FastPathAnalyzer:
         """Calculate log probability for multiple paths at once."""
         # Batch tokenize all paths
         all_tokens = self.tokenize_batch(paths)
-        
+
         results = []
         for tokens in all_tokens:
             # Calculate sum of log probabilities for each path
@@ -46,9 +46,9 @@ class FastPathAnalyzer:
                     log_prob_sum += self.vocab_probs[token]
                 else:
                     unknown_tokens.append(token)
-            
+
             results.append((log_prob_sum, tokens, unknown_tokens))
-        
+
         return results
 
     def calculate_path_probability(
