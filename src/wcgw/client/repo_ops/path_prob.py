@@ -20,28 +20,39 @@ class FastPathAnalyzer:
 
         self.encoder = tokenizers.Tokenizer.from_file(model_path)
 
-    def tokenize(self, text: str) -> List[str]:
-        """Tokenize text using the vocabulary."""
-        return self.encoder.encode(text).tokens  # type: ignore[no-any-return]
+    def tokenize_batch(self, texts: List[str]) -> List[List[str]]:
+        """Tokenize multiple texts at once."""
+        encodings = self.encoder.encode_batch(texts)
+        return [encoding.tokens for encoding in encodings]  # type: ignore[no-any-return]
 
     def detokenize(self, tokens: List[str]) -> str:
         """Convert tokens back to text, handling special tokens."""
         return self.encoder.decode(tokens)  # type: ignore[no-any-return]
 
+    def calculate_path_probabilities_batch(
+        self, paths: List[str]
+    ) -> List[Tuple[float, List[str], List[str]]]:
+        """Calculate log probability for multiple paths at once."""
+        # Batch tokenize all paths
+        all_tokens = self.tokenize_batch(paths)
+        
+        results = []
+        for tokens in all_tokens:
+            # Calculate sum of log probabilities for each path
+            log_prob_sum = 0.0
+            unknown_tokens = []
+            for token in tokens:
+                if token in self.vocab_probs:
+                    log_prob_sum += self.vocab_probs[token]
+                else:
+                    unknown_tokens.append(token)
+            
+            results.append((log_prob_sum, tokens, unknown_tokens))
+        
+        return results
+
     def calculate_path_probability(
         self, path: str
     ) -> Tuple[float, List[str], List[str]]:
-        """Calculate log probability for a given path."""
-        # Tokenize the path
-        tokens = self.tokenize(path)
-
-        # Calculate sum of log probabilities
-        log_prob_sum = 0.0
-        unknown_tokens = []
-        for token in tokens:
-            if token in self.vocab_probs:
-                log_prob_sum += self.vocab_probs[token]
-            else:
-                unknown_tokens.append(token)
-
-        return log_prob_sum, tokens, unknown_tokens
+        """Calculate log probability for a single path."""
+        return self.calculate_path_probabilities_batch([path])[0]
