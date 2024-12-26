@@ -1,7 +1,6 @@
 import io
-from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import List, Set
 
 
 class DirectoryTree:
@@ -16,7 +15,7 @@ class DirectoryTree:
         self.root = root
         self.max_files = max_files
         self.expanded_files: Set[Path] = set()
-        self.expanded_dirs: Dict[Path, List[Path]] = defaultdict(list)
+        self.expanded_dirs = set[Path]()
 
         if not self.root.exists():
             raise ValueError(f"Root path {root} does not exist")
@@ -48,7 +47,7 @@ class DirectoryTree:
         current = abs_path.parent
         while str(current) >= str(self.root):
             if current not in self.expanded_dirs:
-                self.expanded_dirs[current] = self._list_directory(current)
+                self.expanded_dirs.add(current)
             if current == current.parent:
                 break
             current = current.parent
