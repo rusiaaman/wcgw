@@ -1,4 +1,6 @@
-from pathlib import Path
+import os
+from collections import deque
+from pathlib import Path  # Still needed for other parts
 from typing import Optional
 
 from pygit2 import GitError, Repository
@@ -22,32 +24,71 @@ def find_ancestor_with_git(path: Path) -> Optional[Repository]:
         return None
 
 
-def get_all_files_max_depth(
-    folder: Path,
-    max_depth: int,
-    rel_to: str,
-    repo: Optional[Repository],
-    current_depth: int,
-) -> list[str]:
-    if current_depth > max_depth:
-        return []
+MAX_FILES_CHECK = 100_000
 
+
+def _get_all_files_max_depth(
+    abs_folder: str,
+    max_depth: int,
+    repo: Optional[Repository],
+    current_depth: int = 0,
+    rel_path_prefix: str = "",
+    files_found: int = 0,
+) -> tuple[list[str], int]:
+    """BFS implementation using deque that maintains relative paths during traversal.
+    Returns (files_list, total_files_found) to track file count."""
     all_files = []
-    for child in folder.iterdir():
-        rel_path = str(child.relative_to(rel_to))
-        if repo and repo.path_is_ignored(rel_path):
+    # Queue stores: (folder_path, depth, rel_path_prefix)
+    queue = deque([(abs_folder, current_depth, rel_path_prefix)])
+
+    while queue and files_found < MAX_FILES_CHECK:
+        current_folder, depth, prefix = queue.popleft()
+
+        if depth > max_depth:
             continue
 
-        if child.is_file():
-            all_files.append(rel_path)
-        elif child.is_dir():
-            all_files.extend(
-                get_all_files_max_depth(
-                    child, max_depth, rel_to, repo, current_depth + 1
-                )
-            )
+        try:
+            entries = list(os.scandir(current_folder))
+        except PermissionError:
+            continue
+        except OSError:
+            continue
+        # Split into files and folders with single scan
+        files = []
+        folders = []
+        for entry in entries:
+            is_file = entry.is_file(follow_symlinks=False)
+            name = entry.name
+            rel_path = f"{prefix}{name}" if prefix else name
 
-    return all_files
+            if repo and repo.path_is_ignored(rel_path):
+                continue
+
+            if is_file:
+                files.append(rel_path)
+            else:
+                folders.append((entry.path, rel_path))
+
+        # Process files first (maintain priority)
+        chunk = files[: min(10_000, MAX_FILES_CHECK - files_found)]
+        all_files.extend(chunk)
+        files_found += len(chunk)
+
+        # Add folders to queue for BFS traversal
+        for folder_path, folder_rel_path in folders:
+            next_prefix = f"{folder_rel_path}/"
+            queue.append((folder_path, depth + 1, next_prefix))
+
+    return all_files, files_found
+
+
+def get_all_files_max_depth(
+    abs_folder: str,
+    max_depth: int,
+    repo: Optional[Repository],
+) -> list[str]:
+    """Public interface that expects absolute paths."""
+    return _get_all_files_max_depth(abs_folder, max_depth, repo)[0]
 
 
 def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
@@ -63,13 +104,16 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
         else:
             context_dir = file_or_repo_path_
 
-    all_files = get_all_files_max_depth(context_dir, 10, str(context_dir), repo, 0)
+    all_files = get_all_files_max_depth(str(context_dir), 10, repo)
 
-    sorted_files = sorted(
-        all_files,
-        key=lambda x: PATH_SCORER.calculate_path_probability(x)[0],
-        reverse=True,
-    )
+    # Calculate probabilities in batch
+    path_scores = PATH_SCORER.calculate_path_probabilities_batch(all_files)
+
+    # Create list of (path, score) tuples and sort by score
+    path_with_scores = list(zip(all_files, (score[0] for score in path_scores)))
+    sorted_files = [
+        path for path, _ in sorted(path_with_scores, key=lambda x: x[1], reverse=True)
+    ]
 
     top_files = sorted_files[:max_files]
 
@@ -82,7 +126,33 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
 
 
 if __name__ == "__main__":
+    import cProfile
+    import pstats
     import sys
 
+    from line_profiler import LineProfiler
+
     folder = sys.argv[1]
-    print(get_repo_context(folder, 200)[0])
+
+    # Profile using cProfile for overall function statistics
+    profiler = cProfile.Profile()
+    profiler.enable()
+    result = get_repo_context(folder, 200)[0]
+    profiler.disable()
+
+    # Print cProfile stats
+    stats = pstats.Stats(profiler)
+    stats.sort_stats("cumulative")
+    print("\n=== Function-level profiling ===")
+    stats.print_stats(20)  # Print top 20 functions
+
+    # Profile using line_profiler for line-by-line statistics
+    lp = LineProfiler()
+    lp_wrapper = lp(get_repo_context)
+    lp_wrapper(folder, 200)
+
+    print("\n=== Line-by-line profiling ===")
+    lp.print_stats()
+
+    print("\n=== Result ===")
+    print(result)
