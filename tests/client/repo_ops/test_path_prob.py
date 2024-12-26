@@ -6,7 +6,9 @@ from unittest.mock import patch, mock_open, MagicMock
 @pytest.fixture
 def mock_tokenizer():
     tokenizer = MagicMock()
-    tokenizer.encode.return_value.tokens = ["test", "path", "token"]
+    encoding = MagicMock()
+    encoding.tokens = ["test", "path", "token"]
+    tokenizer.encode_batch.return_value = [encoding]
     tokenizer.decode.return_value = "test/path/token"
     return tokenizer
 
@@ -32,14 +34,15 @@ def test_initialization(sample_vocab_content):
             assert analyzer.vocab_probs["unknown"] == -3.0
 
 
-def test_tokenize(mock_tokenizer):
+def test_tokenize_batch(mock_tokenizer):
     with patch('builtins.open', mock_open()):
         with patch('tokenizers.Tokenizer.from_file', return_value=mock_tokenizer):
             analyzer = FastPathAnalyzer("model.bin", "vocab.txt")
             
-            result = analyzer.tokenize("test/path")
-            assert result == ["test", "path", "token"]
-            mock_tokenizer.encode.assert_called_once_with("test/path")
+            # When we call tokenize_batch
+            result = analyzer.tokenize_batch(["test/path"])
+            assert result == [["test", "path", "token"]]
+            mock_tokenizer.encode_batch.assert_called_once_with(["test/path"])
 
 
 def test_detokenize(mock_tokenizer):
@@ -53,6 +56,8 @@ def test_detokenize(mock_tokenizer):
 
 
 def test_calculate_path_probability(sample_vocab_content, mock_tokenizer):
+    mock_tokenizer.encode_batch.return_value = [MagicMock(tokens=["test", "path", "token"])]
+    
     with patch('builtins.open', mock_open(read_data=sample_vocab_content)):
         with patch('tokenizers.Tokenizer.from_file', return_value=mock_tokenizer):
             analyzer = FastPathAnalyzer("model.bin", "vocab.txt")
@@ -67,7 +72,7 @@ def test_calculate_path_probability(sample_vocab_content, mock_tokenizer):
 
 def test_calculate_path_probability_with_unknown_tokens(sample_vocab_content, mock_tokenizer):
     # Mock tokenizer to return some unknown tokens
-    mock_tokenizer.encode.return_value.tokens = ["test", "unknown_token", "path"]
+    mock_tokenizer.encode_batch.return_value = [MagicMock(tokens=["test", "unknown_token", "path"])]
     
     with patch('builtins.open', mock_open(read_data=sample_vocab_content)):
         with patch('tokenizers.Tokenizer.from_file', return_value=mock_tokenizer):

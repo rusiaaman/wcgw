@@ -65,12 +65,12 @@ def test_get_all_files_max_depth(tmp_path, mock_repo):
     file2.touch()
 
     # Test with max_depth=0 (should get files only at current level)
-    files = get_all_files_max_depth(tmp_path, 0, str(tmp_path), mock_repo, 0)
+    files = get_all_files_max_depth(str(tmp_path), 0, mock_repo)
     assert len(files) == 1  # Only file1.txt at current level
     assert "file1.txt" in files
 
     # Test with max_depth=1 (should get both files)
-    files = get_all_files_max_depth(tmp_path, 1, str(tmp_path), mock_repo, 0)
+    files = get_all_files_max_depth(str(tmp_path), 1, mock_repo)
     assert len(files) == 2
     assert "file1.txt" in files
     assert str(Path("subdir/file2.txt")) in files
@@ -84,7 +84,7 @@ def test_get_all_files_max_depth_with_ignored(tmp_path, mock_repo):
     (tmp_path / "regular.txt").touch()
     (tmp_path / "ignored.txt").touch()
     
-    files = get_all_files_max_depth(tmp_path, 1, str(tmp_path), mock_repo, 0)
+    files = get_all_files_max_depth(str(tmp_path), 1, mock_repo)
     assert len(files) == 1
     assert "regular.txt" in files
     assert "ignored.txt" not in files
