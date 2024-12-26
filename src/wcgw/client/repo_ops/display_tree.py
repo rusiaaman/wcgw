@@ -49,6 +49,8 @@ class DirectoryTree:
         while str(current) >= str(self.root):
             if current not in self.expanded_dirs:
                 self.expanded_dirs[current] = self._list_directory(current)
+            if current == current.parent:
+                break
             current = current.parent
 
     def _list_directory(self, dir_path: Path) -> List[Path]:

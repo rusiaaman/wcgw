@@ -24,24 +24,21 @@ def find_ancestor_with_git(path: Path) -> Optional[Repository]:
         return None
 
 
-MAX_FILES_CHECK = 100_000
+MAX_ENTRIES_CHECK = 100_000
 
 
-def _get_all_files_max_depth(
+def get_all_files_max_depth(
     abs_folder: str,
     max_depth: int,
     repo: Optional[Repository],
-    current_depth: int = 0,
-    rel_path_prefix: str = "",
-    files_found: int = 0,
-) -> tuple[list[str], int]:
+) -> list[str]:
     """BFS implementation using deque that maintains relative paths during traversal.
     Returns (files_list, total_files_found) to track file count."""
     all_files = []
     # Queue stores: (folder_path, depth, rel_path_prefix)
-    queue = deque([(abs_folder, current_depth, rel_path_prefix)])
-
-    while queue and files_found < MAX_FILES_CHECK:
+    queue = deque([(abs_folder, 0, "")])
+    entries_check = 0
+    while queue and entries_check < MAX_ENTRIES_CHECK:
         current_folder, depth, prefix = queue.popleft()
 
         if depth > max_depth:
@@ -57,7 +54,11 @@ def _get_all_files_max_depth(
         files = []
         folders = []
         for entry in entries:
-            is_file = entry.is_file(follow_symlinks=False)
+            entries_check += 1
+            try:
+                is_file = entry.is_file(follow_symlinks=False)
+            except OSError:
+                continue
             name = entry.name
             rel_path = f"{prefix}{name}" if prefix else name
 
@@ -70,25 +71,15 @@ def _get_all_files_max_depth(
                 folders.append((entry.path, rel_path))
 
         # Process files first (maintain priority)
-        chunk = files[: min(10_000, MAX_FILES_CHECK - files_found)]
+        chunk = files[: min(10_000, max(0, MAX_ENTRIES_CHECK - entries_check))]
         all_files.extend(chunk)
-        files_found += len(chunk)
 
         # Add folders to queue for BFS traversal
         for folder_path, folder_rel_path in folders:
             next_prefix = f"{folder_rel_path}/"
             queue.append((folder_path, depth + 1, next_prefix))
 
-    return all_files, files_found
-
-
-def get_all_files_max_depth(
-    abs_folder: str,
-    max_depth: int,
-    repo: Optional[Repository],
-) -> list[str]:
-    """Public interface that expects absolute paths."""
-    return _get_all_files_max_depth(abs_folder, max_depth, repo)[0]
+    return all_files
 
 
 def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
@@ -118,7 +109,6 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
     top_files = sorted_files[:max_files]
 
     directory_printer = DirectoryTree(context_dir, max_files=max_files)
-
     for file in top_files:
         directory_printer.expand(file)
 
