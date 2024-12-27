@@ -42,7 +42,7 @@
 - Using 'screen' run my server in background instead, then run another api server in bg, finally run the frontend build. Keep checking logs for any issues in all three
 - Create repo wide unittest cases. Keep iterating through files and creating cases. Also keep running the tests after each update. Do not modify original code.
 
-## Claude Setup
+## Claude setup (using mcp)
 
 First install `uv` using homebrew `brew install uv`
 
@@ -77,6 +77,16 @@ _If there's an error in setting up_
 - If there's still an issue, check that `uv tool run --from wcgw@latest --python 3.12 wcgw_mcp` runs in your terminal. It should have no output and shouldn't exit.
 - Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
 
+### Alternative configuration using smithery (npx required)
+[![smithery badge](https://smithery.ai/badge/wcgw)](https://smithery.ai/server/wcgw)
+
+You need to first install uv using homebrew. `brew install uv`
+
+Then to configure wcgw for Claude Desktop automatically via [Smithery](https://smithery.ai/server/wcgw):
+
+```bash
+npx -y @smithery/cli install wcgw --client claude
+```
 
 ### Usage
 
