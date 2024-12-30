@@ -1242,9 +1242,7 @@ def get_tool_output(
                     # At this point we should go into the docker env
                     res, _ = execute_bash(
                         enc,
-                        BashInteraction(
-                            send_text=f"export PS1={PROMPT}", type="BashInteraction"
-                        ),
+                        BashInteraction(send_text=f"export PS1={PROMPT}"),
                         None,
                         0.2,
                     )
