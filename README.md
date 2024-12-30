@@ -12,6 +12,7 @@
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
 
 ## Updates
+- [29 Dec 2024] Syntax checking on file writing and edits is now stable. Made `initialize` tool call useful; sending smart repo structure to claude if any repo is referenced. Large file handling is also now improved.
 
 - [9 Dec 2024] [Vscode extension to paste context on Claude app](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw)  
 
