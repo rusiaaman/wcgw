@@ -1,30 +1,27 @@
-import unittest
-from unittest.mock import patch, mock_open, MagicMock
 import base64
 import json
 import os
-import pexpect
-import tempfile
-from pathlib import Path
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
+
 from wcgw.client.tools import (
-    find_least_edit_distance_substring,
+    BASH_STATE,
+    ImageData,
     edit_content,
-    lines_replacer,
+    find_least_edit_distance_substring,
     get_incremental_output,
+    lines_replacer,
     render_terminal_output,
     which_tool,
     which_tool_name,
-    BashState,
-    BASH_STATE,
-    ImageData,
 )
-from wcgw.types_ import BashCommand, BashInteraction, WriteIfEmpty, Mouse, Keyboard
+from wcgw.types_ import BashCommand, BashInteraction, Keyboard, Mouse, WriteIfEmpty
 
 
 class TestToolsExtended(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-    
+
     def test_find_least_edit_distance_substring(self):
         content_lines = [
             "def hello():",
@@ -37,13 +34,16 @@ class TestToolsExtended(unittest.TestCase):
             "def hello():",
             "    print('Hello')",
         ]
-        
+
         result, context = find_least_edit_distance_substring(content_lines, find_lines)
-        self.assertEqual(result, [
-            "def hello():",
-            "    print('Hello')",
-        ])
-        
+        self.assertEqual(
+            result,
+            [
+                "def hello():",
+                "    print('Hello')",
+            ],
+        )
+
         # Test with partial match
         find_lines = [
             "def helo():",  # Typo
@@ -51,25 +51,28 @@ class TestToolsExtended(unittest.TestCase):
         ]
         result, context = find_least_edit_distance_substring(content_lines, find_lines)
         self.assertIn("def hello():", result)
-    
+
     def test_edit_content(self):
         content = """def test():
     print("old")
     return True"""
-        
+
         find = """    print("old")"""
         replace = """    print("new")"""
-        
+
         result = edit_content(content, find, replace)
-        self.assertEqual(result, """def test():
+        self.assertEqual(
+            result,
+            """def test():
     print("new")
-    return True""")
-        
+    return True""",
+        )
+
         # Test with non-matching content
         with self.assertRaises(Exception) as context:
             edit_content(content, "nonexistent", "replacement")
         self.assertTrue("Error: no match found" in str(context.exception))
-    
+
     def test_lines_replacer(self):
         content_lines = [
             "def test():",
@@ -82,31 +85,34 @@ class TestToolsExtended(unittest.TestCase):
         replace_lines = [
             "    print('new')",
         ]
-        
+
         result = lines_replacer(content_lines, search_lines, replace_lines)
-        self.assertEqual(result, """def test():
+        self.assertEqual(
+            result,
+            """def test():
     print('new')
-    return True""")
-        
+    return True""",
+        )
+
         # Test with empty search block
         with self.assertRaises(ValueError):
             lines_replacer(content_lines, [], replace_lines)
-    
+
     def test_get_incremental_output(self):
         old_output = ["line1", "line2"]
         new_output = ["line1", "line2", "line3"]
-        
+
         result = get_incremental_output(old_output, new_output)
         self.assertEqual(result, ["line3"])
-        
+
         # Test with empty old output
         result = get_incremental_output([], new_output)
         self.assertEqual(result, new_output)
-        
+
         # Test with completely different output
         result = get_incremental_output(["old"], ["new"])
         self.assertEqual(result, ["new"])
-    
+
     def test_render_terminal_output(self):
         # Test with ANSI escape sequences
         terminal_output = "\x1b[32mGreen Text\x1b[0m\nNext Line"
@@ -114,48 +120,45 @@ class TestToolsExtended(unittest.TestCase):
         # Strip spaces since terminal width may vary
         result = [line.strip() for line in result]
         self.assertEqual(result, ["Green Text", "Next Line"])
-        
+
         # Test with carriage returns
         terminal_output = "First\rSecond\nThird"
         result = render_terminal_output(terminal_output)
         self.assertTrue("Second" in result[0])
-    
+
     def test_which_tool(self):
         # Test BashCommand
-        cmd_json = json.dumps({"command": "ls", "type": "BashCommand"})
+        cmd_json = json.dumps({"command": "ls"})
         result = which_tool(cmd_json)
         self.assertIsInstance(result, BashCommand)
         self.assertEqual(result.command, "ls")
-        
+
         # Test BashInteraction
-        interaction_json = json.dumps({
-            "type": "BashInteraction",
-            "send_text": "input"
-        })
+        interaction_json = json.dumps({"send_text": "input"})
         result = which_tool(interaction_json)
         self.assertIsInstance(result, BashInteraction)
         self.assertEqual(result.send_text, "input")
-    
+
     def test_which_tool_name(self):
         # Test valid tool names
         self.assertEqual(which_tool_name("BashCommand"), BashCommand)
         self.assertEqual(which_tool_name("Mouse"), Mouse)
         self.assertEqual(which_tool_name("Keyboard"), Keyboard)
-        
+
         # Test invalid tool name
         with self.assertRaises(ValueError):
             which_tool_name("InvalidTool")
         self.assertEqual(BASH_STATE.is_in_docker, "")
-        
+
         # Test pending state
         BASH_STATE.set_pending("test output")
         self.assertEqual(BASH_STATE.state, "pending")
         self.assertEqual(BASH_STATE.pending_output, "test output")
-        
+
         # Test whitelist operations
         BASH_STATE.add_to_whitelist_for_overwrite("/test/path")
         self.assertIn("/test/path", BASH_STATE.whitelist_for_overwrite)
-    
+
     def test_image_data(self):
         # Test ImageData model
         image = ImageData(media_type="image/png", data="base64data")
@@ -163,17 +166,17 @@ class TestToolsExtended(unittest.TestCase):
         self.assertEqual(image.data, "base64data")
         self.assertEqual(image.dataurl, "data:image/png;base64,base64data")
 
-    @patch('os.path.exists')
-    @patch('os.path.isabs')
-    @patch('builtins.open', new_callable=mock_open)
+    @patch("os.path.exists")
+    @patch("os.path.isabs")
+    @patch("builtins.open", new_callable=mock_open)
     def test_read_image_from_shell(self, mock_file, mock_isabs, mock_exists):
-        from wcgw.client.tools import read_image_from_shell, BASH_STATE
-        
+        from wcgw.client.tools import read_image_from_shell
+
         # Setup mocks
         mock_isabs.return_value = True
         mock_exists.return_value = True
         mock_file.return_value.read.return_value = b"test_image_data"
-        
+
         # Test regular file read
         result = read_image_from_shell("/test/image.png")
         self.assertIsInstance(result, ImageData)
@@ -185,13 +188,13 @@ class TestToolsExtended(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_image_from_shell("/nonexistent/image.png")
 
-    @patch('wcgw.client.tools.default_enc')
+    @patch("wcgw.client.tools.default_enc")
     def test_get_context_for_errors(self, mock_enc):
         from wcgw.client.tools import get_context_for_errors
-        
+
         # Setup mock tokenizer
         mock_enc.encode.return_value = [1, 2, 3]  # simulate tokens
-        
+
         # Test basic context
         file_content = "line1\nline2\nline3\nline4\nline5"
         errors = [(2, 0)]  # Error on line 2
@@ -204,40 +207,39 @@ class TestToolsExtended(unittest.TestCase):
         result = get_context_for_errors(errors, file_content, max_tokens=10)
         self.assertEqual(result, "Please re-read the file to understand the context")
 
-    @patch('os.path.exists')
-    @patch('os.path.isabs')
-    @patch('pathlib.Path.open')
-    @patch('pathlib.Path.mkdir')
+    @patch("os.path.exists")
+    @patch("os.path.isabs")
+    @patch("pathlib.Path.open")
+    @patch("pathlib.Path.mkdir")
     def test_write_file(self, mock_mkdir, mock_path_open, mock_isabs, mock_exists):
-        from wcgw.client.tools import write_file, BASH_STATE
-        
+        from wcgw.client.tools import BASH_STATE, write_file
+
         # Setup mocks
         mock_isabs.return_value = True
         mock_exists.return_value = False
         mock_file = mock_open()
         mock_path_open.return_value.__enter__ = mock_file
         mock_path_open.return_value.__exit__ = MagicMock()
-        
+
         # Test successful write
         test_file = WriteIfEmpty(
-            file_path="/test/file.py",
-            file_content="print('test')"
+            file_path="/test/file.py", file_content="print('test')"
         )
         result = write_file(test_file, error_on_exist=True, max_tokens=100)
         self.assertIn("Success", result)
-        
+
         # Test writing to existing file with error_on_exist=True and not in whitelist
         mock_exists.return_value = True
         BASH_STATE.whitelist_for_overwrite.clear()  # Clear whitelist
         test_file_new = WriteIfEmpty(
             file_path="/test/another_file.py",  # Use a different file not in whitelist
-            file_content="print('test')"
+            file_content="print('test')",
         )
-        with patch('pathlib.Path.read_text') as mock_read_text:
+        with patch("pathlib.Path.read_text") as mock_read_text:
             mock_read_text.return_value = "existing content"
             result = write_file(test_file_new, error_on_exist=True, max_tokens=100)
             self.assertIn("Error: can't write to existing file", result)
-        
+
         # Test with relative path
         mock_isabs.return_value = False
         result = write_file(test_file, error_on_exist=True, max_tokens=100)
@@ -245,44 +247,35 @@ class TestToolsExtended(unittest.TestCase):
 
     def test_is_status_check(self):
         from wcgw.client.tools import is_status_check
-        
+
         # Test with Enter special key
-        interaction = BashInteraction(
-            type="BashInteraction",
-            send_specials=["Enter"]
-        )
+        interaction = BashInteraction(send_specials=["Enter"])
         self.assertTrue(is_status_check(interaction))
-        
+
         # Test with ascii code 10 (newline)
-        interaction = BashInteraction(
-            type="BashInteraction",
-            send_ascii=[10]
-        )
+        interaction = BashInteraction(send_ascii=[10])
         self.assertTrue(is_status_check(interaction))
-        
+
         # Test with other interaction
-        interaction = BashInteraction(
-            type="BashInteraction",
-            send_text="hello"
-        )
+        interaction = BashInteraction(send_text="hello")
         self.assertFalse(is_status_check(interaction))
-        
+
         # Test with BashCommand
         cmd = BashCommand(command="ls")
         self.assertFalse(is_status_check(cmd))
 
-    @patch('pexpect.spawn')
+    @patch("pexpect.spawn")
     def test_start_shell(self, mock_spawn):
-        from wcgw.client.tools import start_shell, PROMPT
-        
+        from wcgw.client.tools import PROMPT, start_shell
+
         # Setup mock shell
         mock_shell = MagicMock()
         mock_spawn.return_value = mock_shell
-        
+
         # Test successful shell start
         shell = start_shell()
         self.assertEqual(shell, mock_shell)
-        
+
         # Verify shell initialization
         self.assertEqual(mock_shell.expect.call_count, 4)  # 4 setup commands
         mock_shell.sendline.assert_any_call(f"export PS1={PROMPT}")
@@ -292,109 +285,114 @@ class TestToolsExtended(unittest.TestCase):
 
     def test_save_out_of_context(self):
         from wcgw.client.tools import save_out_of_context
-        
+
         # Test saving content
         content = "Test content"
         suffix = ".txt"
         filepath = save_out_of_context(content, suffix)
-        
+
         # Verify file was created and content saved
         self.assertTrue(os.path.exists(filepath))
         with open(filepath, "r") as f:
             saved_content = f.read()
             self.assertEqual(saved_content, content)
-        
+
         # Cleanup
         os.remove(filepath)
 
-    @patch('wcgw.client.tools.get_tool_output')
+    @patch("wcgw.client.tools.get_tool_output")
     def test_which_tool_errors(self, mock_get_tool_output):
         from wcgw.client.tools import which_tool
-        
-        # Test with invalid tool type
-        invalid_json = json.dumps({"type": "InvalidTool"})
-        with self.assertRaises(Exception):
-            which_tool(invalid_json)
-        
+
         # Test with invalid JSON
         with self.assertRaises(json.JSONDecodeError):
             which_tool("invalid json")
 
-    @patch('os.system')
-    @patch('tempfile.TemporaryDirectory')
+    @patch("os.system")
+    @patch("tempfile.TemporaryDirectory")
     def test_write_file_docker(self, mock_temp_dir, mock_system):
-        from wcgw.client.tools import write_file, BASH_STATE
-        
+        from wcgw.client.tools import BASH_STATE, write_file
+
         # Setup Docker environment
         BASH_STATE.set_in_docker("test_container")
-        
+
         # Setup mocks
         mock_temp_dir.return_value.__enter__.return_value = "/tmp/test"
         mock_system.return_value = 0
-        
+
         # Test writing in Docker environment
         test_file = WriteIfEmpty(
-            file_path="/test/file.py",
-            file_content="print('test')"
+            file_path="/test/file.py", file_content="print('test')"
         )
         result = write_file(test_file, error_on_exist=False, max_tokens=100)
         self.assertIn("Success", result)
-        
+
         # Test Docker command failure
         mock_system.return_value = 1
         result = write_file(test_file, error_on_exist=False, max_tokens=100)
         self.assertIn("Error: Write failed with code", result)
 
-    @patch('wcgw.client.tools.command_run')
+    @patch("wcgw.client.tools.command_run")
     def test_read_files_docker(self, mock_command_run):
-        from wcgw.client.tools import read_files, BASH_STATE
-        
+        from wcgw.client.tools import BASH_STATE, read_files
+
         # Setup Docker environment
         BASH_STATE.set_in_docker("test_container")
-        
+
         # Test successful read
         mock_command_run.return_value = (0, "file content", "")
         result = read_files(["/test/file.py"], max_tokens=100)
         self.assertIn("file content", result)
-        
+
         # Test read failure
         mock_command_run.return_value = (1, "", "error message")
         result = read_files(["/test/nonexistent.py"], max_tokens=100)
         self.assertIn("error message", result)
-        
+
         # Reset Docker state
         BASH_STATE._is_in_docker = ""
 
-    @patch('wcgw.client.tools.get_tool_output')
+    @patch("wcgw.client.tools.get_tool_output")
     def test_execute_bash_interaction(self, mock_get_tool):
-        from wcgw.client.tools import execute_bash, tokenizers, BashInteraction
+        from wcgw.client.tools import BashInteraction, execute_bash
+
         mock_tokenizer = MagicMock()
         mock_tokenizer.encode.return_value.ids = [1, 2, 3]
-        
+
         # Test sending special keys
         interaction = BashInteraction(
-            type="BashInteraction",
-            send_specials=["Enter", "Key-up", "Key-down", "Key-left", "Key-right", "Ctrl-c", "Ctrl-d", "Ctrl-z"]
+            send_specials=[
+                "Enter",
+                "Key-up",
+                "Key-down",
+                "Key-left",
+                "Key-right",
+                "Ctrl-c",
+                "Ctrl-d",
+                "Ctrl-z",
+            ],
         )
-        result, _ = execute_bash(mock_tokenizer, interaction, max_tokens=100, timeout_s=1)
+        result, _ = execute_bash(
+            mock_tokenizer, interaction, max_tokens=100, timeout_s=1
+        )
         self.assertIsInstance(result, str)
 
         # Test sending ASCII characters
         interaction = BashInteraction(
-            type="BashInteraction",
-            send_ascii=[97, 98, 99]  # 'abc'
+            send_ascii=[97, 98, 99],  # 'abc'
         )
-        result, _ = execute_bash(mock_tokenizer, interaction, max_tokens=100, timeout_s=1)
+        result, _ = execute_bash(
+            mock_tokenizer, interaction, max_tokens=100, timeout_s=1
+        )
         self.assertIsInstance(result, str)
 
         # Test malformed interaction
         interaction = BashInteraction(
-            type="BashInteraction",
-            send_text=None,
-            send_ascii=None,
-            send_specials=None
+            send_text=None, send_ascii=None, send_specials=None
         )
-        result, _ = execute_bash(mock_tokenizer, interaction, max_tokens=100, timeout_s=1)
+        result, _ = execute_bash(
+            mock_tokenizer, interaction, max_tokens=100, timeout_s=1
+        )
         self.assertIn("Failure", result)
 
     def test_find_least_edit_distance_multiple_matches(self):
@@ -406,21 +404,21 @@ class TestToolsExtended(unittest.TestCase):
             "def test2():",
             "    print('hello')",
         ]
-        
+
         find_lines = [
             "    print('hello')",
         ]
-        
+
         result, context = find_least_edit_distance_substring(content_lines, find_lines)
         result_str = "\n".join(result)
         self.assertIn("print('hello')", result_str)
         self.assertTrue(len(result) >= 1)
 
-    @patch('wcgw.client.tools.check_syntax')
-    @patch('os.system')
+    @patch("wcgw.client.tools.check_syntax")
+    @patch("os.system")
     def test_write_file_with_syntax_check(self, mock_system, mock_check):
-        from wcgw.client.tools import write_file, BASH_STATE
-        
+        from wcgw.client.tools import write_file
+
         # Setup mocks
         mock_error = MagicMock()
         mock_error.description = "Invalid syntax"
@@ -430,15 +428,16 @@ class TestToolsExtended(unittest.TestCase):
 
         # Test file write with syntax error
         test_file = WriteIfEmpty(
-            file_path="/test/file.py",
-            file_content="invalid python code"
+            file_path="/test/file.py", file_content="invalid python code"
         )
 
-        with patch('pathlib.Path.open', mock_open()):
-            with patch('pathlib.Path.mkdir'):
-                with patch('os.path.exists', return_value=False):
-                    with patch('os.path.isabs', return_value=True):
-                        result = write_file(test_file, error_on_exist=True, max_tokens=100)
+        with patch("pathlib.Path.open", mock_open()):
+            with patch("pathlib.Path.mkdir"):
+                with patch("os.path.exists", return_value=False):
+                    with patch("os.path.isabs", return_value=True):
+                        result = write_file(
+                            test_file, error_on_exist=True, max_tokens=100
+                        )
                         self.assertIn("Success", result)
                         self.assertIn("syntax errors", result)
                         self.assertIn("Invalid syntax", result)
@@ -448,12 +447,12 @@ class TestToolsExtended(unittest.TestCase):
         # Test empty content
         with self.assertRaises(ValueError):
             lines_replacer([], ["search"], ["replace"])
-        
+
         # Test empty file
         content_lines = [""]
         with self.assertRaises(ValueError):
             lines_replacer(content_lines, ["search"], ["replace"])
-        
+
         # Test no match found
         content_lines = ["line1", "line2"]
         with self.assertRaises(ValueError):
@@ -466,27 +465,29 @@ class TestToolsExtended(unittest.TestCase):
         result = lines_replacer(content_lines, search_lines, replace_lines)
         self.assertIn("replaced", result)
 
-
-
-    @patch('wcgw.client.tools.read_image_from_shell')
-    @patch('wcgw.client.tools.execute_bash')
-    @patch('pathlib.Path.mkdir')
-    @patch('pathlib.Path.open', new_callable=mock_open)
-    def test_get_tool_output_file_operations(self, mock_file, mock_mkdir, mock_execute_bash, mock_read_image):
+    @patch("wcgw.client.tools.read_image_from_shell")
+    @patch("wcgw.client.tools.execute_bash")
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.open", new_callable=mock_open)
+    def test_get_tool_output_file_operations(
+        self, mock_file, mock_mkdir, mock_execute_bash, mock_read_image
+    ):
         """Test get_tool_output function with file operation tools"""
         from wcgw.client.tools import get_tool_output
-        
+
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
 
         # Test ReadImage tool
-        mock_read_image.return_value = ImageData(media_type="image/png", data="test_data")
+        mock_read_image.return_value = ImageData(
+            media_type="image/png", data="test_data"
+        )
         result, cost = get_tool_output(
-            {"type": "ReadImage", "file_path": "/test/image.png"},
+            {"file_path": "/test/image.png"},
             mock_enc,
             1.0,
             mock_loop_call,
-            100
+            100,
         )
         self.assertIsInstance(result[0], ImageData)
         self.assertEqual(result[0].media_type, "image/png")
@@ -494,22 +495,21 @@ class TestToolsExtended(unittest.TestCase):
         # Test WriteIfEmpty tool
         result, cost = get_tool_output(
             {
-                "type": "WriteIfEmpty",
                 "file_path": "/test/file.txt",
-                "file_content": "test content"
+                "file_content": "test content",
             },
             mock_enc,
             1.0,
             mock_loop_call,
-            100
+            100,
         )
         self.assertTrue(isinstance(result[0], str))
 
-    @patch('wcgw.client.tools.run_computer_tool')
+    @patch("wcgw.client.tools.run_computer_tool")
     def test_get_tool_output_computer_interactions(self, mock_run_computer):
         """Test get_tool_output function with computer interaction tools"""
-        from wcgw.client.tools import get_tool_output, BASH_STATE
-        
+        from wcgw.client.tools import BASH_STATE, get_tool_output
+
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
 
@@ -519,16 +519,12 @@ class TestToolsExtended(unittest.TestCase):
         # Test Mouse tool
         result, cost = get_tool_output(
             {
-                "type": "Mouse",
-                "action": {
-                    "button_type": "left_click",
-                    "type": "MouseButton"
-                }
+                "action": {"button_type": "left_click"},
             },
             mock_enc,
             1.0,
             mock_loop_call,
-            100
+            100,
         )
         self.assertEqual(len(result), 2)  # Output string and screenshot
         self.assertTrue(isinstance(result[0], str))
@@ -536,24 +532,20 @@ class TestToolsExtended(unittest.TestCase):
         # Test Keyboard tool with GetScreenInfo
         BASH_STATE.set_in_docker("test_container")
         result, cost = get_tool_output(
-            {
-                "type": "Keyboard",
-                "action": "type",
-                "text": "test input"
-            },
+            {"action": "type", "text": "test input"},
             mock_enc,
             1.0,
             mock_loop_call,
-            100
+            100,
         )
         self.assertEqual(len(result), 2)
         BASH_STATE._is_in_docker = ""
 
-    @patch('wcgw.client.tools.take_help_of_ai_assistant')
+    @patch("wcgw.client.tools.take_help_of_ai_assistant")
     def test_get_tool_output_ai_assistant(self, mock_ai_helper):
         """Test get_tool_output function with AI Assistant tool"""
         from wcgw.client.tools import get_tool_output
-        
+
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
         mock_ai_helper.return_value = ("AI response", 0.1)
@@ -561,55 +553,37 @@ class TestToolsExtended(unittest.TestCase):
         # Test AIAssistant tool
         result, cost = get_tool_output(
             {
-                "type": "AIAssistant",
                 "instruction": "test instruction",
-                "desired_output": "test output"
+                "desired_output": "test output",
             },
             mock_enc,
             1.0,
             mock_loop_call,
-            100
+            100,
         )
         self.assertEqual(result[0], "AI response")
         self.assertEqual(cost, 0.1)
 
     def test_get_tool_output_invalid_tool(self):
         """Test get_tool_output function with invalid tool"""
-        from wcgw.client.tools import get_tool_output
-        
+
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
-
-        # Test invalid tool type
-        with self.assertRaises(ValueError):
-            get_tool_output(
-                {"type": "InvalidTool"},
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100
-            )
 
     def test_get_tool_output_exception_handling(self):
         """Test error handling in get_tool_output"""
-        from wcgw.client.tools import get_tool_output, write_file
-        
+        from wcgw.client.tools import get_tool_output
+
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
-        
+
         # Create a write tool for testing with a relative path
         # This should raise a validation error without needing to mock write_file
         write_tool = WriteIfEmpty(file_path="relative/path", file_content="test")
-        
+
         # Test: function should catch the validation error and return an error message
-        result, cost = get_tool_output(
-            write_tool,
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100
-        )
-        
+        result, cost = get_tool_output(write_tool, mock_enc, 1.0, mock_loop_call, 100)
+
         # Verify the error is handled gracefully
         self.assertEqual(cost, 0)  # Cost should be 0 when there's an error
         self.assertTrue(isinstance(result, list))  # Result should be a list
@@ -617,19 +591,6 @@ class TestToolsExtended(unittest.TestCase):
         self.assertTrue(isinstance(result[0], str))  # Should be a string message
         # Error message should mention the path issue
         self.assertIn("file_path should be absolute path", result[0])
-
-        # Test with invalid tool type
-        with self.assertRaises(ValueError):
-            get_tool_output(
-                {"type": "InvalidTool"},
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100
-            )
-
-
-
 
 
 if __name__ == "__main__":

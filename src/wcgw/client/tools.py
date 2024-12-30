@@ -1127,7 +1127,7 @@ TOOLS = (
 
 
 def which_tool(args: str) -> TOOLS:
-    adapter = TypeAdapter[TOOLS](TOOLS)
+    adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
     return adapter.validate_python(json.loads(args))
 
 
@@ -1180,7 +1180,7 @@ def get_tool_output(
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
     global IS_IN_DOCKER, TOOL_CALLS
     if isinstance(args, dict):
-        adapter = TypeAdapter[TOOLS](TOOLS)
+        adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
         arg = adapter.validate_python(args)
     else:
         arg = args

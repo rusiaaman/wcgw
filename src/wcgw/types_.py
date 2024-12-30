@@ -1,6 +1,14 @@
 from typing import Literal, Optional, Sequence
 
-from pydantic import BaseModel
+from pydantic import BaseModel as PydanticBaseModel
+
+
+class NoExtraArgs(PydanticBaseModel):
+    class Config:
+        extra = "forbid"
+
+
+BaseModel = NoExtraArgs
 
 
 class BashCommand(BaseModel):
@@ -14,7 +22,6 @@ Specials = Literal[
 
 
 class BashInteraction(BaseModel):
-    type: Literal["BashInteraction"]
     send_text: Optional[str] = None
     send_specials: Optional[Sequence[Specials]] = None
     send_ascii: Optional[Sequence[int]] = None
@@ -23,7 +30,6 @@ class BashInteraction(BaseModel):
 
 class ReadImage(BaseModel):
     file_path: str
-    type: Literal["ReadImage"]
 
 
 class WriteIfEmpty(BaseModel):
@@ -33,7 +39,6 @@ class WriteIfEmpty(BaseModel):
 
 class ReadFiles(BaseModel):
     file_paths: list[str]
-    type: Literal["ReadFiles"]
 
 
 class FileEditFindReplace(BaseModel):
@@ -52,18 +57,15 @@ class FileEdit(BaseModel):
 
 
 class Initialize(BaseModel):
-    type: Literal["Initialize"]
     any_workspace_path: str
     initial_files_to_read: list[str]
 
 
 class GetScreenInfo(BaseModel):
-    type: Literal["GetScreenInfo"]
     docker_image_id: str
 
 
 class ScreenShot(BaseModel):
-    type: Literal["ScreenShot"]
     take_after_delay_seconds: int
 
 
@@ -71,7 +73,6 @@ class MouseMove(BaseModel):
     x: int
     y: int
     do_left_click_on_move: bool
-    type: Literal["MouseMove"]
 
 
 class LeftClickDrag(BaseModel):
