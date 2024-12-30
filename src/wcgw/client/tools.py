@@ -10,6 +10,7 @@ import time
 import traceback
 import uuid
 from difflib import SequenceMatcher
+from os.path import expanduser
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
@@ -297,6 +298,8 @@ def initialize(
     repo_context = ""
 
     if any_workspace_path:
+        # Expand the workspace path
+        any_workspace_path = expand_user(any_workspace_path, BASH_STATE.is_in_docker)
         if os.path.exists(any_workspace_path):
             repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
 
@@ -394,6 +397,12 @@ def save_out_of_context(content: str, suffix: str) -> str:
 
 def rstrip(lines: list[str]) -> str:
     return "\n".join([line.rstrip() for line in lines])
+
+
+def expand_user(path: str, docker_id: Optional[str]) -> str:
+    if not path or not path.startswith("~") or docker_id:
+        return path
+    return expanduser(path)
 
 
 def _incremental_text(text: str, last_pending_output: str) -> str:
@@ -673,6 +682,9 @@ def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
 
 
 def read_image_from_shell(file_path: str) -> ImageData:
+    # Expand the path
+    file_path = expand_user(file_path, BASH_STATE.is_in_docker)
+
     if not os.path.isabs(file_path):
         file_path = os.path.join(BASH_STATE.cwd, file_path)
 
@@ -722,7 +734,7 @@ def write_file(
     if not os.path.isabs(writefile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
     else:
-        path_ = writefile.file_path
+        path_ = expand_user(writefile.file_path, BASH_STATE.is_in_docker)
 
     error_on_exist_ = error_on_exist and path_ not in BASH_STATE.whitelist_for_overwrite
     add_overwrite_warning = ""
@@ -974,7 +986,7 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
             f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
         )
     else:
-        path_ = fedit.file_path
+        path_ = expand_user(fedit.file_path, BASH_STATE.is_in_docker)
 
     # The LLM is now aware that the file exists
     BASH_STATE.add_to_whitelist_for_overwrite(path_)
@@ -1380,6 +1392,9 @@ def read_files(file_paths: list[str], max_tokens: Optional[int]) -> str:
 
 def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int]:
     console.print(f"Reading file: {file_path}")
+
+    # Expand the path before checking if it's absolute
+    file_path = expand_user(file_path, BASH_STATE.is_in_docker)
 
     if not os.path.isabs(file_path):
         raise ValueError(
