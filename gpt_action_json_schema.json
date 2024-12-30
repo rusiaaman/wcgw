@@ -295,11 +295,6 @@
     "schemas": {
       "BashInteractionWithUUID": {
         "properties": {
-          "type": {
-            "type": "string",
-            "const": "BashInteraction",
-            "title": "Type"
-          },
           "send_text": {
             "anyOf": [
               {
@@ -366,9 +361,9 @@
             "title": "User Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "type",
           "user_id"
         ],
         "title": "BashInteractionWithUUID"
@@ -408,6 +403,7 @@
             "title": "User Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "file_path",
@@ -431,11 +427,6 @@
       },
       "InitializeWithUUID": {
         "properties": {
-          "type": {
-            "type": "string",
-            "const": "Initialize",
-            "title": "Type"
-          },
           "any_workspace_path": {
             "type": "string",
             "title": "Any Workspace Path"
@@ -453,9 +444,9 @@
             "title": "User Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "type",
           "any_workspace_path",
           "initial_files_to_read",
           "user_id"
@@ -471,21 +462,16 @@
             "type": "array",
             "title": "File Paths"
           },
-          "type": {
-            "type": "string",
-            "const": "ReadFiles",
-            "title": "Type"
-          },
           "user_id": {
             "type": "string",
             "format": "uuid",
             "title": "User Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "file_paths",
-          "type",
           "user_id"
         ],
         "title": "ReadFileWithUUID"
@@ -503,6 +489,7 @@
             "title": "User Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "should_reset",
@@ -559,6 +546,7 @@
             "title": "User Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "file_path",
