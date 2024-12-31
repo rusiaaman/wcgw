@@ -1,21 +1,24 @@
 """Tests for command validation functionality in tools.py"""
-import unittest
+
 import json
-from unittest.mock import patch, MagicMock
+import unittest
+from unittest.mock import MagicMock, patch
+
 from wcgw.client.tools import (
-    which_tool,
-    which_tool_name,
+    BASH_STATE,
+    get_status,
     is_status_check,
     update_repl_prompt,
-    get_status,
-    BASH_STATE,
+    which_tool,
+    which_tool_name,
 )
 from wcgw.types_ import (
     BashCommand,
     BashInteraction,
-    Mouse,
     Keyboard,
+    Mouse,
 )
+
 
 class TestCommandValidation(unittest.TestCase):
     def setUp(self):
@@ -25,19 +28,13 @@ class TestCommandValidation(unittest.TestCase):
     def test_which_tool(self):
         """Test tool type determination"""
         # Test BashCommand
-        cmd_json = json.dumps({
-            "type": "BashCommand",
-            "command": "ls"
-        })
+        cmd_json = json.dumps({"command": "ls"})
         result = which_tool(cmd_json)
         self.assertIsInstance(result, BashCommand)
         self.assertEqual(result.command, "ls")
 
         # Test BashInteraction
-        interaction_json = json.dumps({
-            "type": "BashInteraction",
-            "send_text": "input"
-        })
+        interaction_json = json.dumps({"send_text": "input"})
         result = which_tool(interaction_json)
         self.assertIsInstance(result, BashInteraction)
         self.assertEqual(result.send_text, "input")
@@ -65,24 +62,15 @@ class TestCommandValidation(unittest.TestCase):
     def test_is_status_check(self):
         """Test status check detection"""
         # Test with Enter special key
-        interaction = BashInteraction(
-            type="BashInteraction",
-            send_specials=["Enter"]
-        )
+        interaction = BashInteraction(send_specials=["Enter"])
         self.assertTrue(is_status_check(interaction))
 
         # Test with newline ASCII code
-        interaction = BashInteraction(
-            type="BashInteraction",
-            send_ascii=[10]
-        )
+        interaction = BashInteraction(send_ascii=[10])
         self.assertTrue(is_status_check(interaction))
 
         # Test with other interaction types
-        interaction = BashInteraction(
-            type="BashInteraction",
-            send_text="hello"
-        )
+        interaction = BashInteraction(send_text="hello")
         self.assertFalse(is_status_check(interaction))
 
         # Test with BashCommand
@@ -91,7 +79,7 @@ class TestCommandValidation(unittest.TestCase):
 
     def test_update_repl_prompt(self):
         """Test REPL prompt updating"""
-        with patch('wcgw.client.tools.BASH_STATE') as mock_state:
+        with patch("wcgw.client.tools.BASH_STATE") as mock_state:
             mock_state.shell = MagicMock()
             mock_state.shell.before = "new_prompt"
             mock_state.shell.expect.return_value = 1
@@ -106,7 +94,7 @@ class TestCommandValidation(unittest.TestCase):
 
     def test_get_status(self):
         """Test status reporting"""
-        with patch('wcgw.client.tools.BASH_STATE') as mock_state:
+        with patch("wcgw.client.tools.BASH_STATE") as mock_state:
             # Test pending state
             mock_state.state = "pending"
             mock_state.cwd = "/test/dir"
@@ -120,15 +108,17 @@ class TestCommandValidation(unittest.TestCase):
             # Test completed state with background jobs
             mock_state.state = "repl"
             mock_state.update_cwd.return_value = "/test/dir2"
-            with patch('wcgw.client.tools._ensure_env_and_bg_jobs', return_value=2):
+            with patch("wcgw.client.tools._ensure_env_and_bg_jobs", return_value=2):
                 status = get_status()
-                self.assertIn("status = process exited; 2 background jobs running", status)
+                self.assertIn(
+                    "status = process exited; 2 background jobs running", status
+                )
                 self.assertIn("cwd = /test/dir2", status)
 
             # Test completed state without background jobs
             mock_state.state = "repl"
             mock_state.update_cwd.return_value = "/test/dir3"
-            with patch('wcgw.client.tools._ensure_env_and_bg_jobs', return_value=0):
+            with patch("wcgw.client.tools._ensure_env_and_bg_jobs", return_value=0):
                 status = get_status()
                 self.assertIn("status = process exited", status)
                 self.assertNotIn("background jobs running", status)

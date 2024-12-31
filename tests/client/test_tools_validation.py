@@ -1,21 +1,23 @@
-import unittest
-from unittest.mock import patch, MagicMock
 import json
+import unittest
+from unittest.mock import MagicMock, patch
+
 from wcgw.client.tools import (
+    BASH_STATE,
     ensure_no_previous_output,
+    get_tool_output,
     truncate_if_over,
     which_tool,
     which_tool_name,
-    get_tool_output,
-    BASH_STATE,
 )
 from wcgw.types_ import (
     BashCommand,
     BashInteraction,
-    WriteIfEmpty,
-    Mouse,
     Keyboard,
+    Mouse,
+    WriteIfEmpty,
 )
+
 
 class TestToolsValidation(unittest.TestCase):
     def setUp(self):
@@ -24,6 +26,7 @@ class TestToolsValidation(unittest.TestCase):
 
     def test_ensure_no_previous_output_decorator(self):
         """Test ensure_no_previous_output decorator"""
+
         @ensure_no_previous_output
         def test_func():
             return "success"
@@ -45,13 +48,17 @@ class TestToolsValidation(unittest.TestCase):
         mock_enc.encode = MagicMock()
         mock_enc.decode = MagicMock()
 
-        with patch('wcgw.client.tools.default_enc', mock_enc):
+        with patch("wcgw.client.tools.default_enc", mock_enc):
             # Test with content under limit
             content = "short content"
             mock_enc.encode.return_value = MagicMock(ids=list(range(5)))  # Under limit
             result = truncate_if_over(content, max_tokens=200)
-            self.assertEqual(result, content)  # Should return original content when under limit
-            self.assertEqual(mock_enc.decode.call_count, 0)  # Decode shouldn't be called
+            self.assertEqual(
+                result, content
+            )  # Should return original content when under limit
+            self.assertEqual(
+                mock_enc.decode.call_count, 0
+            )  # Decode shouldn't be called
 
             # Test with content over limit
             long_content = "very long content" * 100
@@ -78,19 +85,13 @@ class TestToolsValidation(unittest.TestCase):
     def test_which_tool(self):
         """Test which_tool function"""
         # Test BashCommand
-        cmd_json = json.dumps({
-            "type": "BashCommand",
-            "command": "ls"
-        })
+        cmd_json = json.dumps({"command": "ls"})
         result = which_tool(cmd_json)
         self.assertIsInstance(result, BashCommand)
         self.assertEqual(result.command, "ls")
 
         # Test BashInteraction
-        interaction_json = json.dumps({
-            "type": "BashInteraction",
-            "send_text": "input"
-        })
+        interaction_json = json.dumps({"send_text": "input"})
         result = which_tool(interaction_json)
         self.assertIsInstance(result, BashInteraction)
         self.assertEqual(result.send_text, "input")
@@ -100,9 +101,7 @@ class TestToolsValidation(unittest.TestCase):
             which_tool("invalid json")
 
         # Test invalid tool type
-        invalid_json = json.dumps({
-            "type": "InvalidTool"
-        })
+        invalid_json = json.dumps({"type": "InvalidTool"})
         with self.assertRaises(ValueError):
             which_tool(invalid_json)
 
@@ -119,7 +118,7 @@ class TestToolsValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             which_tool_name("InvalidTool")
 
-    @patch('wcgw.client.tools.execute_bash')
+    @patch("wcgw.client.tools.execute_bash")
     def test_get_tool_output(self, mock_execute_bash):
         """Test get_tool_output function"""
         mock_enc = MagicMock()
@@ -128,38 +127,24 @@ class TestToolsValidation(unittest.TestCase):
         # Test BashCommand
         mock_execute_bash.return_value = ("command output", 0)
         result, cost = get_tool_output(
-            BashCommand(command="ls"),
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100
+            BashCommand(command="ls"), mock_enc, 1.0, mock_loop_call, 100
         )
         self.assertEqual(result[0], "command output")
         self.assertEqual(cost, 0)
 
         # Test WriteIfEmpty
         test_file = WriteIfEmpty(file_path="/test/file.txt", file_content="test")
-        with patch('wcgw.client.tools.write_file') as mock_write:
+        with patch("wcgw.client.tools.write_file") as mock_write:
             mock_write.return_value = "Success"
             result, cost = get_tool_output(
-                test_file,
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100
+                test_file, mock_enc, 1.0, mock_loop_call, 100
             )
             self.assertEqual(result[0], "Success")
             self.assertEqual(cost, 0)
 
         # Test error handling
         with self.assertRaises(ValueError):
-            get_tool_output(
-                {"type": "InvalidTool"},
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100
-            )
+            get_tool_output({"type": "InvalidTool"}, mock_enc, 1.0, mock_loop_call, 100)
 
     def test_get_tool_output_exceptions(self):
         """Test get_tool_output exception handling"""
@@ -168,25 +153,13 @@ class TestToolsValidation(unittest.TestCase):
 
         # Test with relative path in WriteIfEmpty
         test_file = WriteIfEmpty(file_path="relative/path.txt", file_content="test")
-        result, cost = get_tool_output(
-            test_file,
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100
-        )
+        result, cost = get_tool_output(test_file, mock_enc, 1.0, mock_loop_call, 100)
         self.assertIn("file_path should be absolute path", result[0])
         self.assertEqual(cost, 0)
 
         # Test with invalid tool type
         with self.assertRaises(ValueError) as context:
-            get_tool_output(
-                {"type": "InvalidTool"},
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100
-            )
+            get_tool_output({"type": "InvalidTool"}, mock_enc, 1.0, mock_loop_call, 100)
         self.assertIn("validation errors for union", str(context.exception))
 
     def test_get_tool_output_computer_tools(self):
@@ -195,63 +168,61 @@ class TestToolsValidation(unittest.TestCase):
         mock_loop_call = MagicMock()
 
         # Test Mouse tool
-        with patch('wcgw.client.tools.run_computer_tool') as mock_run:
+        with patch("wcgw.client.tools.run_computer_tool") as mock_run:
             mock_run.return_value = ("Mouse clicked", "screenshot_data")
             result, cost = get_tool_output(
-                Mouse(action={"type": "MouseButton", "button_type": "left_click"}),
+                Mouse(action={"button_type": "left_click"}),
                 mock_enc,
                 1.0,
                 mock_loop_call,
-                100
+                100,
             )
             self.assertEqual(result[0], "Mouse clicked")
-            self.assertTrue(hasattr(result[1], 'media_type'))
-            self.assertEqual(result[1].media_type, 'image/png')
-            self.assertEqual(result[1].data, 'screenshot_data')
+            self.assertTrue(hasattr(result[1], "media_type"))
+            self.assertEqual(result[1].media_type, "image/png")
+            self.assertEqual(result[1].data, "screenshot_data")
 
         # Test Keyboard tool
-        with patch('wcgw.client.tools.run_computer_tool') as mock_run:
+        with patch("wcgw.client.tools.run_computer_tool") as mock_run:
             mock_run.return_value = ("Keys typed", "screenshot_data")
             result, cost = get_tool_output(
-                Keyboard(action="type", text="test"),
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100
+                Keyboard(action="type", text="test"), mock_enc, 1.0, mock_loop_call, 100
             )
             self.assertEqual(result[0], "Keys typed")
-            self.assertTrue(hasattr(result[1], 'media_type'))
-            self.assertEqual(result[1].media_type, 'image/png')
-            self.assertEqual(result[1].data, 'screenshot_data')
+            self.assertTrue(hasattr(result[1], "media_type"))
+            self.assertEqual(result[1].media_type, "image/png")
+            self.assertEqual(result[1].data, "screenshot_data")
 
-    @patch('wcgw.client.tools.run_computer_tool')
+    @patch("wcgw.client.tools.run_computer_tool")
     def test_get_tool_output_error_propagation(self, mock_run):
         """Test error propagation in get_tool_output"""
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
 
         # Test error propagation from computer tools
-        mock_run.return_value = ("Error: Computer tool error", None)  # Return error style tuple instead of raising
+        mock_run.return_value = (
+            "Error: Computer tool error",
+            None,
+        )  # Return error style tuple instead of raising
         result, cost = get_tool_output(
-            Mouse(action={"type": "MouseButton", "button_type": "left_click"}),
+            Mouse(action={"button_type": "left_click"}),
             mock_enc,
             1.0,
             mock_loop_call,
-            100
+            100,
         )
         # When error happens, first element should be error string, second element should be None
         self.assertEqual(result[0], "Error: Computer tool error")
         self.assertEqual(cost, 0)
 
         # Test error propagation from bash execution
-        with patch('wcgw.client.tools.execute_bash') as mock_bash:
-            mock_bash.return_value = ("Error: Bash error", 0)  # Return error as string, not as exception
+        with patch("wcgw.client.tools.execute_bash") as mock_bash:
+            mock_bash.return_value = (
+                "Error: Bash error",
+                0,
+            )  # Return error as string, not as exception
             result, cost = get_tool_output(
-                BashCommand(command="ls"),
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100
+                BashCommand(command="ls"), mock_enc, 1.0, mock_loop_call, 100
             )
             self.assertEqual(result[0], "Error: Bash error")
             self.assertEqual(cost, 0)
