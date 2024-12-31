@@ -300,6 +300,8 @@ def initialize(
 ) -> str:
     reset_shell()
 
+    # Expand the workspace path
+    any_workspace_path = expand_user(any_workspace_path, BASH_STATE.is_in_docker)
     repo_context = ""
 
     memory = ""
@@ -311,14 +313,14 @@ def initialize(
             memory = "Following is the retrieved task:\n" + format_memory(
                 task_mem, mem_files_read
             )
-            if not any_workspace_path:
+            if (
+                not any_workspace_path or not os.path.exists(any_workspace_path)
+            ) and os.path.exists(task_mem.project_root_path):
                 any_workspace_path = task_mem.project_root_path
         except Exception:
             memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
 
     if any_workspace_path:
-        # Expand the workspace path
-        any_workspace_path = expand_user(any_workspace_path, BASH_STATE.is_in_docker)
         if os.path.exists(any_workspace_path):
             repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
 
@@ -328,7 +330,9 @@ def initialize(
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
         else:
-            return f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
+            repo_context = (
+                f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
+            )
 
     initial_files_context = ""
     if read_files_:

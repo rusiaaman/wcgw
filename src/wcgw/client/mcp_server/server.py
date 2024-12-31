@@ -169,6 +169,7 @@ Save all information necessary for a person to understand the task and the probl
 - This tool will return a text file path where the information is saved.
 - After the tool completes succesfully, tell the user the task id and the generate file path. (important!)
 - Leave arguments as empty string if they aren't relevant.
+- This tool marks end of your conversation, do not run any further tools after calling this.
 """,
         ),
     ]
