@@ -44,6 +44,7 @@ from ..types_ import (
     GetScreenInfo,
     Initialize,
     Keyboard,
+    KnowledgeTransfer,
     Mouse,
     ReadFiles,
     ReadImage,
@@ -52,6 +53,7 @@ from ..types_ import (
     WriteIfEmpty,
 )
 from .computer_use import run_computer_tool
+from .memory import format_memory, load_memory, save_memory
 from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
 
@@ -291,11 +293,28 @@ BASH_STATE = BashState()
 
 
 def initialize(
-    any_workspace_path: str, read_files_: list[str], max_tokens: Optional[int]
+    any_workspace_path: str,
+    read_files_: list[str],
+    task_id_to_resume: str,
+    max_tokens: Optional[int],
 ) -> str:
     reset_shell()
 
     repo_context = ""
+
+    memory = ""
+    if task_id_to_resume:
+        try:
+            task_mem = load_memory(task_id_to_resume)
+            mem_files = task_mem.relevant_file_paths
+            mem_files_read = read_files(mem_files, max_tokens)
+            memory = "Following is the retrieved task:\n" + format_memory(
+                task_mem, mem_files_read
+            )
+            if not any_workspace_path:
+                any_workspace_path = task_mem.project_root_path
+        except Exception:
+            memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
 
     if any_workspace_path:
         # Expand the workspace path
@@ -328,6 +347,10 @@ Current working directory: {BASH_STATE.cwd}
 {repo_context}
 
 {initial_files_context}
+
+---
+
+{memory}
 """
 
     return output
@@ -1135,6 +1158,7 @@ TOOLS = (
     | Keyboard
     | ScreenShot
     | GetScreenInfo
+    | KnowledgeTransfer
 )
 
 
@@ -1176,6 +1200,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return ScreenShot
     elif name == "GetScreenInfo":
         return GetScreenInfo
+    elif name == "KnowledgeTransfer":
+        return KnowledgeTransfer
     else:
         raise ValueError(f"Unknown tool name: {name}")
 
@@ -1221,14 +1247,19 @@ def get_tool_output(
         output = read_image_from_shell(arg.file_path), 0.0
     elif isinstance(arg, ReadFiles):
         console.print("Calling read file tool")
-        output = read_files(arg.file_paths, max_tokens), 0.0
+        output = read_files(arg.file_paths, None), 0.0
     elif isinstance(arg, ResetShell):
         console.print("Calling reset shell tool")
         output = reset_shell(), 0.0
     elif isinstance(arg, Initialize):
         console.print("Calling initial info tool")
         output = (
-            initialize(arg.any_workspace_path, arg.initial_files_to_read, max_tokens),
+            initialize(
+                arg.any_workspace_path,
+                arg.initial_files_to_read,
+                arg.task_id_to_resume,
+                max_tokens,
+            ),
             0.0,
         )
     elif isinstance(arg, (Mouse, Keyboard, ScreenShot, GetScreenInfo)):
@@ -1266,6 +1297,11 @@ def get_tool_output(
                     )
                 BASH_STATE.set_in_docker(arg.docker_image_id)
         return outputs, outputs_cost[1]
+    elif isinstance(arg, KnowledgeTransfer):
+        console.print("Calling task memory tool")
+        relevant_files = arg.relevant_file_paths
+        relevant_files_data = read_files(relevant_files, None)
+        output = save_memory(arg, relevant_files_data), 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
     if isinstance(output[0], str):
