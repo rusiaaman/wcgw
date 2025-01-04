@@ -150,6 +150,7 @@ async def handle_list_tools() -> list[types.Tool]:
             description="""
 - Use absolute file path only.
 - Use SEARCH/REPLACE blocks to edit the file.
+- Write down plan for the edit describing all the changes in bullet points. Include where the changes will be made.
 - If the edit fails due to block not matching, please retry with correct block till it matches. Re-read the file to ensure you've all the lines correct.
 """
             + diffinstructions,

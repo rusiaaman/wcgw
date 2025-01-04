@@ -53,6 +53,7 @@ class ResetShell(BaseModel):
 
 class FileEdit(BaseModel):
     file_path: str
+    plan_for_edit: str
     file_edit_using_search_replace_blocks: str
 
 

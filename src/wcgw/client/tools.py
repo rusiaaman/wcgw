@@ -9,7 +9,6 @@ import shlex
 import time
 import traceback
 import uuid
-from difflib import SequenceMatcher
 from os.path import expanduser
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -53,6 +52,7 @@ from ..types_ import (
     WriteIfEmpty,
 )
 from .computer_use import run_computer_tool
+from .file_ops.search_replace import search_replace_edit
 from .memory import format_memory, load_memory, save_memory
 from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
@@ -867,142 +867,19 @@ Syntax errors:
     return "Success" + "".join(warnings)
 
 
-def find_least_edit_distance_substring(
-    orig_content_lines: list[str], find_lines: list[str]
-) -> tuple[list[str], str]:
-    # Prepare content lines, stripping whitespace and keeping track of original indices
-    content_lines = [line.strip() for line in orig_content_lines]
-    new_to_original_indices = {}
-    new_content_lines = []
-    for i, line in enumerate(content_lines):
-        if not line:
-            continue
-        new_content_lines.append(line)
-        new_to_original_indices[len(new_content_lines) - 1] = i
-    content_lines = new_content_lines
-
-    # Prepare find lines, removing empty lines
-    find_lines = [line.strip() for line in find_lines if line.strip()]
-
-    # Initialize variables for best match tracking
-    max_similarity = 0.0
-    min_edit_distance_lines = []
-    context_lines = []
-
-    # For each possible starting position in content
-    for i in range(max(1, len(content_lines) - len(find_lines) + 1)):
-        # Calculate similarity for the block starting at position i
-        block_similarity = 0.0
-        for j in range(len(find_lines)):
-            if (i + j) < len(content_lines):
-                # Use SequenceMatcher for more efficient similarity calculation
-                similarity = SequenceMatcher(
-                    None, content_lines[i + j], find_lines[j]
-                ).ratio()
-                block_similarity += similarity
-
-        # If this block is more similar than previous best
-        if block_similarity > max_similarity:
-            max_similarity = block_similarity
-            # Map back to original line indices
-            orig_start_index = new_to_original_indices[i]
-            orig_end_index = (
-                new_to_original_indices.get(
-                    i + len(find_lines) - 1, len(orig_content_lines) - 1
-                )
-                + 1
-            )
-            # Get the original lines
-            min_edit_distance_lines = orig_content_lines[
-                orig_start_index:orig_end_index
-            ]
-            # Get context (10 lines before and after)
-            context_lines = orig_content_lines[
-                max(0, orig_start_index - 10) : (orig_end_index + 10)
-            ]
-
-    return (
-        min_edit_distance_lines,
-        "\n".join(context_lines),
-    )
-
-
-def lines_replacer(
-    orig_content_lines: list[str], search_lines: list[str], replace_lines: list[str]
-) -> str:
-    # Validation for empty search
-    search_lines = list(filter(None, [x.strip() for x in search_lines]))
-
-    # Create mapping of non-empty lines to original indices
-    new_to_original_indices = []
-    new_content_lines = []
-    for i, line in enumerate(orig_content_lines):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        new_content_lines.append(stripped)
-        new_to_original_indices.append(i)
-
-    if not new_content_lines and not search_lines:
-        return "\n".join(replace_lines)
-    elif not search_lines:
-        raise ValueError("Search block is empty")
-    elif not new_content_lines:
-        raise ValueError("File content is empty")
-
-    # Search for matching block
-    for i in range(len(new_content_lines) - len(search_lines) + 1):
-        if all(
-            new_content_lines[i + j] == search_lines[j]
-            for j in range(len(search_lines))
-        ):
-            start_idx = new_to_original_indices[i]
-            end_idx = new_to_original_indices[i + len(search_lines) - 1] + 1
-            return "\n".join(
-                orig_content_lines[:start_idx]
-                + replace_lines
-                + orig_content_lines[end_idx:]
-            )
-
-    raise ValueError("Search block not found in content")
-
-
-def edit_content(content: str, find_lines: str, replace_with_lines: str) -> str:
-    replace_with_lines_ = replace_with_lines.split("\n")
-    find_lines_ = find_lines.split("\n")
-    content_lines_ = content.split("\n")
-    try:
-        return lines_replacer(content_lines_, find_lines_, replace_with_lines_)
-    except ValueError:
-        pass
-
-    _, context_lines = find_least_edit_distance_substring(content_lines_, find_lines_)
-
-    raise Exception(
-        f"""Error: no match found for the provided search block.
-            Requested search block: \n```\n{find_lines}\n```
-            Possible relevant section in the file:\n---\n```\n{context_lines}\n```\n---\nFile not edited
-        \nPlease retry with exact search. Re-read the file if unsure.
-        """
-    )
-
-
 def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
     try:
         return _do_diff_edit(fedit, max_tokens)
-    except Exception as e:
+    except Exception:
         # Try replacing \"
-        try:
-            fedit = FileEdit(
-                file_path=fedit.file_path,
-                file_edit_using_search_replace_blocks=fedit.file_edit_using_search_replace_blocks.replace(
-                    '\\"', '"'
-                ),
-            )
-            return _do_diff_edit(fedit, max_tokens)
-        except Exception:
-            pass
-        raise e
+        fedit = FileEdit(
+            file_path=fedit.file_path,
+            file_edit_using_search_replace_blocks=fedit.file_edit_using_search_replace_blocks.replace(
+                '\\"', '"'
+            ),
+            plan_for_edit=fedit.plan_for_edit,
+        )
+        return _do_diff_edit(fedit, max_tokens)
 
 
 def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
@@ -1041,46 +918,7 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
     )
     lines = fedit.file_edit_using_search_replace_blocks.split("\n")
 
-    if not lines or not re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[0]):
-        raise Exception(
-            "Error: first line should be `<<<<<< SEARCH` to start a search-replace block"
-        )
-
-    n_lines = len(lines)
-    i = 0
-    replacement_count = 0
-    while i < n_lines:
-        if re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[i]):
-            search_block = []
-            i += 1
-            while i < n_lines and not re.match(r"^======*\s*$", lines[i]):
-                search_block.append(lines[i])
-                i += 1
-            i += 1
-            replace_block = []
-            while i < n_lines and not re.match(r"^>>>>>>+\s*REPLACE\s*$", lines[i]):
-                replace_block.append(lines[i])
-                i += 1
-            i += 1
-
-            for line in search_block:
-                console.log("> " + line)
-            console.log("=======")
-            for line in replace_block:
-                console.log("< " + line)
-            console.log("\n\n\n\n")
-            search_block_ = "\n".join(search_block)
-            replace_block_ = "\n".join(replace_block)
-
-            apply_diff_to = edit_content(apply_diff_to, search_block_, replace_block_)
-            replacement_count += 1
-        else:
-            i += 1
-
-    if replacement_count == 0:
-        raise Exception(
-            "Error: no valid search-replace blocks found, please check your syntax for FileEdit"
-        )
+    apply_diff_to, comments = search_replace_edit(lines, apply_diff_to, console.log)
 
     if not BASH_STATE.is_in_docker:
         with open(path_, "w") as f:
@@ -1109,9 +947,9 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
             )
 
             console.print(f"W: Syntax errors encountered: {syntax_errors}")
-            return f"""Wrote file succesfully.
+            return f"""{comments}
 ---
-However, tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
+Tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
 Syntax errors:
 {syntax_errors}
 
@@ -1120,7 +958,7 @@ Syntax errors:
     except Exception:
         pass
 
-    return "Success"
+    return comments
 
 
 class DoneFlag(BaseModel):
