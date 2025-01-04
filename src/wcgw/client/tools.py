@@ -877,7 +877,6 @@ def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
             file_edit_using_search_replace_blocks=fedit.file_edit_using_search_replace_blocks.replace(
                 '\\"', '"'
             ),
-            plan_for_edit=fedit.plan_for_edit,
         )
         return _do_diff_edit(fedit, max_tokens)
 
