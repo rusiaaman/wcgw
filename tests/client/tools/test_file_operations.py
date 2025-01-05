@@ -9,9 +9,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 from wcgw.client.tools import (
     BASH_STATE,
-    find_least_edit_distance_substring,
     get_context_for_errors,
-    lines_replacer,
     read_image_from_shell,
     save_out_of_context,
     truncate_if_over,
@@ -77,62 +75,6 @@ class TestFileOperations(unittest.TestCase):
             mock_enc.decode.assert_called_once_with(
                 token_ids[:50]
             )  # max(0, 150-100) = 50
-
-    def test_find_least_edit_distance_substring(self):
-        """Test find_least_edit_distance_substring functionality"""
-        content = [
-            "def test():",
-            "    print('test')",
-            "",
-            "def another():",
-            "    print('another')",
-        ]
-
-        # Test exact match
-        search = [
-            "def test():",
-            "    print('test')",
-        ]
-        matched_lines, context = find_least_edit_distance_substring(content, search)
-        self.assertEqual(matched_lines, search)
-
-        # Test partial match
-        search = [
-            "def tst():",  # Typo
-            "    print('test')",
-        ]
-        matched_lines, context = find_least_edit_distance_substring(content, search)
-        self.assertTrue(any("test" in line for line in matched_lines))
-
-    def test_lines_replacer(self):
-        """Test lines_replacer functionality"""
-        content_lines = [
-            "def test():",
-            "    print('old')",
-            "    return True",
-        ]
-
-        # Test successful replacement
-        search_lines = [
-            "    print('old')",
-        ]
-        replace_lines = [
-            "    print('new')",
-        ]
-        result = lines_replacer(content_lines, search_lines, replace_lines)
-        self.assertIn("print('new')", result)
-        self.assertIn("def test():", result)
-
-        # Test empty input handling
-        with self.assertRaises(ValueError):
-            lines_replacer(content_lines, [], replace_lines)  # Empty search
-
-        with self.assertRaises(ValueError):
-            lines_replacer([], search_lines, replace_lines)  # Empty content
-
-        # Test empty file with empty search (special case)
-        result = lines_replacer([], [], ["new content"])
-        self.assertEqual(result, "new content")
 
     def test_read_image_from_shell(self):
         """Test read_image_from_shell functionality"""

@@ -66,12 +66,12 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify output is a path to the memory file
                     self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith("_full.txt"))
+                    self.assertTrue(output.endswith(".txt"))
 
                     # Verify memory files were created
                     memory_file = os.path.join(memory_path, f"{self.test_id}.json")
                     memory_file_full = os.path.join(
-                        memory_path, f"{self.test_id}_full.txt"
+                        memory_path, f"{self.test_id}.txt"
                     )
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
@@ -134,12 +134,12 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify output
                     self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith("_full.txt"))
+                    self.assertTrue(output.endswith(".txt"))
 
                     # Verify memory files were created and have correct content
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
                     memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}_full.txt"
+                        memory_dir, f"{self.test_id}.txt"
                     )
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
@@ -192,12 +192,12 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify operation still completes and returns file path
                     self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith("_full.txt"))
+                    self.assertTrue(output.endswith(".txt"))
 
                     # Verify files were created
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
                     memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}_full.txt"
+                        memory_dir, f"{self.test_id}.txt"
                     )
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
@@ -240,7 +240,7 @@ class TestKnowledgeTransfer(unittest.TestCase):
                     output = outputs[0]
 
                     # Verify output path returned
-                    self.assertTrue(output.endswith("_full.txt"))
+                    self.assertTrue(output.endswith(".txt"))
 
                     # Verify content preserved special characters
                     memory_dir = os.path.join(
@@ -288,12 +288,12 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify output
                     self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith("_full.txt"))
+                    self.assertTrue(output.endswith(".txt"))
 
                     # Verify files were created
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
                     memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}_full.txt"
+                        memory_dir, f"{self.test_id}.txt"
                     )
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
