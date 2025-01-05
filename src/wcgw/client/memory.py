@@ -25,6 +25,8 @@ def save_memory(task_memory: KnowledgeTransfer, relevant_files: str) -> str:
     os.makedirs(memory_dir, exist_ok=True)
 
     task_id = task_memory.id
+    if not task_id:
+        raise Exception("Task id can not be empty")
     memory_data = format_memory(task_memory, relevant_files)
 
     memory_file = os.path.join(memory_dir, f"{task_id}.json")

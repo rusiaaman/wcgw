@@ -1,19 +1,18 @@
 """Tests for diff_edit.py functionality."""
 
 import unittest
-from typing import DefaultDict
+
 from wcgw.client.file_ops.diff_edit import (
-    FileEditInput,
     FileEditOutput,
-    TolerancesHit,
     Tolerance,
+    TolerancesHit,
+    find_least_edit_distance_substring,
     match_exact,
     match_with_tolerance,
-    find_least_edit_distance_substring,
     match_with_tolerance_empty_line,
     remove_leading_trailing_empty_lines,
 )
-from wcgw.client.file_ops.search_replace import search_replace_edit
+
 
 class TestDiffEdit(unittest.TestCase):
     def setUp(self):
@@ -25,7 +24,7 @@ class TestDiffEdit(unittest.TestCase):
         search_blocks = [["line2"]]
         replaced = [("line2-new",)]
         edited = [(slice(1, 2, 1), [], ["line2-new"])]
-        
+
         output = FileEditOutput(
             original_content=original_content,
             orig_search_blocks=search_blocks,
@@ -39,9 +38,9 @@ class TestDiffEdit(unittest.TestCase):
         # Test error cases
         tolerances_hit = TolerancesHit(
             line_process=lambda x: x,
-            type="ERROR",
+            severity_cat="ERROR",
             error_name="Test error",
-            count=1
+            count=1,
         )
         edited_with_error = [(slice(1, 2, 1), [tolerances_hit], ["line2-new"])]
         output_with_error = FileEditOutput(
@@ -61,31 +60,32 @@ class TestDiffEdit(unittest.TestCase):
         edit1 = FileEditOutput(
             original_content=content,
             orig_search_blocks=search_blocks,
-            edited_with_tolerances=[(slice(1, 2, 1), [], ["line2-new"])]
+            edited_with_tolerances=[(slice(1, 2, 1), [], ["line2-new"])],
         )
-        
+
         silent_tolerance = TolerancesHit(
-            line_process=lambda x: x,
-            type="SILENT",
-            error_name="",
-            count=1
+            line_process=lambda x: x, severity_cat="SILENT", error_name="", count=1
         )
         edit2 = FileEditOutput(
             original_content=content,
             orig_search_blocks=search_blocks,
-            edited_with_tolerances=[(slice(1, 2, 1), [silent_tolerance], ["line2-new"])]
+            edited_with_tolerances=[
+                (slice(1, 2, 1), [silent_tolerance], ["line2-new"])
+            ],
         )
 
         warning_tolerance = TolerancesHit(
             line_process=lambda x: x,
-            type="WARNING",
+            severity_cat="WARNING",
             error_name="test warning",
-            count=1
+            count=1,
         )
         edit3 = FileEditOutput(
             original_content=content,
             orig_search_blocks=search_blocks,
-            edited_with_tolerances=[(slice(1, 2, 1), [warning_tolerance], ["line2-new"])]
+            edited_with_tolerances=[
+                (slice(1, 2, 1), [warning_tolerance], ["line2-new"])
+            ],
         )
 
         # Test preference order: ERROR < WARNING < SILENT
@@ -123,38 +123,66 @@ class TestDiffEdit(unittest.TestCase):
         # Test with default tolerances
         content = ["  line1  ", "line2", " line3 "]
         search = ["line1"]
-        matches = match_with_tolerance(content, 0, search, [
-            Tolerance(line_process=str.strip, type="SILENT", error_name=""),
-            Tolerance(line_process=str.lstrip, type="SILENT", error_name=""),
-            Tolerance(line_process=str.rstrip, type="SILENT", error_name=""),
-        ])
+        matches = match_with_tolerance(
+            content,
+            0,
+            search,
+            [
+                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
+                Tolerance(
+                    line_process=str.lstrip, severity_cat="SILENT", error_name=""
+                ),
+                Tolerance(
+                    line_process=str.rstrip, severity_cat="SILENT", error_name=""
+                ),
+            ],
+        )
         self.assertEqual(len(matches), 1)
 
         # Test multiple matches with different tolerances
         content = ["  line1", "line1  ", " line1 "]
-        matches = match_with_tolerance(content, 0, search, [
-            Tolerance(line_process=str.strip, type="SILENT", error_name=""),
-            Tolerance(line_process=str.lstrip, type="SILENT", error_name=""),
-            Tolerance(line_process=str.rstrip, type="SILENT", error_name=""),
-        ])
+        matches = match_with_tolerance(
+            content,
+            0,
+            search,
+            [
+                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
+                Tolerance(
+                    line_process=str.lstrip, severity_cat="SILENT", error_name=""
+                ),
+                Tolerance(
+                    line_process=str.rstrip, severity_cat="SILENT", error_name=""
+                ),
+            ],
+        )
         self.assertEqual(len(matches), 3)
 
     def test_match_with_tolerance_empty_line(self):
         # Test with empty lines in content
         content = ["", "line1", "", "line2", "", ""]
         search = ["line1", "line2"]
-        matches = match_with_tolerance_empty_line(content, 0, search, [
-            Tolerance(line_process=str.strip, type="SILENT", error_name=""),
-        ])
+        matches = match_with_tolerance_empty_line(
+            content,
+            0,
+            search,
+            [
+                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
+            ],
+        )
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0][0], slice(1, 4, 1))
 
         # Test with empty lines in search
         content = ["line1", "line2"]
         search = ["", "line1", "", "line2", ""]
-        matches = match_with_tolerance_empty_line(content, 0, search, [
-            Tolerance(line_process=str.strip, type="SILENT", error_name=""),
-        ])
+        matches = match_with_tolerance_empty_line(
+            content,
+            0,
+            search,
+            [
+                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
+            ],
+        )
         self.assertEqual(len(matches), 1)
 
     def test_find_least_edit_distance_substring(self):
@@ -197,5 +225,6 @@ class TestDiffEdit(unittest.TestCase):
         # Test empty input
         self.assertEqual(remove_leading_trailing_empty_lines([]), [])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

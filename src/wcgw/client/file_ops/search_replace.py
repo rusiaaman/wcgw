@@ -71,9 +71,9 @@ def greedy_context_replace(
     current_blocks = search_replace_blocks[current_block_offset]
 
     outputs = FileEditInput(running_lines, 0, current_blocks, 0).edit_file()
-    best_matches, best_match_tolerance_hits = FileEditOutput.get_best_match(outputs)
+    best_matches, is_error = FileEditOutput.get_best_match(outputs)
 
-    if best_match_tolerance_hits["ERROR"] > 0:
+    if is_error:
         best_matches[0].replace_or_throw(3)
         raise Exception("Shouldn't happen")
 

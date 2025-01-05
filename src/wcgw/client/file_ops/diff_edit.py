@@ -9,7 +9,8 @@ TOLERANCE_TYPES = Literal["SILENT", "WARNING", "ERROR"]
 @dataclass
 class Tolerance:
     line_process: Callable[[str], str]
-    type: TOLERANCE_TYPES
+    severity_cat: TOLERANCE_TYPES
+    score_multiplier: float
     error_name: str
 
 
@@ -37,9 +38,9 @@ class FileEditOutput:
         ):
             for tol in tolerances:
                 if tol.count > 0:
-                    if tol.type == "WARNING":
+                    if tol.severity_cat == "WARNING":
                         warnings.add(tol.error_name)
-                    elif tol.type == "ERROR":
+                    elif tol.severity_cat == "ERROR":
                         errors.append(f"""
 Got error while processing the following search block:
 ---
@@ -70,43 +71,26 @@ Error:
     @staticmethod
     def get_best_match(
         outputs: list["FileEditOutput"],
-    ) -> tuple[list["FileEditOutput"], DefaultDict[TOLERANCE_TYPES, int]]:
-        best_hits: list[tuple[FileEditOutput, DefaultDict[TOLERANCE_TYPES, int]]] = []
+    ) -> tuple[list["FileEditOutput"], bool]:
+        best_hits: list[FileEditOutput] = []
+        best_score = float("-inf")
         assert outputs
-
-        def compare_hits(
-            hit1: DefaultDict[TOLERANCE_TYPES, int],
-            hit2: DefaultDict[TOLERANCE_TYPES, int],
-        ) -> int:
-            if hit1["ERROR"] < hit2["ERROR"]:
-                return 1
-            elif hit1["ERROR"] > hit2["ERROR"]:
-                return -1
-            if hit1["WARNING"] < hit2["WARNING"]:
-                return 1
-            elif hit1["WARNING"] > hit2["WARNING"]:
-                return -1
-            if hit1["SILENT"] < hit2["SILENT"]:
-                return 1
-            elif hit1["SILENT"] > hit2["SILENT"]:
-                return -1
-            return 0
-
         for output in outputs:
-            hits_by_types = DefaultDict[TOLERANCE_TYPES, int](int)
+            hit_score = 0.0
             for _, tols, _ in output.edited_with_tolerances:
                 for tol in tols:
-                    hits_by_types[tol.type] += tol.count
+                    hit_score += tol.count * tol.score_multiplier
             if not best_hits:
-                best_hits.append((output, hits_by_types))
+                best_hits.append(output)
+                best_score = hit_score
             else:
-                is_best = compare_hits(hits_by_types, best_hits[0][1])
-                if is_best > 0:
-                    best_hits = [(output, hits_by_types)]
-                elif is_best == 0:
-                    best_hits.append((output, hits_by_types))
+                if hit_score < best_score:
+                    best_hits = [output]
+                    best_score = hit_score
+                elif abs(hit_score - best_score) < 1e-3:
+                    best_hits.append(output)
 
-        return [x[0] for x in best_hits], best_hits[0][1]
+        return best_hits, best_score < 0
 
     @staticmethod
     def find_block_matched_more_than_once(
@@ -144,17 +128,20 @@ def line_process_max_space_tolerance(line: str) -> str:
 DEFAULT_TOLERANCES = [
     Tolerance(
         line_process=str.rstrip,
-        type="SILENT",
+        severity_cat="SILENT",
+        score_multiplier=1,
         error_name="",
     ),
     Tolerance(
         line_process=str.lstrip,
-        type="WARNING",
+        severity_cat="WARNING",
+        score_multiplier=10,
         error_name="Warning: matching without considering indentation (leading spaces).",
     ),
     Tolerance(
         line_process=line_process_max_space_tolerance,
-        type="WARNING",
+        severity_cat="WARNING",
+        score_multiplier=50,
         error_name="Warning: matching after removing all spaces in lines.",
     ),
 ]
@@ -198,7 +185,8 @@ class FileEditInput:
                     [
                         TolerancesHit(
                             line_process=lambda x: x,
-                            type="ERROR",
+                            severity_cat="ERROR",
+                            score_multiplier=float("-inf"),
                             error_name="The blocks couldn't be matched, maybe the sequence of search blocks was incorrect?",
                             count=max(1, len(search_lines)),
                         )
@@ -271,6 +259,7 @@ class FileEditInput:
                                     TolerancesHit(
                                         lambda x: x,
                                         "ERROR",
+                                        -1,
                                         "Couldn't find match. Do you mean to match the lines in the following context?\n```"
                                         + sim_context
                                         + "\n```",
@@ -409,7 +398,8 @@ def match_with_tolerance(
         [
             TolerancesHit(
                 line_process=tol.line_process,
-                type=tol.type,
+                severity_cat=tol.severity_cat,
+                score_multiplier=tol.score_multiplier,
                 count=0,
                 error_name=tol.error_name,
             )
