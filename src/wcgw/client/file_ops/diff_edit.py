@@ -204,11 +204,11 @@ class FileEditInput:
                                 TolerancesHit(
                                     line_process=lambda x: x,
                                     type="ERROR",
-                                    error_name="The blocks couldn't be matched",
+                                    error_name="The blocks couldn't be matched, maybe the sequence of search blocks was incorrect?",
                                     count=len(search_lines),
                                 )
                                 for search_lines, _ in self.search_replace_blocks[
-                                    self.search_replace_offset
+                                    self.search_replace_offset :
                                 ]
                             ],
                             [],
