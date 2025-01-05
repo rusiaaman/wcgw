@@ -28,7 +28,7 @@ def save_memory(task_memory: KnowledgeTransfer, relevant_files: str) -> str:
     memory_data = format_memory(task_memory, relevant_files)
 
     memory_file = os.path.join(memory_dir, f"{task_id}.json")
-    memory_file_full = os.path.join(memory_dir, f"{task_id}_full.txt")
+    memory_file_full = os.path.join(memory_dir, f"{task_id}.txt")
 
     with open(memory_file_full, "w") as f:
         f.write(memory_data)
