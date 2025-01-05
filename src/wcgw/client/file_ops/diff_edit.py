@@ -92,33 +92,6 @@ Error:
 
         return best_hits, best_score < 0
 
-    @staticmethod
-    def find_block_matched_more_than_once(
-        output_with_equal_scores: list["FileEditOutput"],
-    ) -> list[str]:
-        offset = 0
-        while True:
-            match_start = (
-                output_with_equal_scores[0].edited_with_tolerances[offset][0].start
-            )
-            match_end = (
-                output_with_equal_scores[0].edited_with_tolerances[offset][0].stop
-            )
-            for output in output_with_equal_scores[1:]:
-                if (
-                    output.edited_with_tolerances[offset][0].start != match_start
-                    or output.edited_with_tolerances[offset][0].stop != match_end
-                ):
-                    break
-            else:
-                offset += 1
-                if offset >= len(output_with_equal_scores[0].edited_with_tolerances):
-                    break
-                continue
-            return output_with_equal_scores[0].orig_search_blocks[offset]
-
-        return []
-
 
 def line_process_max_space_tolerance(line: str) -> str:
     line = line.strip()
