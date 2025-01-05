@@ -27,17 +27,20 @@ from ..types_ import (
     BashCommand,
     BashInteraction,
     FileEdit,
+    KnowledgeTransfer,
     ReadFiles,
     ReadImage,
     ResetShell,
     WriteIfEmpty,
 )
 from .common import CostData, History, Models, discard_input
+from .memory import load_memory
 from .openai_utils import get_input_cost, get_output_cost
 from .tools import (
     DoneFlag,
     ImageData,
     get_tool_output,
+    initialize,
     which_tool,
 )
 
@@ -117,19 +120,24 @@ def loop(
 
     history: History = []
     waiting_for_assistant = False
+
+    memory = None
     if resume:
-        if resume == "latest":
-            resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
-        else:
-            resume_path = Path(resume)
-        if not resume_path.exists():
-            raise FileNotFoundError(f"File {resume} not found")
-        with resume_path.open() as f:
-            history = json.load(f)
-        if len(history) <= 2:
-            raise ValueError("Invalid history file")
-        first_message = ""
-        waiting_for_assistant = history[-1]["role"] != "assistant"
+        try:
+            memory = load_memory(resume)
+        except OSError:
+            if resume == "latest":
+                resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
+            else:
+                resume_path = Path(resume)
+            if not resume_path.exists():
+                raise FileNotFoundError(f"File {resume} not found")
+            with resume_path.open() as f:
+                history = json.load(f)
+            if len(history) <= 2:
+                raise ValueError("Invalid history file")
+            first_message = ""
+            waiting_for_assistant = history[-1]["role"] != "assistant"
 
     my_dir = os.path.dirname(__file__)
 
@@ -202,10 +210,29 @@ def loop(
             ResetShell,
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
-    ]
-    uname_sysname = os.uname().sysname
-    uname_machine = os.uname().machine
+        openai.pydantic_function_tool(
+            KnowledgeTransfer,
+            description="""
+Write detailed description in order to do a KT, if the user asks for it.
+Save all information necessary for a person to understand the task and the problems.
 
+- `all_user_instructions` should contain all instructions user shared in the conversation.
+- `current_status_of_the_task` should contain only what is already achieved, not what's remaining.
+- `all_issues_snippets` should only contain snippets of error, traceback, file snippets, commands, etc., no comments or solutions (important!).
+- Be very verbose in `all_issues_snippets` providing as much error context as possible.
+- Provide an id if the user hasn't provided one. 
+- This tool will return a text file path where the information is saved.
+- After the tool completes succesfully, tell the user the task id and the generate file path. (important!)
+- Leave arguments as empty string if they aren't relevant.
+- This tool marks end of your conversation, do not run any further tools after calling this.
+- Provide absolute file paths only in `relevant_file_paths` containing all relevant files.
+""",
+        ),
+    ]
+
+    initial_info = initialize(
+        os.getcwd(), [], resume if (memory and resume) else "", 8000
+    )
     system = f"""
 You're an expert software engineer with shell and code knowledge.
 
@@ -217,10 +244,7 @@ Instructions:
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
 
-System information:
-    - System: {uname_sysname}
-    - Machine: {uname_machine}
-    - Current directory: {os.getcwd()}
+{initial_info}
 
 """
 

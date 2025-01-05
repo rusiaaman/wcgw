@@ -1,59 +1,51 @@
 import base64
 import json
 import mimetypes
-from pathlib import Path
-import sys
+import os
+import subprocess
+import tempfile
 import traceback
-from typing import Callable, DefaultDict, Optional, cast, Literal
-import anthropic
-from anthropic import Anthropic
-from anthropic.types import (
-    ToolParam,
-    MessageParam,
-    ToolResultBlockParam,
-    ToolUseBlockParam,
-    ImageBlockParam,
-    TextBlockParam,
-)
+import uuid
+from pathlib import Path
+from typing import Literal, Optional, cast
 
 import rich
-import petname  # type: ignore[import-untyped]
+from anthropic import Anthropic
+from anthropic.types import (
+    ImageBlockParam,
+    MessageParam,
+    TextBlockParam,
+    ToolParam,
+    ToolResultBlockParam,
+    ToolUseBlockParam,
+)
+from dotenv import load_dotenv
 from typer import Typer
-import uuid
 
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    WriteIfEmpty,
-    FileEditFindReplace,
     FileEdit,
+    GetScreenInfo,
     Keyboard,
+    KnowledgeTransfer,
     Mouse,
     ReadFiles,
     ReadImage,
     ResetShell,
     ScreenShot,
-    GetScreenInfo,
+    WriteIfEmpty,
 )
-
-from .common import Models, discard_input
-from .common import CostData
-from .tools import ImageData
-from .computer_use import Computer
-
-from .tools import DoneFlag, get_tool_output, which_tool_name, default_enc
-
-from urllib import parse
-import subprocess
-import os
-import tempfile
-
-import toml
-from pydantic import BaseModel
-
-
-from dotenv import load_dotenv
-
+from .common import discard_input
+from .memory import load_memory
+from .tools import (
+    DoneFlag,
+    ImageData,
+    default_enc,
+    get_tool_output,
+    initialize,
+    which_tool_name,
+)
 
 History = list[MessageParam]
 
@@ -135,19 +127,23 @@ def loop(
 
     history: History = []
     waiting_for_assistant = False
+    memory = None
     if resume:
-        if resume == "latest":
-            resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
-        else:
-            resume_path = Path(resume)
-        if not resume_path.exists():
-            raise FileNotFoundError(f"File {resume} not found")
-        with resume_path.open() as f:
-            history = json.load(f)
-        if len(history) <= 2:
-            raise ValueError("Invalid history file")
-        first_message = ""
-        waiting_for_assistant = history[-1]["role"] != "assistant"
+        try:
+            memory = load_memory(resume)
+        except OSError:
+            if resume == "latest":
+                resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
+            else:
+                resume_path = Path(resume)
+            if not resume_path.exists():
+                raise FileNotFoundError(f"File {resume} not found")
+            with resume_path.open() as f:
+                history = json.load(f)
+            if len(history) <= 2:
+                raise ValueError("Invalid history file")
+            first_message = ""
+            waiting_for_assistant = history[-1]["role"] != "assistant"
 
     limit = 1
 
@@ -218,6 +214,25 @@ def loop(
 - If the edit fails due to block not matching, please retry with correct block till it matches. Re-read the file to ensure you've all the lines correct.
 """,
         ),
+        ToolParam(
+            input_schema=KnowledgeTransfer.model_json_schema(),
+            name="KnowledgeTransfer",
+            description="""
+Write detailed description in order to do a KT, if the user asks for it.
+Save all information necessary for a person to understand the task and the problems.
+
+- `all_user_instructions` should contain all instructions user shared in the conversation.
+- `current_status_of_the_task` should contain only what is already achieved, not what's remaining.
+- `all_issues_snippets` should only contain snippets of error, traceback, file snippets, commands, etc., no comments or solutions (important!).
+- Be very verbose in `all_issues_snippets` providing as much error context as possible.
+- Provide an id if the user hasn't provided one. 
+- This tool will return a text file path where the information is saved.
+- After the tool completes succesfully, tell the user the task id and the generate file path. (important!)
+- Leave arguments as empty string if they aren't relevant.
+- This tool marks end of your conversation, do not run any further tools after calling this.
+- Provide absolute file paths only in `relevant_file_paths` containing all relevant files.
+""",
+        ),
     ]
 
     if computer_use:
@@ -270,9 +285,10 @@ def loop(
 """,
             ),
         ]
-    uname_sysname = os.uname().sysname
-    uname_machine = os.uname().machine
 
+    initial_info = initialize(
+        os.getcwd(), [], resume if (memory and resume) else "", 8000
+    )
     system = f"""
 You're an expert software engineer with shell and code knowledge.
 
@@ -284,10 +300,7 @@ Instructions:
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
 
-System information:
-    - System: {uname_sysname}
-    - Machine: {uname_machine}
-    - Current directory: {os.getcwd()}
+{initial_info}
 """
 
     with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:

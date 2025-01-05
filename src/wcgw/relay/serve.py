@@ -1,29 +1,28 @@
 import asyncio
-import base64
-from importlib import metadata
-import semantic_version  # type: ignore[import-untyped]
 import threading
 import time
-from typing import Any, Callable, Coroutine, DefaultDict, Literal, Optional, Sequence
+from importlib import metadata
+from typing import Any, Callable, Coroutine, DefaultDict, Optional
 from uuid import UUID
-import fastapi
-from fastapi import Response, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
-import uvicorn
-from fastapi.staticfiles import StaticFiles
 
+import fastapi
+import semantic_version  # type: ignore[import-untyped]
+import uvicorn
 from dotenv import load_dotenv
+from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from ..types_ import (
     BashCommand,
     BashInteraction,
-    WriteIfEmpty,
-    FileEditFindReplace,
     FileEdit,
+    FileEditFindReplace,
     Initialize,
+    KnowledgeTransfer,
     ReadFiles,
     ResetShell,
-    Specials,
+    WriteIfEmpty,
 )
 
 
@@ -37,6 +36,7 @@ class Mdata(BaseModel):
         | FileEdit
         | ReadFiles
         | Initialize
+        | KnowledgeTransfer
         | str
     )
     user_id: UUID
@@ -51,7 +51,7 @@ gpts: dict[UUID, Callable[[str], None]] = {}
 images: DefaultDict[UUID, dict[str, dict[str, Any]]] = DefaultDict(dict)
 
 
-CLIENT_VERSION_MINIMUM = "1.3.0"
+CLIENT_VERSION_MINIMUM = "2.7.0"
 
 
 @app.websocket("/v1/register/{uuid}")
@@ -307,6 +307,35 @@ async def initialize(initialize_data: InitializeWithUUID) -> str:
     gpts[user_id] = put_results
 
     await clients[user_id](Mdata(data=initialize_data, user_id=user_id))
+
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        if results is not None:
+            return results
+        await asyncio.sleep(0.1)
+
+    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
+
+
+class KTWithUUID(KnowledgeTransfer):
+    user_id: UUID
+
+
+@app.post("/v1/knowledge_transfer")
+async def knowledge_transfer(knowledge_transfer_data: KTWithUUID) -> str:
+    user_id = knowledge_transfer_data.user_id
+    if user_id not in clients:
+        return "Failure: id not found, ask the user to check it."
+
+    results: Optional[str] = None
+
+    def put_results(result: str) -> None:
+        nonlocal results
+        results = result
+
+    gpts[user_id] = put_results
+
+    await clients[user_id](Mdata(data=knowledge_transfer_data, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:

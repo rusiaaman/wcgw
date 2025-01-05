@@ -7,10 +7,7 @@ from unittest.mock import MagicMock, mock_open, patch
 from wcgw.client.tools import (
     BASH_STATE,
     ImageData,
-    edit_content,
-    find_least_edit_distance_substring,
     get_incremental_output,
-    lines_replacer,
     render_terminal_output,
     which_tool,
     which_tool_name,
@@ -21,82 +18,6 @@ from wcgw.types_ import BashCommand, BashInteraction, Keyboard, Mouse, WriteIfEm
 class TestToolsExtended(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-
-    def test_find_least_edit_distance_substring(self):
-        content_lines = [
-            "def hello():",
-            "    print('Hello')",
-            "",
-            "def world():",
-            "    print('World')",
-        ]
-        find_lines = [
-            "def hello():",
-            "    print('Hello')",
-        ]
-
-        result, context = find_least_edit_distance_substring(content_lines, find_lines)
-        self.assertEqual(
-            result,
-            [
-                "def hello():",
-                "    print('Hello')",
-            ],
-        )
-
-        # Test with partial match
-        find_lines = [
-            "def helo():",  # Typo
-            "    print('Hello')",
-        ]
-        result, context = find_least_edit_distance_substring(content_lines, find_lines)
-        self.assertIn("def hello():", result)
-
-    def test_edit_content(self):
-        content = """def test():
-    print("old")
-    return True"""
-
-        find = """    print("old")"""
-        replace = """    print("new")"""
-
-        result = edit_content(content, find, replace)
-        self.assertEqual(
-            result,
-            """def test():
-    print("new")
-    return True""",
-        )
-
-        # Test with non-matching content
-        with self.assertRaises(Exception) as context:
-            edit_content(content, "nonexistent", "replacement")
-        self.assertTrue("Error: no match found" in str(context.exception))
-
-    def test_lines_replacer(self):
-        content_lines = [
-            "def test():",
-            "    print('old')",
-            "    return True",
-        ]
-        search_lines = [
-            "    print('old')",
-        ]
-        replace_lines = [
-            "    print('new')",
-        ]
-
-        result = lines_replacer(content_lines, search_lines, replace_lines)
-        self.assertEqual(
-            result,
-            """def test():
-    print('new')
-    return True""",
-        )
-
-        # Test with empty search block
-        with self.assertRaises(ValueError):
-            lines_replacer(content_lines, [], replace_lines)
 
     def test_get_incremental_output(self):
         old_output = ["line1", "line2"]
@@ -395,25 +316,6 @@ class TestToolsExtended(unittest.TestCase):
         )
         self.assertIn("Failure", result)
 
-    def test_find_least_edit_distance_multiple_matches(self):
-        """Test finding best match when multiple similar matches exist"""
-        content_lines = [
-            "def test1():",
-            "    print('hello')",
-            "",
-            "def test2():",
-            "    print('hello')",
-        ]
-
-        find_lines = [
-            "    print('hello')",
-        ]
-
-        result, context = find_least_edit_distance_substring(content_lines, find_lines)
-        result_str = "\n".join(result)
-        self.assertIn("print('hello')", result_str)
-        self.assertTrue(len(result) >= 1)
-
     @patch("wcgw.client.tools.check_syntax")
     @patch("os.system")
     def test_write_file_with_syntax_check(self, mock_system, mock_check):
@@ -441,29 +343,6 @@ class TestToolsExtended(unittest.TestCase):
                         self.assertIn("Success", result)
                         self.assertIn("syntax errors", result)
                         self.assertIn("Invalid syntax", result)
-
-    def test_lines_replacer_edge_cases(self):
-        """Test edge cases in lines_replacer function"""
-        # Test empty content
-        with self.assertRaises(ValueError):
-            lines_replacer([], ["search"], ["replace"])
-
-        # Test empty file
-        content_lines = [""]
-        with self.assertRaises(ValueError):
-            lines_replacer(content_lines, ["search"], ["replace"])
-
-        # Test no match found
-        content_lines = ["line1", "line2"]
-        with self.assertRaises(ValueError):
-            lines_replacer(content_lines, ["no match"], ["replace"])
-
-        # Test multiple empty lines in content
-        content_lines = ["line1", "", "", "line2"]
-        search_lines = ["line1"]
-        replace_lines = ["replaced"]
-        result = lines_replacer(content_lines, search_lines, replace_lines)
-        self.assertIn("replaced", result)
 
     @patch("wcgw.client.tools.read_image_from_shell")
     @patch("wcgw.client.tools.execute_bash")

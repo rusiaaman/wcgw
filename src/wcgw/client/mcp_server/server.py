@@ -18,6 +18,7 @@ from ...types_ import (
     GetScreenInfo,
     Initialize,
     Keyboard,
+    KnowledgeTransfer,
     Mouse,
     ReadFiles,
     ReadImage,
@@ -82,6 +83,7 @@ async def handle_list_tools() -> list[types.Tool]:
 - If the user has mentioned a folder or file with unclear project root, use the file or folder as `any_workspace_path`.
 - If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
 - If `any_workspace_path` is provided, a tree structure of the workspace will be shown.
+- Leave `any_workspace_path` as empty if no file or folder is mentioned.
 """,
         ),
         ToolParam(
@@ -151,6 +153,25 @@ async def handle_list_tools() -> list[types.Tool]:
 - If the edit fails due to block not matching, please retry with correct block till it matches. Re-read the file to ensure you've all the lines correct.
 """
             + diffinstructions,
+        ),
+        ToolParam(
+            inputSchema=KnowledgeTransfer.model_json_schema(),
+            name="KnowledgeTransfer",
+            description="""
+Write detailed description in order to do a KT, if the user asks for it.
+Save all information necessary for a person to understand the task and the problems.
+
+- `all_user_instructions` should contain all instructions user shared in the conversation.
+- `current_status_of_the_task` should contain only what is already achieved, not what's remaining.
+- `all_issues_snippets` should only contain snippets of error, traceback, file snippets, commands, etc., no comments or solutions (important!).
+- Be very verbose in `all_issues_snippets` providing as much error context as possible.
+- Provide an id if the user hasn't provided one. 
+- This tool will return a text file path where the information is saved.
+- After the tool completes succesfully, tell the user the task id and the generate file path. (important!)
+- Leave arguments as empty string if they aren't relevant.
+- This tool marks end of your conversation, do not run any further tools after calling this.
+- Provide absolute file paths only in `relevant_file_paths` containing all relevant files.
+""",
         ),
     ]
     if COMPUTER_USE_ON_DOCKER_ENABLED:

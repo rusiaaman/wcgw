@@ -59,6 +59,7 @@ class FileEdit(BaseModel):
 class Initialize(BaseModel):
     any_workspace_path: str
     initial_files_to_read: list[str]
+    task_id_to_resume: str
 
 
 class GetScreenInfo(BaseModel):
@@ -98,3 +99,14 @@ class Mouse(BaseModel):
 class Keyboard(BaseModel):
     action: Literal["key", "type"]
     text: str
+
+
+class KnowledgeTransfer(BaseModel):
+    id: str
+    project_root_path: str
+    objective: str
+    all_user_instructions: str
+    current_status_of_the_task: str
+    all_issues_snippets: str
+    relevant_file_paths: list[str]
+    build_and_development_instructions: str

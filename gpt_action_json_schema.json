@@ -289,6 +289,46 @@
           }
         }
       }
+    },
+    "/v1/knowledge_transfer": {
+      "post": {
+        "x-openai-isConsequential": false,
+        "summary": "Knowledge Transfer",
+        "operationId": "knowledge_transfer_v1_knowledge_transfer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KTWithUUID"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "title": "Response Knowledge Transfer V1 Knowledge Transfer Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -438,6 +478,10 @@
             "type": "array",
             "title": "Initial Files To Read"
           },
+          "task_id_to_resume": {
+            "type": "string",
+            "title": "Task Id To Resume"
+          },
           "user_id": {
             "type": "string",
             "format": "uuid",
@@ -449,9 +493,68 @@
         "required": [
           "any_workspace_path",
           "initial_files_to_read",
+          "task_id_to_resume",
           "user_id"
         ],
         "title": "InitializeWithUUID"
+      },
+      "KTWithUUID": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "project_root_path": {
+            "type": "string",
+            "title": "Project Root Path"
+          },
+          "objective": {
+            "type": "string",
+            "title": "Objective"
+          },
+          "all_user_instructions": {
+            "type": "string",
+            "title": "All User Instructions"
+          },
+          "current_status_of_the_task": {
+            "type": "string",
+            "title": "Current Status Of The Task"
+          },
+          "all_issues_snippets": {
+            "type": "string",
+            "title": "All Issues Snippets"
+          },
+          "relevant_file_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Relevant File Paths"
+          },
+          "build_and_development_instructions": {
+            "type": "string",
+            "title": "Build And Development Instructions"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "project_root_path",
+          "objective",
+          "all_user_instructions",
+          "current_status_of_the_task",
+          "all_issues_snippets",
+          "relevant_file_paths",
+          "build_and_development_instructions",
+          "user_id"
+        ],
+        "title": "KTWithUUID"
       },
       "ReadFileWithUUID": {
         "properties": {
