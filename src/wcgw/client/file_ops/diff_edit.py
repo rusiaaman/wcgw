@@ -27,7 +27,7 @@ class FileEditOutput:
     def replace_or_throw(
         self,
         max_errors: int,
-    ) -> tuple[str, str]:
+    ) -> tuple[list[str], set[str]]:
         new_lines = list[str]()
         last_idx = 0
         errors = []
@@ -65,7 +65,7 @@ Error:
         if errors:
             raise Exception("\n".join(errors))
 
-        return "\n".join(new_lines), "\n".join(warnings)
+        return new_lines, set(warnings)
 
     @staticmethod
     def get_best_match(
@@ -189,33 +189,32 @@ class FileEditInput:
         n_blocks = len(self.search_replace_blocks)
 
         # Boundary conditions
+        no_match_output = FileEditOutput(
+            original_content=self.file_lines,
+            orig_search_blocks=[x[0] for x in self.search_replace_blocks],
+            edited_with_tolerances=[
+                (
+                    slice(0, 0),
+                    [
+                        TolerancesHit(
+                            line_process=lambda x: x,
+                            type="ERROR",
+                            error_name="The blocks couldn't be matched, maybe the sequence of search blocks was incorrect?",
+                            count=max(1, len(search_lines)),
+                        )
+                        for search_lines, _ in self.search_replace_blocks[
+                            self.search_replace_offset :
+                        ]
+                    ],
+                    [],
+                )
+            ],
+        )
         if (
             self.file_line_offset >= n_file_lines
             and self.search_replace_offset < n_blocks
         ):
-            return [
-                FileEditOutput(
-                    original_content=self.file_lines,
-                    orig_search_blocks=[x[0] for x in self.search_replace_blocks],
-                    edited_with_tolerances=[
-                        (
-                            slice(0, 0),
-                            [
-                                TolerancesHit(
-                                    line_process=lambda x: x,
-                                    type="ERROR",
-                                    error_name="The blocks couldn't be matched, maybe the sequence of search blocks was incorrect?",
-                                    count=len(search_lines),
-                                )
-                                for search_lines, _ in self.search_replace_blocks[
-                                    self.search_replace_offset :
-                                ]
-                            ],
-                            [],
-                        )
-                    ],
-                )
-            ]
+            return [no_match_output]
         elif self.file_line_offset >= n_file_lines:
             return [
                 FileEditOutput(
@@ -319,6 +318,9 @@ class FileEditInput:
                             *rem_output.edited_with_tolerances,
                         ]
                     )
+
+        if not all_outputs:
+            return [no_match_output]
 
         return [
             FileEditOutput(
