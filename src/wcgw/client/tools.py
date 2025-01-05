@@ -1180,6 +1180,7 @@ class Mdata(BaseModel):
         | str
         | ReadFiles
         | Initialize
+        | KnowledgeTransfer
     )
 
 
