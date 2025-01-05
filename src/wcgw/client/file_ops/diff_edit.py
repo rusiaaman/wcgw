@@ -163,6 +163,8 @@ DEFAULT_TOLERANCES = [
 def remove_leading_trailing_empty_lines(lines: list[str]) -> list[str]:
     start = 0
     end = len(lines) - 1
+    if end < start:
+        return lines
     while not lines[start].strip():
         start += 1
         if start >= len(lines):
