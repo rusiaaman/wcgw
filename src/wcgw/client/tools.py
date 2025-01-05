@@ -1141,6 +1141,15 @@ def get_tool_output(
     elif isinstance(arg, KnowledgeTransfer):
         console.print("Calling task memory tool")
         relevant_files = arg.relevant_file_paths
+        for i, fpath in enumerate(relevant_files):
+            if not os.path.isabs(fpath):
+                relpath = os.path.join(arg.project_root_path, fpath)
+                if os.path.exists(relpath):
+                    relevant_files[i] = relpath
+                else:
+                    raise Exception(f"The file path {fpath} does not exist")
+            elif not os.path.exists(fpath):
+                raise Exception(f"The file path {fpath} does not exist")
         relevant_files_data = read_files(relevant_files, None)
         output = save_memory(arg, relevant_files_data), 0.0
     else:
