@@ -870,15 +870,19 @@ Syntax errors:
 def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
     try:
         return _do_diff_edit(fedit, max_tokens)
-    except Exception:
+    except Exception as e:
         # Try replacing \"
-        fedit = FileEdit(
-            file_path=fedit.file_path,
-            file_edit_using_search_replace_blocks=fedit.file_edit_using_search_replace_blocks.replace(
-                '\\"', '"'
-            ),
-        )
-        return _do_diff_edit(fedit, max_tokens)
+        try:
+            fedit = FileEdit(
+                file_path=fedit.file_path,
+                file_edit_using_search_replace_blocks=fedit.file_edit_using_search_replace_blocks.replace(
+                    '\\"', '"'
+                ),
+            )
+            return _do_diff_edit(fedit, max_tokens)
+        except Exception:
+            pass
+        raise e
 
 
 def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
@@ -1088,7 +1092,7 @@ def get_tool_output(
         output = read_image_from_shell(arg.file_path), 0.0
     elif isinstance(arg, ReadFiles):
         console.print("Calling read file tool")
-        output = read_files(arg.file_paths, None), 0.0
+        output = read_files(arg.file_paths, max_tokens), 0.0
     elif isinstance(arg, ResetShell):
         console.print("Calling reset shell tool")
         output = reset_shell(), 0.0
