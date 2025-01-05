@@ -108,7 +108,7 @@ class TestSearchReplace(unittest.TestCase):
         
         with self.assertRaises(Exception) as ctx:
             search_replace_edit(lines, original, self.mock_logger)
-        self.assertIn("matched more than once", str(ctx.exception))
+        self.assertIn("The following block matched more than once", str(ctx.exception))
 
     def test_search_replace_edit_indentation(self):
         # Test with different indentation levels
@@ -136,8 +136,9 @@ class TestSearchReplace(unittest.TestCase):
         ]
         original = "different content"
         
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception) as ctx:
             search_replace_edit(lines, original, self.mock_logger)
+        self.assertIn("Couldn't find match", str(ctx.exception))
 
     def test_search_replace_edit_empty_lines(self):
         # Test with empty lines in content and blocks

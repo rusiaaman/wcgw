@@ -12,7 +12,8 @@ def format_memory(task_memory: KnowledgeTransfer, relevant_files: str) -> str:
     memory_data = f"""# Goal: {task_memory.objective}\n\n
 # Instructions:\n{task_memory.all_user_instructions}\n\n
 # Current Status:\n{task_memory.current_status_of_the_task}\n\n
-# Pending Issues:\n{task_memory.all_issues_snippets}\n"""
+# Pending Issues:\n{task_memory.all_issues_snippets}\n\n
+# Build Instructions:\n{task_memory.build_and_development_instructions}\n"""
 
     memory_data += "\n# Relevant Files:\n" + relevant_files
 

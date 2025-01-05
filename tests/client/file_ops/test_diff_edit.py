@@ -32,13 +32,14 @@ class TestDiffEdit(unittest.TestCase):
         )
 
         result, warnings = output.replace_or_throw(max_errors=1)
-        self.assertEqual(result, "line1\nline2-new\nline3")
-        self.assertEqual(warnings, "")
+        self.assertEqual(result, ["line1", "line2-new", "line3"])
+        self.assertEqual(warnings, set())
 
         # Test error cases
         tolerances_hit = TolerancesHit(
             line_process=lambda x: x,
             severity_cat="ERROR",
+            score_multiplier=1.0,
             error_name="Test error",
             count=1,
         )
@@ -50,7 +51,7 @@ class TestDiffEdit(unittest.TestCase):
         )
 
         with self.assertRaises(Exception) as ctx:
-            output_with_error.replace_or_throw(max_errors=1)
+            result, warnings = output_with_error.replace_or_throw(max_errors=1)
         self.assertIn("Test error", str(ctx.exception))
 
     def test_file_edit_output_get_best_match(self):
@@ -64,7 +65,7 @@ class TestDiffEdit(unittest.TestCase):
         )
 
         silent_tolerance = TolerancesHit(
-            line_process=lambda x: x, severity_cat="SILENT", error_name="", count=1
+            line_process=lambda x: x, severity_cat="SILENT", score_multiplier=1.0, error_name="", count=1
         )
         edit2 = FileEditOutput(
             original_content=content,
@@ -77,6 +78,7 @@ class TestDiffEdit(unittest.TestCase):
         warning_tolerance = TolerancesHit(
             line_process=lambda x: x,
             severity_cat="WARNING",
+            score_multiplier=1.0,
             error_name="test warning",
             count=1,
         )
@@ -89,12 +91,10 @@ class TestDiffEdit(unittest.TestCase):
         )
 
         # Test preference order: ERROR < WARNING < SILENT
-        best_matches, hits = FileEditOutput.get_best_match([edit1, edit2, edit3])
+        best_matches, has_error = FileEditOutput.get_best_match([edit1, edit2, edit3])
         self.assertEqual(len(best_matches), 1)
         self.assertEqual(best_matches[0], edit1)
-        self.assertEqual(hits["SILENT"], 0)
-        self.assertEqual(hits["WARNING"], 0)
-        self.assertEqual(hits["ERROR"], 0)
+        self.assertFalse(has_error)
 
     def test_match_exact(self):
         # Test exact matches
@@ -128,13 +128,9 @@ class TestDiffEdit(unittest.TestCase):
             0,
             search,
             [
-                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
-                Tolerance(
-                    line_process=str.lstrip, severity_cat="SILENT", error_name=""
-                ),
-                Tolerance(
-                    line_process=str.rstrip, severity_cat="SILENT", error_name=""
-                ),
+                Tolerance(line_process=str.strip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
+                Tolerance(line_process=str.lstrip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
+                Tolerance(line_process=str.rstrip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
             ],
         )
         self.assertEqual(len(matches), 1)
@@ -146,13 +142,9 @@ class TestDiffEdit(unittest.TestCase):
             0,
             search,
             [
-                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
-                Tolerance(
-                    line_process=str.lstrip, severity_cat="SILENT", error_name=""
-                ),
-                Tolerance(
-                    line_process=str.rstrip, severity_cat="SILENT", error_name=""
-                ),
+                Tolerance(line_process=str.strip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
+                Tolerance(line_process=str.lstrip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
+                Tolerance(line_process=str.rstrip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
             ],
         )
         self.assertEqual(len(matches), 3)
@@ -166,7 +158,7 @@ class TestDiffEdit(unittest.TestCase):
             0,
             search,
             [
-                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
+                Tolerance(line_process=str.strip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
             ],
         )
         self.assertEqual(len(matches), 1)
@@ -180,7 +172,7 @@ class TestDiffEdit(unittest.TestCase):
             0,
             search,
             [
-                Tolerance(line_process=str.strip, severity_cat="SILENT", error_name=""),
+                Tolerance(line_process=str.strip, severity_cat="SILENT", score_multiplier=1.0, error_name=""),
             ],
         )
         self.assertEqual(len(matches), 1)

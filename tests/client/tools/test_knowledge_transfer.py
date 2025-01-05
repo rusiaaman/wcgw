@@ -43,17 +43,14 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
             # Set up temporary directory structure
             with tempfile.TemporaryDirectory() as tmpdir:
-                # Create the full directory path
                 memory_path = os.path.join(tmpdir, ".local", "share", "wcgw", "memory")
                 os.makedirs(memory_path, exist_ok=True)
 
-                # Mock expanduser to return our temp directory
                 def mock_expanduser(path):
                     if path.startswith("~"):
                         return os.path.join(tmpdir, path[2:])
                     return path
 
-                # Multiple patches to ensure proper directory handling
                 with (
                     patch("os.path.expanduser", side_effect=mock_expanduser),
                     patch("os.makedirs"),
@@ -230,6 +227,11 @@ class TestKnowledgeTransfer(unittest.TestCase):
             )
 
             with tempfile.TemporaryDirectory() as tmpdir:
+                memory_base = os.path.join(tmpdir, ".local", "share", "wcgw")
+                os.makedirs(memory_base, exist_ok=True)
+                memory_dir = os.path.join(memory_base, "memory")
+                os.makedirs(memory_dir, exist_ok=True)
+
                 with patch(
                     "os.path.expanduser",
                     return_value=os.path.join(tmpdir, ".local/share"),
@@ -247,6 +249,12 @@ class TestKnowledgeTransfer(unittest.TestCase):
                         tmpdir, ".local", "share", "wcgw", "memory"
                     )
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
+                    memory_file_full = os.path.join(
+                        memory_dir, f"{self.test_id}.txt"
+                    )
+                    self.assertTrue(os.path.exists(memory_file), "JSON memory file not created")
+                    self.assertTrue(os.path.exists(memory_file_full), "Full text memory file not created")
+
                     with open(memory_file, "r") as f:
                         data = json.loads(f.read())
                         self.assertEqual(data["objective"], special_text)
