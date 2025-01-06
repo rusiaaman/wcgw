@@ -4,7 +4,7 @@
 - Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux or mac)
 
 
-⚠️ Warning: do not use this repo if you aren't scared of "Autonomous shell command execution"
+⚠️ Warning: do not allow BashCommand tool without reviewing the command, it may result in data loss.
 
 [![Tests](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-tests.yml)
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
