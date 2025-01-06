@@ -26,7 +26,18 @@
 - ⚡ **Large file edit**: Supports large file incremental edits to avoid token limit issues. Faster than full file write.
 - ⚡ **Syntax checking on edits**: Reports feedback to the LLM if its edits have any syntax errors, so that it can redo it.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
-- ⚡ **Full Shell Access**: No restrictions, complete control.
+- ⚡ **File protections**: 
+  - The AI needs to read a file at least once before it's allowed to edit or rewrite it. This avoids accidental overwrites. 
+  - Avoids context filling up while reading very large files. Files get chunked based on token length. 
+  - On initialisation the provided workspace's directory structure is returned after selecting important files (based on .gitignore as well as a statistical approach)
+  - File edit based on search-replace tries to find correct search block if it has multiple matches based on previous search blocks. Fails otherwise (for correctness).
+  - File edit has spacing tolerant matching, with warning on issues like indentation mismatch. If there's no match, the closest match is returned to the AI to fix its mistakes.
+  - Using Aider-like search and replace, which has better performance than tool call based search and replace.
+- ⚡ **Shell optimisations**: 
+  - Only one command is allowed to be run at a time, simplifying management and avoiding rogue processes. There's only single shell instance at any point of time.
+  - Current working directory is always returned after any shell command to prevent AI from getting lost. 
+  - Command polling exits after a quick timeout to avoid slow feedback. However, status checking has wait tolerance based on fresh output streaming from a command. Both of these approach combined provides a good shell interaction experience.
+   
 
 ## Top use cases examples
 
