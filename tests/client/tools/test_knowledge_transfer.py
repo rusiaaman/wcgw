@@ -9,7 +9,7 @@ from unittest.mock import patch
 from wcgw.client.tools import (
     get_tool_output,
 )
-from wcgw.types_ import KnowledgeTransfer
+from wcgw.types_ import ContextSave
 
 
 class TestKnowledgeTransfer(unittest.TestCase):
@@ -30,14 +30,14 @@ class TestKnowledgeTransfer(unittest.TestCase):
         with patch("wcgw.client.tools.read_files") as mock_read_files:
             mock_read_files.return_value = self.test_files_content
 
-            kt_arg = KnowledgeTransfer(
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
                 objective="Test objective",
                 all_user_instructions="Test instructions",
                 current_status_of_the_task="Test status",
                 all_issues_snippets="Test snippets",
-                relevant_file_paths=self.test_paths,
+                relevant_file_globs=self.test_paths,
                 build_and_development_instructions="Test build instructions",
             )
 
@@ -67,9 +67,7 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify memory files were created
                     memory_file = os.path.join(memory_path, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_path, f"{self.test_id}.txt"
-                    )
+                    memory_file_full = os.path.join(memory_path, f"{self.test_id}.txt")
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
                     )
@@ -101,14 +99,14 @@ class TestKnowledgeTransfer(unittest.TestCase):
         with patch("wcgw.client.tools.read_files") as mock_read_files:
             mock_read_files.return_value = self.test_files_content
 
-            kt_arg = KnowledgeTransfer(
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
                 objective="",
                 all_user_instructions="",
                 current_status_of_the_task="",
                 all_issues_snippets="",
-                relevant_file_paths=[],
+                relevant_file_globs=[],
                 build_and_development_instructions="",
             )
 
@@ -135,9 +133,7 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify memory files were created and have correct content
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
-                    )
+                    memory_file_full = os.path.join(memory_dir, f"{self.test_id}.txt")
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
                     )
@@ -159,14 +155,14 @@ class TestKnowledgeTransfer(unittest.TestCase):
         with patch("wcgw.client.tools.read_files") as mock_read_files:
             mock_read_files.return_value = "Failed to read files"
 
-            kt_arg = KnowledgeTransfer(
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
                 objective="Test objective",
                 all_user_instructions="Test instructions",
                 current_status_of_the_task="Test status",
                 all_issues_snippets="Test snippets",
-                relevant_file_paths=self.test_paths,
+                relevant_file_globs=self.test_paths,
                 build_and_development_instructions="Test build instructions",
             )
 
@@ -193,9 +189,7 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify files were created
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
-                    )
+                    memory_file_full = os.path.join(memory_dir, f"{self.test_id}.txt")
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
                     )
@@ -215,14 +209,14 @@ class TestKnowledgeTransfer(unittest.TestCase):
             mock_read_files.return_value = self.test_files_content
 
             special_text = "Test with special chars: \n\t\"'[]{}!"
-            kt_arg = KnowledgeTransfer(
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
                 objective=special_text,
                 all_user_instructions=special_text,
                 current_status_of_the_task=special_text,
                 all_issues_snippets=special_text,
-                relevant_file_paths=self.test_paths,
+                relevant_file_globs=self.test_paths,
                 build_and_development_instructions=special_text,
             )
 
@@ -249,11 +243,14 @@ class TestKnowledgeTransfer(unittest.TestCase):
                         tmpdir, ".local", "share", "wcgw", "memory"
                     )
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
+                    memory_file_full = os.path.join(memory_dir, f"{self.test_id}.txt")
+                    self.assertTrue(
+                        os.path.exists(memory_file), "JSON memory file not created"
                     )
-                    self.assertTrue(os.path.exists(memory_file), "JSON memory file not created")
-                    self.assertTrue(os.path.exists(memory_file_full), "Full text memory file not created")
+                    self.assertTrue(
+                        os.path.exists(memory_file_full),
+                        "Full text memory file not created",
+                    )
 
                     with open(memory_file, "r") as f:
                         data = json.loads(f.read())
@@ -266,14 +263,14 @@ class TestKnowledgeTransfer(unittest.TestCase):
             mock_read_files.return_value = self.test_files_content
 
             long_content = "A" * 10000  # 10KB of content
-            kt_arg = KnowledgeTransfer(
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
                 objective="Test objective",
                 all_user_instructions=long_content,
                 current_status_of_the_task="Test status",
                 all_issues_snippets=long_content,
-                relevant_file_paths=self.test_paths,
+                relevant_file_globs=self.test_paths,
                 build_and_development_instructions="Test build instructions",
             )
 
@@ -300,9 +297,7 @@ class TestKnowledgeTransfer(unittest.TestCase):
 
                     # Verify files were created
                     memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
-                    )
+                    memory_file_full = os.path.join(memory_dir, f"{self.test_id}.txt")
                     self.assertTrue(
                         os.path.exists(memory_file), "JSON memory file not created"
                     )

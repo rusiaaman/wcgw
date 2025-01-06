@@ -26,8 +26,8 @@ from typer import Typer
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    ContextSave,
     FileEdit,
-    KnowledgeTransfer,
     ReadFiles,
     ReadImage,
     ResetShell,
@@ -39,6 +39,7 @@ from .openai_utils import get_input_cost, get_output_cost
 from .tools import (
     DoneFlag,
     ImageData,
+    default_enc,
     get_tool_output,
     initialize,
     which_tool,
@@ -124,7 +125,12 @@ def loop(
     memory = None
     if resume:
         try:
-            memory = load_memory(resume)
+            _, memory = load_memory(
+                resume,
+                8000,
+                lambda x: default_enc.encode(x).ids,
+                lambda x: default_enc.decode(x),
+            )
         except OSError:
             if resume == "latest":
                 resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
@@ -211,7 +217,7 @@ def loop(
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
         openai.pydantic_function_tool(
-            KnowledgeTransfer,
+            ContextSave,
             description="""
 Write detailed description in order to do a KT, if the user asks for it.
 Save all information necessary for a person to understand the task and the problems.

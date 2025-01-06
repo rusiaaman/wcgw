@@ -101,12 +101,8 @@ class Keyboard(BaseModel):
     text: str
 
 
-class KnowledgeTransfer(BaseModel):
+class ContextSave(BaseModel):
     id: str
     project_root_path: str
-    objective: str
-    all_user_instructions: str
-    current_status_of_the_task: str
-    all_issues_snippets: str
-    relevant_file_paths: list[str]
-    build_and_development_instructions: str
+    description: str
+    relevant_file_globs: list[str]

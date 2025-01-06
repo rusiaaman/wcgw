@@ -25,10 +25,10 @@ from typer import Typer
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    ContextSave,
     FileEdit,
     GetScreenInfo,
     Keyboard,
-    KnowledgeTransfer,
     Mouse,
     ReadFiles,
     ReadImage,
@@ -130,7 +130,12 @@ def loop(
     memory = None
     if resume:
         try:
-            memory = load_memory(resume)
+            _, memory = load_memory(
+                resume,
+                8000,
+                lambda x: default_enc.encode(x).ids,
+                lambda x: default_enc.decode(x),
+            )
         except OSError:
             if resume == "latest":
                 resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
@@ -215,7 +220,7 @@ def loop(
 """,
         ),
         ToolParam(
-            input_schema=KnowledgeTransfer.model_json_schema(),
+            input_schema=ContextSave.model_json_schema(),
             name="KnowledgeTransfer",
             description="""
 Write detailed description in order to do a KT, if the user asks for it.

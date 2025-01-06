@@ -16,10 +16,10 @@ from pydantic import BaseModel
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    ContextSave,
     FileEdit,
     FileEditFindReplace,
     Initialize,
-    KnowledgeTransfer,
     ReadFiles,
     ResetShell,
     WriteIfEmpty,
@@ -36,7 +36,7 @@ class Mdata(BaseModel):
         | FileEdit
         | ReadFiles
         | Initialize
-        | KnowledgeTransfer
+        | ContextSave
         | str
     )
     user_id: UUID
@@ -317,7 +317,7 @@ async def initialize(initialize_data: InitializeWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class KTWithUUID(KnowledgeTransfer):
+class KTWithUUID(ContextSave):
     user_id: UUID
 
 

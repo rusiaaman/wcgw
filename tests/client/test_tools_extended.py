@@ -4,6 +4,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
+from wcgw.client.read_files import read_files
 from wcgw.client.tools import (
     BASH_STATE,
     ImageData,
@@ -255,7 +256,7 @@ class TestToolsExtended(unittest.TestCase):
 
     @patch("wcgw.client.tools.command_run")
     def test_read_files_docker(self, mock_command_run):
-        from wcgw.client.tools import BASH_STATE, read_files
+        from wcgw.client.tools import BASH_STATE
 
         # Setup Docker environment
         BASH_STATE.set_in_docker("test_container")
