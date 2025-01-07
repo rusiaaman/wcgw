@@ -44,6 +44,11 @@ Instructions for `BashInteraction`
 Instructions for `ResetShell`
 - Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.
 
+Instructions for `ContextSave`
+- Saves provided description and file contents of all the relevant file paths or globs in a single text file.
+  - Provide random unqiue id or whatever user provided.
+  - Leave project path as empty string if no project path
+
 Instructions for `FileEdit`:
     - Use absolute file path only.
     - Use SEARCH/REPLACE blocks to edit the file.

@@ -508,32 +508,16 @@
             "type": "string",
             "title": "Project Root Path"
           },
-          "objective": {
+          "description": {
             "type": "string",
-            "title": "Objective"
+            "title": "Description"
           },
-          "all_user_instructions": {
-            "type": "string",
-            "title": "All User Instructions"
-          },
-          "current_status_of_the_task": {
-            "type": "string",
-            "title": "Current Status Of The Task"
-          },
-          "all_issues_snippets": {
-            "type": "string",
-            "title": "All Issues Snippets"
-          },
-          "relevant_file_paths": {
+          "relevant_file_globs": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Relevant File Paths"
-          },
-          "build_and_development_instructions": {
-            "type": "string",
-            "title": "Build And Development Instructions"
+            "title": "Relevant File Globs"
           },
           "user_id": {
             "type": "string",
@@ -546,12 +530,8 @@
         "required": [
           "id",
           "project_root_path",
-          "objective",
-          "all_user_instructions",
-          "current_status_of_the_task",
-          "all_issues_snippets",
-          "relevant_file_paths",
-          "build_and_development_instructions",
+          "description",
+          "relevant_file_globs",
           "user_id"
         ],
         "title": "KTWithUUID"
