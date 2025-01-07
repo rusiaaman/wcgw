@@ -68,7 +68,11 @@ def load_memory[T](
             data = decoder(toks)
             data += "\n(... truncated)"
 
-    project_root_match = re.search(r"# PROJECT ROOT = '(.*)'", data)
+    project_root_match = re.search(r"# PROJECT ROOT = ('.*')", data)
+    project_root_path = ""
     if project_root_match:
-        return project_root_match.group(1), data
-    return "", data
+        matched_path = project_root_match.group(1)
+        parsed_ = shlex.split(matched_path)
+        if parsed_ and len(parsed_) == 1:
+            project_root_path = parsed_[0]
+    return project_root_path, data

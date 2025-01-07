@@ -1157,9 +1157,9 @@ def get_tool_output(
                 raise Exception(
                     f"No file matches the provided glob {arg.relevant_file_globs[i]}"
                 )
-            relevant_files.extend(globs)
+            relevant_files.extend(globs[:1000])
 
-        relevant_files_data = read_files(relevant_files, None)
+        relevant_files_data = read_files(relevant_files[:10_000], None)
         output = save_memory(arg, relevant_files_data), 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
