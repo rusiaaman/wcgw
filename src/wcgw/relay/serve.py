@@ -317,13 +317,13 @@ async def initialize(initialize_data: InitializeWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class KTWithUUID(ContextSave):
+class ContextSaveWithUUID(ContextSave):
     user_id: UUID
 
 
-@app.post("/v1/knowledge_transfer")
-async def knowledge_transfer(knowledge_transfer_data: KTWithUUID) -> str:
-    user_id = knowledge_transfer_data.user_id
+@app.post("/v1/context_save")
+async def context_save(context_save_data: ContextSaveWithUUID) -> str:
+    user_id = context_save_data.user_id
     if user_id not in clients:
         return "Failure: id not found, ask the user to check it."
 
@@ -335,7 +335,7 @@ async def knowledge_transfer(knowledge_transfer_data: KTWithUUID) -> str:
 
     gpts[user_id] = put_results
 
-    await clients[user_id](Mdata(data=knowledge_transfer_data, user_id=user_id))
+    await clients[user_id](Mdata(data=context_save_data, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:
