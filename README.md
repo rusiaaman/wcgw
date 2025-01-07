@@ -12,6 +12,8 @@
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
 
 ## Updates
+- [8 Jan 2025] Context saving tool for saving relevant file paths along with a description in a single file. Can be used as a task checkpoint or for knowledge transfer.
+
 - [29 Dec 2024] Syntax checking on file writing and edits is now stable. Made `initialize` tool call useful; sending smart repo structure to claude if any repo is referenced. Large file handling is also now improved.
 
 - [9 Dec 2024] [Vscode extension to paste context on Claude app](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw)  
@@ -111,6 +113,11 @@ over here
 
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
+*New*
+- You can do a task checkpoint or a knowledge transfer by attaching "KnowledgeTransfer" prompt using "Attach from MCP" button.
+- On running "KnowledgeTransfer" prompt, the "ContextSave" tool will be called saving the task description and all file content together in a single file. An id for the task will be generated.
+- You can in a new chat say "Resume '<task id>'", the AI should then call "Initialize" with the task id and load the context from there.
+- Or you can directly open the file generated and share it with another AI for help.
 
 ### [Optional] Vs code extension 
 https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw
