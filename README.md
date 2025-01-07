@@ -113,7 +113,7 @@ over here
 
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
-*New*
+#### Task checkpoint or knowledge transfer
 - You can do a task checkpoint or a knowledge transfer by attaching "KnowledgeTransfer" prompt using "Attach from MCP" button.
 - On running "KnowledgeTransfer" prompt, the "ContextSave" tool will be called saving the task description and all file content together in a single file. An id for the task will be generated.
 - You can in a new chat say "Resume '<task id>'", the AI should then call "Initialize" with the task id and load the context from there.
