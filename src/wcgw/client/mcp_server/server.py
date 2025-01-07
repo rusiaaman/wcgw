@@ -80,7 +80,7 @@ Format the `description` field using Markdown with the following sections.
 - After the tool completes succesfully, tell me the task id and the file path the tool generated (important!)
 - This tool marks end of your conversation, do not run any further tools after calling this.
 
-Provide all relevant file paths in order to understand and solve the the task. Err towards provided more file paths than fewer.
+Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
 
 (Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
 """,
