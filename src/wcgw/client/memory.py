@@ -20,12 +20,12 @@ def format_memory(task_memory: ContextSave, relevant_files: str) -> str:
     memory_data += task_memory.description
 
     memory_data += (
-        "\n"
+        "\n\n"
         + "# Relevant file paths\n"
         + ", ".join(map(shlex.quote, task_memory.relevant_file_globs))
     )
 
-    memory_data += "\n# Relevant Files:\n" + relevant_files
+    memory_data += "\n\n# Relevant Files:\n" + relevant_files
 
     return memory_data
 
