@@ -4,7 +4,6 @@ import os
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
-from wcgw.client.read_files import read_files
 from wcgw.client.tools import (
     BASH_STATE,
     ImageData,
@@ -20,8 +19,9 @@ class TestToolsExtended(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
         from wcgw.client.tools import BASH_STATE
+
         BASH_STATE._is_in_docker = ""  # Reset Docker state without shell reset
-        
+
     def test_get_incremental_output(self):
         old_output = ["line1", "line2"]
         new_output = ["line1", "line2", "line3"]
@@ -264,19 +264,19 @@ class TestToolsExtended(unittest.TestCase):
         BASH_STATE.set_in_docker("test_container")
         mock_command_run.return_value = (0, "file content", "")
 
-        with patch('wcgw.client.tools.read_file') as mock_read_file:
+        with patch("wcgw.client.tools.read_file") as mock_read_file:
             mock_read_file.return_value = ("file content", False, 10)
-            
+
             # Test file read
             result = read_files(["/test/file.py"], max_tokens=100)
             self.assertIn("file content", result)
-            
+
             # Cleanup
             BASH_STATE._is_in_docker = ""
 
         # Test read failure
         mock_command_run.return_value = (1, "", "error message")
-        with patch('os.path.exists', return_value=False):
+        with patch("os.path.exists", return_value=False):
             result = read_files(["/test/nonexistent.py"], max_tokens=100)
         self.assertIn("file /test/nonexistent.py does not exist", result)
 
