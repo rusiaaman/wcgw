@@ -39,7 +39,7 @@
   - Only one command is allowed to be run at a time, simplifying management and avoiding rogue processes. There's only single shell instance at any point of time.
   - Current working directory is always returned after any shell command to prevent AI from getting lost. 
   - Command polling exits after a quick timeout to avoid slow feedback. However, status checking has wait tolerance based on fresh output streaming from a command. Both of these approach combined provides a good shell interaction experience.
-   
+- ⚡ **Saving repo context in a single file**: Task checkpointing and knowledge transfer to take help from another AI using "ContextSave" tool. Tasks can later be resumed in a new chat asking "Resume <task id>".
 
 ## Top use cases examples
 
