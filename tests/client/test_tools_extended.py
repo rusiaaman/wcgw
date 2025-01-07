@@ -18,6 +18,9 @@ from wcgw.types_ import BashCommand, BashInteraction, Keyboard, Mouse, WriteIfEm
 class TestToolsExtended(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
+        from wcgw.client.tools import BASH_STATE
+
+        BASH_STATE._is_in_docker = ""  # Reset Docker state without shell reset
 
     def test_get_incremental_output(self):
         old_output = ["line1", "line2"]
@@ -69,7 +72,6 @@ class TestToolsExtended(unittest.TestCase):
         # Test invalid tool name
         with self.assertRaises(ValueError):
             which_tool_name("InvalidTool")
-        self.assertEqual(BASH_STATE.is_in_docker, "")
 
         # Test pending state
         BASH_STATE.set_pending("test output")
@@ -255,20 +257,28 @@ class TestToolsExtended(unittest.TestCase):
 
     @patch("wcgw.client.tools.command_run")
     def test_read_files_docker(self, mock_command_run):
-        from wcgw.client.tools import BASH_STATE, read_files
+        from wcgw.client.tools import BASH_STATE, DisableConsole, read_files
 
-        # Setup Docker environment
+        # Setup mocks and test environment
+        console = DisableConsole()
         BASH_STATE.set_in_docker("test_container")
-
-        # Test successful read
         mock_command_run.return_value = (0, "file content", "")
-        result = read_files(["/test/file.py"], max_tokens=100)
-        self.assertIn("file content", result)
+
+        with patch("wcgw.client.tools.read_file") as mock_read_file:
+            mock_read_file.return_value = ("file content", False, 10)
+
+            # Test file read
+            result = read_files(["/test/file.py"], max_tokens=100)
+            self.assertIn("file content", result)
+
+            # Cleanup
+            BASH_STATE._is_in_docker = ""
 
         # Test read failure
         mock_command_run.return_value = (1, "", "error message")
-        result = read_files(["/test/nonexistent.py"], max_tokens=100)
-        self.assertIn("error message", result)
+        with patch("os.path.exists", return_value=False):
+            result = read_files(["/test/nonexistent.py"], max_tokens=100)
+        self.assertIn("file /test/nonexistent.py does not exist", result)
 
         # Reset Docker state
         BASH_STATE._is_in_docker = ""

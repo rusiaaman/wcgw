@@ -290,16 +290,16 @@
         }
       }
     },
-    "/v1/knowledge_transfer": {
+    "/v1/context_save": {
       "post": {
         "x-openai-isConsequential": false,
-        "summary": "Knowledge Transfer",
-        "operationId": "knowledge_transfer_v1_knowledge_transfer_post",
+        "summary": "Context Save",
+        "operationId": "context_save_v1_context_save_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/KTWithUUID"
+                "$ref": "#/components/schemas/ContextSaveWithUUID"
               }
             }
           },
@@ -312,7 +312,7 @@
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "title": "Response Knowledge Transfer V1 Knowledge Transfer Post"
+                  "title": "Response Context Save V1 Context Save Post"
                 }
               }
             }
@@ -427,6 +427,44 @@
         ],
         "title": "CommandWithUUID"
       },
+      "ContextSaveWithUUID": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "project_root_path": {
+            "type": "string",
+            "title": "Project Root Path"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "relevant_file_globs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Relevant File Globs"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "project_root_path",
+          "description",
+          "relevant_file_globs",
+          "user_id"
+        ],
+        "title": "ContextSaveWithUUID"
+      },
       "FileEditWithUUID": {
         "properties": {
           "file_path": {
@@ -497,64 +535,6 @@
           "user_id"
         ],
         "title": "InitializeWithUUID"
-      },
-      "KTWithUUID": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "project_root_path": {
-            "type": "string",
-            "title": "Project Root Path"
-          },
-          "objective": {
-            "type": "string",
-            "title": "Objective"
-          },
-          "all_user_instructions": {
-            "type": "string",
-            "title": "All User Instructions"
-          },
-          "current_status_of_the_task": {
-            "type": "string",
-            "title": "Current Status Of The Task"
-          },
-          "all_issues_snippets": {
-            "type": "string",
-            "title": "All Issues Snippets"
-          },
-          "relevant_file_paths": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Relevant File Paths"
-          },
-          "build_and_development_instructions": {
-            "type": "string",
-            "title": "Build And Development Instructions"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "project_root_path",
-          "objective",
-          "all_user_instructions",
-          "current_status_of_the_task",
-          "all_issues_snippets",
-          "relevant_file_paths",
-          "build_and_development_instructions",
-          "user_id"
-        ],
-        "title": "KTWithUUID"
       },
       "ReadFileWithUUID": {
         "properties": {

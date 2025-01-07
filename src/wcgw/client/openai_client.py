@@ -26,8 +26,8 @@ from typer import Typer
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    ContextSave,
     FileEdit,
-    KnowledgeTransfer,
     ReadFiles,
     ReadImage,
     ResetShell,
@@ -39,6 +39,7 @@ from .openai_utils import get_input_cost, get_output_cost
 from .tools import (
     DoneFlag,
     ImageData,
+    default_enc,
     get_tool_output,
     initialize,
     which_tool,
@@ -124,7 +125,12 @@ def loop(
     memory = None
     if resume:
         try:
-            memory = load_memory(resume)
+            _, memory = load_memory(
+                resume,
+                8000,
+                lambda x: default_enc.encode(x).ids,
+                lambda x: default_enc.decode(x),
+            )
         except OSError:
             if resume == "latest":
                 resume_path = sorted(Path(".wcgw").iterdir(), key=os.path.getmtime)[-1]
@@ -211,22 +217,12 @@ def loop(
             description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
         openai.pydantic_function_tool(
-            KnowledgeTransfer,
+            ContextSave,
             description="""
-Write detailed description in order to do a KT, if the user asks for it.
-Save all information necessary for a person to understand the task and the problems.
 
-- `all_user_instructions` should contain all instructions user shared in the conversation.
-- `current_status_of_the_task` should contain only what is already achieved, not what's remaining.
-- `all_issues_snippets` should only contain snippets of error, traceback, file snippets, commands, etc., no comments or solutions (important!).
-- Be very verbose in `all_issues_snippets` providing as much error context as possible.
-- Provide an id if the user hasn't provided one. 
-- This tool will return a text file path where the information is saved.
-- After the tool completes succesfully, tell the user the task id and the generate file path. (important!)
-- Leave arguments as empty string if they aren't relevant.
-- This tool marks end of your conversation, do not run any further tools after calling this.
-- Provide absolute file paths only in `relevant_file_paths` containing all relevant files.
-""",
+Saves provided description and file contents of all the relevant file paths or globs in a single text file.
+- Provide random unqiue id or whatever user provided.
+- Leave project path as empty string if no project path""",
         ),
     ]
 

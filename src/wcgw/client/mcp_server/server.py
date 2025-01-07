@@ -14,6 +14,7 @@ from mcp_wcgw.types import Tool as ToolParam
 from ...types_ import (
     BashCommand,
     BashInteraction,
+    ContextSave,
     FileEdit,
     GetScreenInfo,
     Initialize,
@@ -46,14 +47,47 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 
 @server.list_prompts()  # type: ignore
 async def handle_list_prompts() -> list[types.Prompt]:
-    return []
+    return [
+        types.Prompt(
+            name="KnowledgeTransfer",
+            description="Prompt for invoking ContextSave tool in order to do a comprehensive knowledge transfer of a coding task. Prompts to save detailed error log and instructions.",
+        )
+    ]
 
 
 @server.get_prompt()  # type: ignore
 async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
-    return types.GetPromptResult(messages=[])
+    messages = []
+    if name == "KnowledgeTransfer":
+        messages = [
+            types.PromptMessage(
+                role="user",
+                content=types.TextContent(
+                    type="text",
+                    text="""Use `ContextSave` tool to do a knowledge transfer of the task in hand.
+Write detailed description in order to do a KT.
+Save all information necessary for a person to understand the task and the problems.
+
+Format the `description` field using Markdown with the following sections.
+- "# Objective" section containing project and task objective.
+- "# All user instructions" section should be provided containing all instructions user shared in the conversation.
+- "# Current status of the task" should be provided containing only what is already achieved, not what's remaining.
+- "# All issues with snippets" section containing snippets of error, traceback, file snippets, commands, etc. But no comments or solutions.
+- Be very verbose in the all issues with snippets section providing as much error context as possible.
+- "# Build and development instructions" section containing instructions to build or run project or run tests, or envrionment related information. Only include what's known. Leave empty if unknown.
+- After the tool completes succesfully, tell me the task id and the file path the tool generated (important!)
+- This tool marks end of your conversation, do not run any further tools after calling this.
+
+Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
+
+(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
+""",
+                ),
+            )
+        ]
+    return types.GetPromptResult(messages=messages)
 
 
 @server.list_tools()  # type: ignore
@@ -153,24 +187,14 @@ async def handle_list_tools() -> list[types.Tool]:
 """
             + diffinstructions,
         ),
-        #         ToolParam(
-        #             inputSchema=KnowledgeTransfer.model_json_schema(),
-        #             name="KnowledgeTransfer",
-        #             description="""
-        # Write detailed description in order to do a KT, if the user asks for it.
-        # Save all information necessary for a person to understand the task and the problems.
-        # - `all_user_instructions` should contain all instructions user shared in the conversation.
-        # - `current_status_of_the_task` should contain only what is already achieved, not what's remaining.
-        # - `all_issues_snippets` should only contain snippets of error, traceback, file snippets, commands, etc., no comments or solutions (important!).
-        # - Be very verbose in `all_issues_snippets` providing as much error context as possible.
-        # - Provide an id if the user hasn't provided one.
-        # - This tool will return a text file path where the information is saved.
-        # - After the tool completes succesfully, tell the user the task id and the generate file path. (important!)
-        # - Leave arguments as empty string if they aren't relevant.
-        # - This tool marks end of your conversation, do not run any further tools after calling this.
-        # - Provide absolute file paths only in `relevant_file_paths` containing all relevant files.
-        # """,
-        #         ),
+        ToolParam(
+            inputSchema=ContextSave.model_json_schema(),
+            name="ContextSave",
+            description="""
+Saves provided description and file contents of all the relevant file paths or globs in a single text file.
+- Provide random unqiue id or whatever user provided.
+- Leave project path as empty string if no project path""",
+        ),
     ]
     if COMPUTER_USE_ON_DOCKER_ENABLED:
         tools += [

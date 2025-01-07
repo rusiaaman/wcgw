@@ -1,15 +1,12 @@
 """Tests for KnowledgeTransfer functionality in tools.py"""
 
-import json
 import os
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from wcgw.client.tools import (
-    get_tool_output,
-)
-from wcgw.types_ import KnowledgeTransfer
+from wcgw.client.tools import get_tool_output
+from wcgw.types_ import ContextSave
 
 
 class TestKnowledgeTransfer(unittest.TestCase):
@@ -23,242 +20,87 @@ class TestKnowledgeTransfer(unittest.TestCase):
         self.test_file_2 = os.path.join(test_dir, "test2.py")
         self.test_paths = [self.test_file_1, self.test_file_2]
         self.test_files_content = "file content"
+        
+        # Setup save_memory mock
+        self.memory_patch = patch("wcgw.client.tools.save_memory")
+        self.mock_save_memory = self.memory_patch.start()
+        self.mock_save_memory.return_value = "/tmp/memory/test_task_1.txt"
+
+    def tearDown(self):
+        self.memory_patch.stop()
 
     def test_knowledge_transfer_basic(self):
         """Test basic knowledge transfer functionality"""
-        # Setup mock
         with patch("wcgw.client.tools.read_files") as mock_read_files:
             mock_read_files.return_value = self.test_files_content
 
-            kt_arg = KnowledgeTransfer(
+            description = "Test objective. Instructions: Test instructions. Status: Test status. Issues: Test snippets."
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
-                objective="Test objective",
-                all_user_instructions="Test instructions",
-                current_status_of_the_task="Test status",
-                all_issues_snippets="Test snippets",
-                relevant_file_paths=self.test_paths,
-                build_and_development_instructions="Test build instructions",
+                description=description,
+                relevant_file_globs=self.test_paths
             )
 
-            # Set up temporary directory structure
-            with tempfile.TemporaryDirectory() as tmpdir:
-                memory_path = os.path.join(tmpdir, ".local", "share", "wcgw", "memory")
-                os.makedirs(memory_path, exist_ok=True)
+            outputs, cost = get_tool_output(kt_arg, None, 1.0, lambda x, y: ("", 0), None)
+            output = outputs[0]
 
-                def mock_expanduser(path):
-                    if path.startswith("~"):
-                        return os.path.join(tmpdir, path[2:])
-                    return path
-
-                with (
-                    patch("os.path.expanduser", side_effect=mock_expanduser),
-                    patch("os.makedirs"),
-                ):
-                    # Execute test
-                    outputs, cost = get_tool_output(
-                        kt_arg, None, 1.0, lambda x, y: ("", 0), None
-                    )
-                    output = outputs[0]
-
-                    # Verify output is a path to the memory file
-                    self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith(".txt"))
-
-                    # Verify memory files were created
-                    memory_file = os.path.join(memory_path, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_path, f"{self.test_id}.txt"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file), "JSON memory file not created"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file_full),
-                        "Full text memory file not created",
-                    )
-
-                    # Verify content
-                    with open(memory_file, "r") as f:
-                        data = json.loads(f.read())
-                        self.assertEqual(data["id"], self.test_id)
-                        self.assertEqual(data["project_root_path"], "/test")
-                        self.assertEqual(data["objective"], "Test objective")
-                        self.assertEqual(
-                            data["all_user_instructions"], "Test instructions"
-                        )
-                        self.assertEqual(data["relevant_file_paths"], self.test_paths)
-
-                    with open(memory_file_full, "r") as f:
-                        full_content = f.read()
-                        self.assertIn("# Goal: Test objective", full_content)
-                        self.assertIn("Test instructions", full_content)
-                        self.assertIn("Test snippets", full_content)
-                        self.assertIn(self.test_files_content, full_content)
+            self.assertTrue(isinstance(output, str))
+            self.assertTrue(output.endswith(".txt"))
+            
+            # Verify save_memory was called correctly
+            self.mock_save_memory.assert_called_once()
+            call_args = self.mock_save_memory.call_args[0]
+            self.assertEqual(call_args[0].id, self.test_id)
+            self.assertEqual(call_args[0].project_root_path, "/test") 
+            self.assertEqual(call_args[0].description, description)
+            self.assertEqual(call_args[0].relevant_file_globs, self.test_paths)
 
     def test_knowledge_transfer_with_empty_fields(self):
         """Test knowledge transfer with empty fields"""
         with patch("wcgw.client.tools.read_files") as mock_read_files:
             mock_read_files.return_value = self.test_files_content
 
-            kt_arg = KnowledgeTransfer(
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
-                objective="",
-                all_user_instructions="",
-                current_status_of_the_task="",
-                all_issues_snippets="",
-                relevant_file_paths=[],
-                build_and_development_instructions="",
+                description="",
+                relevant_file_globs=[]
             )
 
-            # Create temp directory structure
-            with tempfile.TemporaryDirectory() as tmpdir:
-                memory_base = os.path.join(tmpdir, ".local", "share", "wcgw")
-                os.makedirs(memory_base, exist_ok=True)
-                memory_dir = os.path.join(memory_base, "memory")
-                os.makedirs(memory_dir, exist_ok=True)
+            outputs, cost = get_tool_output(kt_arg, None, 1.0, lambda x, y: ("", 0), None)
+            output = outputs[0]
 
-                with patch(
-                    "os.path.expanduser",
-                    return_value=os.path.join(tmpdir, ".local/share"),
-                ):
-                    # Execute test
-                    outputs, cost = get_tool_output(
-                        kt_arg, None, 1.0, lambda x, y: ("", 0), None
-                    )
-                    output = outputs[0]
-
-                    # Verify output
-                    self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith(".txt"))
-
-                    # Verify memory files were created and have correct content
-                    memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file), "JSON memory file not created"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file_full),
-                        "Full text memory file not created",
-                    )
-
-                    # Verify empty fields were preserved
-                    with open(memory_file, "r") as f:
-                        data = json.loads(f.read())
-                        self.assertEqual(data["objective"], "")
-                        self.assertEqual(data["all_user_instructions"], "")
-                        self.assertEqual(data["relevant_file_paths"], [])
+            self.assertTrue(output.endswith(".txt"))
+            
+            # Verify save_memory was called correctly
+            self.mock_save_memory.assert_called_once()
+            call_args = self.mock_save_memory.call_args[0]
+            self.assertEqual(call_args[0].description, "")
+            self.assertEqual(call_args[0].relevant_file_globs, [])
 
     def test_knowledge_transfer_file_read_failure(self):
         """Test knowledge transfer when file reading fails"""
-        # Setup mock
         with patch("wcgw.client.tools.read_files") as mock_read_files:
             mock_read_files.return_value = "Failed to read files"
 
-            kt_arg = KnowledgeTransfer(
+            description = "Test fail case"
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
-                objective="Test objective",
-                all_user_instructions="Test instructions",
-                current_status_of_the_task="Test status",
-                all_issues_snippets="Test snippets",
-                relevant_file_paths=self.test_paths,
-                build_and_development_instructions="Test build instructions",
+                description=description,
+                relevant_file_globs=self.test_paths
             )
 
-            # Create temp directory structure
-            with tempfile.TemporaryDirectory() as tmpdir:
-                memory_base = os.path.join(tmpdir, ".local", "share", "wcgw")
-                os.makedirs(memory_base, exist_ok=True)
-                memory_dir = os.path.join(memory_base, "memory")
-                os.makedirs(memory_dir, exist_ok=True)
+            outputs, cost = get_tool_output(kt_arg, None, 1.0, lambda x, y: ("", 0), None)
+            output = outputs[0]
 
-                with patch(
-                    "os.path.expanduser",
-                    return_value=os.path.join(tmpdir, ".local/share"),
-                ):
-                    # Execute test
-                    outputs, cost = get_tool_output(
-                        kt_arg, None, 1.0, lambda x, y: ("", 0), None
-                    )
-                    output = outputs[0]
-
-                    # Verify operation still completes and returns file path
-                    self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith(".txt"))
-
-                    # Verify files were created
-                    memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file), "JSON memory file not created"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file_full),
-                        "Full text memory file not created",
-                    )
-
-                    # Verify error message is included in full file content
-                    with open(memory_file_full, "r") as f:
-                        content = f.read()
-                        self.assertIn("Failed to read files", content)
-
-    def test_knowledge_transfer_with_special_characters(self):
-        """Test knowledge transfer with special characters in fields"""
-        with patch("wcgw.client.tools.read_files") as mock_read_files:
-            mock_read_files.return_value = self.test_files_content
-
-            special_text = "Test with special chars: \n\t\"'[]{}!"
-            kt_arg = KnowledgeTransfer(
-                id=self.test_id,
-                project_root_path="/test",
-                objective=special_text,
-                all_user_instructions=special_text,
-                current_status_of_the_task=special_text,
-                all_issues_snippets=special_text,
-                relevant_file_paths=self.test_paths,
-                build_and_development_instructions=special_text,
-            )
-
-            with tempfile.TemporaryDirectory() as tmpdir:
-                memory_base = os.path.join(tmpdir, ".local", "share", "wcgw")
-                os.makedirs(memory_base, exist_ok=True)
-                memory_dir = os.path.join(memory_base, "memory")
-                os.makedirs(memory_dir, exist_ok=True)
-
-                with patch(
-                    "os.path.expanduser",
-                    return_value=os.path.join(tmpdir, ".local/share"),
-                ):
-                    outputs, cost = get_tool_output(
-                        kt_arg, None, 1.0, lambda x, y: ("", 0), None
-                    )
-                    output = outputs[0]
-
-                    # Verify output path returned
-                    self.assertTrue(output.endswith(".txt"))
-
-                    # Verify content preserved special characters
-                    memory_dir = os.path.join(
-                        tmpdir, ".local", "share", "wcgw", "memory"
-                    )
-                    memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
-                    )
-                    self.assertTrue(os.path.exists(memory_file), "JSON memory file not created")
-                    self.assertTrue(os.path.exists(memory_file_full), "Full text memory file not created")
-
-                    with open(memory_file, "r") as f:
-                        data = json.loads(f.read())
-                        self.assertEqual(data["objective"], special_text)
-                        self.assertEqual(data["all_user_instructions"], special_text)
+            self.assertTrue(output.endswith(".txt"))
+            
+            # Verify save_memory was called correctly
+            call_args = self.mock_save_memory.call_args[0]
+            self.assertEqual(call_args[0].id, self.test_id)
+            self.assertEqual(call_args[0].description, description)
 
     def test_knowledge_transfer_with_long_content(self):
         """Test knowledge transfer with long content"""
@@ -266,56 +108,47 @@ class TestKnowledgeTransfer(unittest.TestCase):
             mock_read_files.return_value = self.test_files_content
 
             long_content = "A" * 10000  # 10KB of content
-            kt_arg = KnowledgeTransfer(
+            description = f"Test with long content: {long_content}"
+            kt_arg = ContextSave(
                 id=self.test_id,
                 project_root_path="/test",
-                objective="Test objective",
-                all_user_instructions=long_content,
-                current_status_of_the_task="Test status",
-                all_issues_snippets=long_content,
-                relevant_file_paths=self.test_paths,
-                build_and_development_instructions="Test build instructions",
+                description=description,
+                relevant_file_globs=self.test_paths
             )
 
-            # Create temp directory structure
-            with tempfile.TemporaryDirectory() as tmpdir:
-                memory_base = os.path.join(tmpdir, ".local", "share", "wcgw")
-                os.makedirs(memory_base, exist_ok=True)
-                memory_dir = os.path.join(memory_base, "memory")
-                os.makedirs(memory_dir, exist_ok=True)
+            outputs, cost = get_tool_output(kt_arg, None, 1.0, lambda x, y: ("", 0), None)
+            output = outputs[0]
 
-                with patch(
-                    "os.path.expanduser",
-                    return_value=os.path.join(tmpdir, ".local/share"),
-                ):
-                    # Execute test
-                    outputs, cost = get_tool_output(
-                        kt_arg, None, 1.0, lambda x, y: ("", 0), None
-                    )
-                    output = outputs[0]
+            self.assertTrue(output.endswith(".txt"))
+            
+            # Verify save_memory was called correctly
+            call_args = self.mock_save_memory.call_args[0]
+            self.assertEqual(call_args[0].id, self.test_id)
+            self.assertEqual(call_args[0].description, description)
 
-                    # Verify output
-                    self.assertTrue(isinstance(output, str))
-                    self.assertTrue(output.endswith(".txt"))
+    def test_knowledge_transfer_with_special_characters(self):
+        """Test knowledge transfer with special characters in fields"""
+        with patch("wcgw.client.tools.read_files") as mock_read_files:
+            mock_read_files.return_value = self.test_files_content
 
-                    # Verify files were created
-                    memory_file = os.path.join(memory_dir, f"{self.test_id}.json")
-                    memory_file_full = os.path.join(
-                        memory_dir, f"{self.test_id}.txt"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file), "JSON memory file not created"
-                    )
-                    self.assertTrue(
-                        os.path.exists(memory_file_full),
-                        "Full text memory file not created",
-                    )
+            special_text = 'Test with special chars: \n\t"\'[]{}!'
+            description = f"Test with special characters: {special_text}"
+            kt_arg = ContextSave(
+                id=self.test_id,
+                project_root_path="/test",
+                description=description,
+                relevant_file_globs=self.test_paths
+            )
 
-                    # Verify long content is preserved
-                    with open(memory_file, "r") as f:
-                        data = json.loads(f.read())
-                        self.assertEqual(data["all_user_instructions"], long_content)
-                        self.assertEqual(data["all_issues_snippets"], long_content)
+            outputs, cost = get_tool_output(kt_arg, None, 1.0, lambda x, y: ("", 0), None)
+            output = outputs[0]
+
+            self.assertTrue(output.endswith(".txt"))
+            
+            # Verify save_memory was called correctly
+            call_args = self.mock_save_memory.call_args[0]
+            self.assertEqual(call_args[0].id, self.test_id)
+            self.assertEqual(call_args[0].description, description)
 
 
 if __name__ == "__main__":

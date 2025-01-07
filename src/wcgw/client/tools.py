@@ -1,5 +1,6 @@
 import base64
 import datetime
+import glob
 import importlib.metadata
 import json
 import mimetypes
@@ -38,12 +39,12 @@ from websockets.sync.client import connect as syncconnect
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    ContextSave,
     FileEdit,
     FileEditFindReplace,
     GetScreenInfo,
     Initialize,
     Keyboard,
-    KnowledgeTransfer,
     Mouse,
     ReadFiles,
     ReadImage,
@@ -53,7 +54,7 @@ from ..types_ import (
 )
 from .computer_use import run_computer_tool
 from .file_ops.search_replace import search_replace_edit
-from .memory import format_memory, load_memory, save_memory
+from .memory import load_memory, save_memory
 from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
 
@@ -307,16 +308,17 @@ def initialize(
     memory = ""
     if task_id_to_resume:
         try:
-            task_mem = load_memory(task_id_to_resume)
-            mem_files = task_mem.relevant_file_paths
-            mem_files_read = read_files(mem_files, max_tokens)
-            memory = "Following is the retrieved task:\n" + format_memory(
-                task_mem, mem_files_read
+            project_root_path, task_mem = load_memory(
+                task_id_to_resume,
+                max_tokens,
+                lambda x: default_enc.encode(x).ids,
+                lambda x: default_enc.decode(x),
             )
+            memory = "Following is the retrieved task:\n" + task_mem
             if (
                 not any_workspace_path or not os.path.exists(any_workspace_path)
-            ) and os.path.exists(task_mem.project_root_path):
-                any_workspace_path = task_mem.project_root_path
+            ) and os.path.exists(project_root_path):
+                any_workspace_path = project_root_path
         except Exception:
             memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
 
@@ -1003,7 +1005,7 @@ TOOLS = (
     | Keyboard
     | ScreenShot
     | GetScreenInfo
-    | KnowledgeTransfer
+    | ContextSave
 )
 
 
@@ -1045,8 +1047,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return ScreenShot
     elif name == "GetScreenInfo":
         return GetScreenInfo
-    elif name == "KnowledgeTransfer":
-        return KnowledgeTransfer
+    elif name == "ContextSave":
+        return ContextSave
     else:
         raise ValueError(f"Unknown tool name: {name}")
 
@@ -1142,20 +1144,26 @@ def get_tool_output(
                     )
                 BASH_STATE.set_in_docker(arg.docker_image_id)
         return outputs, outputs_cost[1]
-    elif isinstance(arg, KnowledgeTransfer):
+    elif isinstance(arg, ContextSave):
         console.print("Calling task memory tool")
-        relevant_files = arg.relevant_file_paths
-        for i, fpath in enumerate(relevant_files):
-            if not os.path.isabs(fpath):
-                relpath = os.path.join(arg.project_root_path, fpath)
-                if os.path.exists(relpath):
-                    relevant_files[i] = relpath
-                else:
-                    raise Exception(f"The file path {fpath} does not exist")
-            elif not os.path.exists(fpath):
-                raise Exception(f"The file path {fpath} does not exist")
-        relevant_files_data = read_files(relevant_files, None)
-        output = save_memory(arg, relevant_files_data), 0.0
+        assert not BASH_STATE.is_in_docker, "KT not supported in docker"
+        relevant_files = []
+        warnings = ""
+        for fglob in arg.relevant_file_globs:
+            fglob = expand_user(fglob, None)
+            if not os.path.isabs(fglob) and arg.project_root_path:
+                fglob = os.path.join(arg.project_root_path, fglob)
+            globs = glob.glob(fglob)
+            relevant_files.extend(globs[:1000])
+            if not globs:
+                warnings += f"Warning: No files found for the glob: {fglob}\n"
+        relevant_files_data = read_files(relevant_files[:10_000], None)
+        output_ = save_memory(arg, relevant_files_data)
+        if not relevant_files and arg.relevant_file_globs:
+            output_ = f'Error: No files found for the given globs. Context file successfully saved at "{output_}", but please fix the error.'
+        elif warnings:
+            output_ = warnings + "\nContext file successfully saved at " + output_
+        output = output_, 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
     if isinstance(output[0], str):
@@ -1184,7 +1192,7 @@ class Mdata(BaseModel):
         | str
         | ReadFiles
         | Initialize
-        | KnowledgeTransfer
+        | ContextSave
     )
 
 
