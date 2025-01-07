@@ -1148,19 +1148,22 @@ def get_tool_output(
         console.print("Calling task memory tool")
         assert not BASH_STATE.is_in_docker, "KT not supported in docker"
         relevant_files = []
-        for i, fglob in enumerate(arg.relevant_file_globs):
+        warnings = ""
+        for fglob in arg.relevant_file_globs:
             fglob = expand_user(fglob, None)
             if not os.path.isabs(fglob) and arg.project_root_path:
                 fglob = os.path.join(arg.project_root_path, fglob)
             globs = glob.glob(fglob)
-            if not globs:
-                raise Exception(
-                    f"No file matches the provided glob {arg.relevant_file_globs[i]}"
-                )
             relevant_files.extend(globs[:1000])
-
+            if not globs:
+                warnings += f"Warning: No files found for the glob: {fglob}\n"
         relevant_files_data = read_files(relevant_files[:10_000], None)
-        output = save_memory(arg, relevant_files_data), 0.0
+        output_ = save_memory(arg, relevant_files_data)
+        if not relevant_files and arg.relevant_file_globs:
+            output_ = f'Error: No files found for the given globs. Context file successfully saved at "{output_}", but please fix the error.'
+        elif warnings:
+            output_ = warnings + "\nContext file successfully saved at " + output_
+        output = output_, 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
     if isinstance(output[0], str):
