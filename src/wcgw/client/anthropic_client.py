@@ -221,7 +221,7 @@ def loop(
         ),
         ToolParam(
             input_schema=ContextSave.model_json_schema(),
-            name="KnowledgeTransfer",
+            name="ContextSave",
             description="""
 Write detailed description in order to do a KT, if the user asks for it.
 Save all information necessary for a person to understand the task and the problems.

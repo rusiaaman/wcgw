@@ -49,7 +49,7 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 async def handle_list_prompts() -> list[types.Prompt]:
     return [
         types.Prompt(
-            name="KnowledgeTransfer",
+            name="ContextSave",
             description="Prompt for invoking ContextSave tool in order to do a comprehensive knowledge transfer of a coding task. Prompts to save detailed error log and instructions.",
         )
     ]
@@ -60,7 +60,7 @@ async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
     messages = []
-    if name == "KnowledgeTransfer":
+    if name == "ContextSave":
         messages = [
             types.PromptMessage(
                 role="user",
