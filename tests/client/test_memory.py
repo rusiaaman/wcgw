@@ -1,19 +1,20 @@
-import unittest
 import os
-from unittest.mock import patch, mock_open
-from wcgw.client.memory import get_app_dir_xdg, format_memory, save_memory, load_memory
+import unittest
+from unittest.mock import mock_open, patch
+
+from wcgw.client.memory import format_memory, get_app_dir_xdg, load_memory, save_memory
 from wcgw.types_ import ContextSave
 
 
 class TestMemory(unittest.TestCase):
     def test_get_app_dir_xdg(self):
-        with patch.dict('os.environ', {'XDG_DATA_HOME': '/custom/data'}):
+        with patch.dict("os.environ", {"XDG_DATA_HOME": "/custom/data"}):
             result = get_app_dir_xdg()
             self.assertEqual(result, os.path.join("/custom/data", "wcgw"))
 
-        with patch.dict('os.environ', {}, clear=True):
-            with patch('os.path.expanduser') as mock_expanduser:
-                mock_expanduser.return_value = '/home/user'
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("os.path.expanduser") as mock_expanduser:
+                mock_expanduser.return_value = "/home/user"
                 result = get_app_dir_xdg()
                 self.assertEqual(result, "/home/user/wcgw")
 
@@ -40,19 +41,21 @@ class TestMemory(unittest.TestCase):
         )
         relevant_files = "file1.py\nfile2.py"
 
-        with patch('os.makedirs'), patch('builtins.open', mock_open()) as mock_file:
+        with patch("os.makedirs"), patch("builtins.open", mock_open()) as mock_file:
             result = save_memory(task_memory, relevant_files)
             self.assertIn("test-id.txt", result)
             mock_file().write.assert_called_once()
 
     def test_load_memory(self):
         task_id = "test-id"
-        memory_data = "# PROJECT ROOT = '/project'\nTest description\n*.py\nfile1.py"
+        memory_data = "# PROJECT ROOT = /project\nTest description\n*.py\nfile1.py"
         mock_encoder = lambda x: [1, 2, 3]  # Simulate token encoding
         mock_decoder = lambda x: "Decoded text"  # Simulate token decoding
 
-        with patch('builtins.open', mock_open(read_data=memory_data)):
-            project_root, data = load_memory(task_id, max_tokens=None, encoder=mock_encoder, decoder=mock_decoder)
+        with patch("builtins.open", mock_open(read_data=memory_data)):
+            project_root, data = load_memory(
+                task_id, max_tokens=None, encoder=mock_encoder, decoder=mock_decoder
+            )
             self.assertEqual(project_root, "/project")
             self.assertIn("Test description", data)
 
@@ -62,12 +65,14 @@ class TestMemory(unittest.TestCase):
         mock_encoder = lambda x: [1, 2, 3]  # Simulate token encoding
         mock_decoder = lambda x: x  # Don't decode in test
 
-        with patch('builtins.open', mock_open(read_data=memory_data)):
-            project_root, data = load_memory(task_id, max_tokens=10, encoder=mock_encoder, decoder=mock_decoder)
-            self.assertEqual(project_root, '/project')
+        with patch("builtins.open", mock_open(read_data=memory_data)):
+            project_root, data = load_memory(
+                task_id, max_tokens=10, encoder=mock_encoder, decoder=mock_decoder
+            )
+            self.assertEqual(project_root, "/project")
             # Mock decoder returns input unchanged, so we expect full data
             self.assertEqual(data, memory_data)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
