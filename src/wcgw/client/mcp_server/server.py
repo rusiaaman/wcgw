@@ -49,7 +49,7 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 async def handle_list_prompts() -> list[types.Prompt]:
     return [
         types.Prompt(
-            name="ContextSave",
+            name="KnowledgeTransfer",
             description="Prompt for invoking ContextSave tool in order to do a comprehensive knowledge transfer of a coding task. Prompts to save detailed error log and instructions.",
         )
     ]
@@ -60,7 +60,7 @@ async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
     messages = []
-    if name == "ContextSave":
+    if name == "KnowledgeTransfer":
         messages = [
             types.PromptMessage(
                 role="user",
@@ -82,7 +82,7 @@ Format the `description` field using Markdown with the following sections.
 
 Provide all relevant file paths in order to understand and solve the the task. Err towards provided more file paths than fewer.
 
-(Note to self: this conversation can then be resumed later asking "Resume <id>" which should call Initialize tool)
+(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
 """,
                 ),
             )
