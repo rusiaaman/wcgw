@@ -1153,7 +1153,7 @@ def get_tool_output(
             fglob = expand_user(fglob, None)
             if not os.path.isabs(fglob) and arg.project_root_path:
                 fglob = os.path.join(arg.project_root_path, fglob)
-            globs = glob.glob(fglob)
+            globs = glob.glob(fglob, recursive=True)
             relevant_files.extend(globs[:1000])
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
