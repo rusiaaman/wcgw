@@ -45,28 +45,13 @@ async def handle_read_resource(uri: AnyUrl) -> str:
     raise ValueError("No resources available")
 
 
-@server.list_prompts()  # type: ignore
-async def handle_list_prompts() -> list[types.Prompt]:
-    return [
+PROMPTS = {
+    "KnowledgeTransfer": (
         types.Prompt(
             name="KnowledgeTransfer",
             description="Prompt for invoking ContextSave tool in order to do a comprehensive knowledge transfer of a coding task. Prompts to save detailed error log and instructions.",
-        )
-    ]
-
-
-@server.get_prompt()  # type: ignore
-async def handle_get_prompt(
-    name: str, arguments: dict[str, str] | None
-) -> types.GetPromptResult:
-    messages = []
-    if name == "KnowledgeTransfer":
-        messages = [
-            types.PromptMessage(
-                role="user",
-                content=types.TextContent(
-                    type="text",
-                    text="""Use `ContextSave` tool to do a knowledge transfer of the task in hand.
+        ),
+        """Use `ContextSave` tool to do a knowledge transfer of the task in hand.
 Write detailed description in order to do a KT.
 Save all information necessary for a person to understand the task and the problems.
 
@@ -84,9 +69,28 @@ Provide all relevant file paths in order to understand and solve the the task. E
 
 (Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
 """,
-                ),
-            )
-        ]
+    )
+}
+
+
+@server.list_prompts()  # type: ignore
+async def handle_list_prompts() -> list[types.Prompt]:
+    return [x[0] for x in PROMPTS.values()]
+
+
+@server.get_prompt()  # type: ignore
+async def handle_get_prompt(
+    name: str, arguments: dict[str, str] | None
+) -> types.GetPromptResult:
+    messages = [
+        types.PromptMessage(
+            role="user",
+            content=types.TextContent(
+                type="text",
+                text=PROMPTS[name][1],
+            ),
+        )
+    ]
     return types.GetPromptResult(messages=messages)
 
 
