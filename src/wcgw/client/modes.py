@@ -5,11 +5,6 @@ from ..types_ import Modes
 
 
 @dataclass
-class RestrictedCommands:
-    allowed_commands: list[str]
-
-
-@dataclass
 class RestrictedGlobs:
     allowed_globs: list[str]
 
@@ -18,9 +13,7 @@ class BashCommandMode(NamedTuple):
     bash_mode: Literal[
         "normal_mode", "restricted_mode"
     ]  # restricted_mode runs 'bash --restricted'
-    allowed_commands: (
-        Literal["all"] | list[str]
-    )  # Allows all or a set of commands. Leave it empty to disable BashCommand.
+    allowed_commands: Literal["all", "none"]  # Allows all or none
 
 
 class FileEditMode(NamedTuple):

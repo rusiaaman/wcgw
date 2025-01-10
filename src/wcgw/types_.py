@@ -18,10 +18,19 @@ class Modes(Enum):
     code_writer = "code_writer"
 
 
+class CodeWriterMode:
+    allowed_globs: Literal["all"] | list[str]
+    allowed_commands: Literal["all"] | list[str]
+
+
+ModesConfig = Literal["wcgw", "architect"] | CodeWriterMode
+
+
 class Initialize(BaseModel):
     any_workspace_path: str
     initial_files_to_read: list[str]
     task_id_to_resume: str
+    mode: ModesConfig = "wcgw"
 
 
 class BashCommand(BaseModel):
