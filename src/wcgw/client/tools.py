@@ -61,11 +61,13 @@ from .computer_use import run_computer_tool
 from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
 from .modes import (
+    ARCHITECT_PROMPT,
     DEFAULT_MODES,
     BashCommandMode,
     FileEditMode,
     ModeImpl,
     WriteIfEmptyMode,
+    code_writer_prompt,
 )
 from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
@@ -223,7 +225,12 @@ class BashState:
         self._bash_command_mode: BashCommandMode = BashCommandMode("normal_mode", "all")
         self._file_edit_mode: FileEditMode = FileEditMode("all")
         self._write_if_empty_mode: WriteIfEmptyMode = WriteIfEmptyMode("all")
+        self._mode = Modes.wcgw
         self._init()
+
+    @property
+    def mode(self) -> Modes:
+        return self._mode
 
     @property
     def bash_command_mode(self) -> BashCommandMode:
@@ -241,12 +248,12 @@ class BashState:
         # First get default mode config
         if isinstance(mode, str):
             mode_impl = DEFAULT_MODES[Modes[mode]]  # converts str to Modes enum
+            mode_name = Modes[mode]
         else:
             # For CodeWriterMode, use code_writer as base and override
             mode_impl = DEFAULT_MODES[Modes.code_writer]
             # Override with custom settings from CodeWriterMode
             mode_impl = ModeImpl(
-                prompt=mode_impl.prompt,
                 bash_command_mode=BashCommandMode(
                     mode_impl.bash_command_mode.bash_mode,
                     "all" if mode.allowed_commands == "all" else "none",
@@ -254,11 +261,13 @@ class BashState:
                 file_edit_mode=FileEditMode(mode.allowed_globs),
                 write_if_empty_mode=WriteIfEmptyMode(mode.allowed_globs),
             )
+            mode_name = Modes.code_writer
 
         # Set the individual mode components
         self._bash_command_mode = mode_impl.bash_command_mode
         self._file_edit_mode = mode_impl.file_edit_mode
         self._write_if_empty_mode = mode_impl.write_if_empty_mode
+        self._mode = mode_name
 
     def _init(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
@@ -323,20 +332,27 @@ class BashState:
             "file_edit_mode": self._file_edit_mode.serialize(),
             "write_if_empty_mode": self._write_if_empty_mode.serialize(),
             "whitelist_for_overwrite": list(self._whitelist_for_overwrite),
+            "mode": self._mode,
         }
 
     @classmethod
     def deserialize(cls, state: dict[str, Any]) -> "BashState":
-        """Create a new BashState instance from a serialized state dictionary"""
         instance = cls()
-        instance._bash_command_mode = BashCommandMode.deserialize(
-            state["bash_command_mode"]
-        )
-        instance._file_edit_mode = FileEditMode.deserialize(state["file_edit_mode"])
-        instance._write_if_empty_mode = WriteIfEmptyMode.deserialize(
-            state["write_if_empty_mode"]
-        )
-        instance._whitelist_for_overwrite = set(state["whitelist_for_overwrite"])
+        try:
+            """Create a new BashState instance from a serialized state dictionary"""
+            instance._bash_command_mode = BashCommandMode.deserialize(
+                state["bash_command_mode"]
+            )
+            instance._file_edit_mode = FileEditMode.deserialize(state["file_edit_mode"])
+            instance._write_if_empty_mode = WriteIfEmptyMode.deserialize(
+                state["write_if_empty_mode"]
+            )
+            instance._whitelist_for_overwrite = set(state["whitelist_for_overwrite"])
+            instance._mode = Modes[str(state["mode"])]
+        except Exception:
+            console.print(traceback.format_exc())
+            console.print("Error deserializing BashState")
+
         return instance
 
     def get_pending_for(self) -> str:
@@ -438,7 +454,16 @@ def initialize(
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
 
+    mode_prompt = ""
+    if isinstance(BASH_STATE.mode, CodeWriterMode):
+        mode_prompt = code_writer_prompt(
+            BASH_STATE.mode.allowed_globs, mode.allowed_commands
+        )
+    elif BASH_STATE.mode == Modes.architect:
+        mode_prompt = ARCHITECT_PROMPT
     output = f"""
+{mode_prompt}
+
 # Environment
 System: {uname_sysname}
 Machine: {uname_machine}
