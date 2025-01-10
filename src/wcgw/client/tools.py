@@ -1215,20 +1215,26 @@ def get_tool_output(
     output: tuple[str | DoneFlag | ImageData, float]
     TOOL_CALLS.append(arg)
 
-    if not isinstance(arg, Initialize) and not INITIALIZED:
-        raise Exception("Initialize tool not called yet.")
-
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
+        if not INITIALIZED:
+            raise Exception("Initialize tool not called yet.")
+
         output = execute_bash(enc, arg, max_tokens, arg.wait_for_seconds)
     elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
+        if not INITIALIZED:
+            raise Exception("Initialize tool not called yet.")
+
         output = write_file(arg, True, max_tokens), 0
     elif isinstance(arg, FileEdit):
         console.print("Calling full file edit tool")
+        if not INITIALIZED:
+            raise Exception("Initialize tool not called yet.")
+
         output = do_diff_edit(arg, max_tokens), 0.0
     elif isinstance(arg, DoneFlag):
         console.print("Calling mark finish tool")

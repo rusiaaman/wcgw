@@ -13,7 +13,7 @@ class NoExtraArgs(PydanticBaseModel):
 BaseModel = NoExtraArgs
 
 
-class Modes(Enum):
+class Modes(str, Enum):
     wcgw = "wcgw"
     architect = "architect"
     code_writer = "code_writer"
