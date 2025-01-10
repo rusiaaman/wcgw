@@ -15,8 +15,7 @@ BaseModel = NoExtraArgs
 class Modes(Enum):
     wcgw = "wcgw"
     architect = "architect"
-    coder = "coder"
-    test_writer = "test_writer"
+    code_writer = "code_writer"
 
 
 class Initialize(BaseModel):
