@@ -386,6 +386,7 @@ class BashState:
 
 
 BASH_STATE = BashState(None)
+INITIALIZED = False
 
 
 def initialize(
@@ -479,6 +480,9 @@ Current working directory: {BASH_STATE.cwd}
 
 {memory}
 """
+
+    global INITIALIZED
+    INITIALIZED = True
 
     return output
 
@@ -1202,7 +1206,7 @@ def get_tool_output(
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
-    global IS_IN_DOCKER, TOOL_CALLS
+    global IS_IN_DOCKER, TOOL_CALLS, INITIALIZED
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
         arg = adapter.validate_python(args)
@@ -1210,6 +1214,10 @@ def get_tool_output(
         arg = args
     output: tuple[str | DoneFlag | ImageData, float]
     TOOL_CALLS.append(arg)
+
+    if not isinstance(arg, Initialize) and not INITIALIZED:
+        raise Exception("Initialize tool not called yet.")
+
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
