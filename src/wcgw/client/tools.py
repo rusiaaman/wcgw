@@ -137,10 +137,10 @@ PROMPT_CONST = "#@wcgw@#"
 PROMPT = PROMPT_CONST
 
 
-def start_shell() -> pexpect.spawn:  # type: ignore
+def start_shell(is_restricted_mode: bool) -> pexpect.spawn:  # type: ignore
     try:
         cmd = "/bin/bash"
-        if BASH_STATE.bash_command_mode.bash_mode == "restricted_mode":
+        if is_restricted_mode:
             cmd += " -r"
 
         shell = pexpect.spawn(
@@ -273,7 +273,9 @@ class BashState:
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
         self._cwd: str = os.getcwd()
-        self._shell = start_shell()
+        self._shell = start_shell(
+            self._bash_command_mode.bash_mode == "restricted_mode"
+        )
         self._whitelist_for_overwrite: set[str] = set()
         self._pending_output = ""
 
@@ -893,7 +895,7 @@ def write_file(
     if allowed_globs != "all" and not any(
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
-        return "Error: File path not allowed in current mode"
+        return f"Error: updating file {path_} not allowed in current mode. Matches restricted glob: {allowed_globs}"
     add_overwrite_warning = ""
     if not BASH_STATE.is_in_docker:
         if (error_on_exist or error_on_exist_) and os.path.exists(path_):
@@ -1030,7 +1032,9 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
     if allowed_globs != "all" and not any(
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
-        raise Exception("Error: File path not allowed in current mode")
+        raise Exception(
+            f"Error: updating file {path_} not allowed in current mode. Matches restricted glob: {allowed_globs}"
+        )
 
     # The LLM is now aware that the file exists
     BASH_STATE.add_to_whitelist_for_overwrite(path_)
