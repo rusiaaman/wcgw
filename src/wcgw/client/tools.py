@@ -221,11 +221,13 @@ BASH_CLF_OUTPUT = Literal["repl", "pending"]
 
 
 class BashState:
-    def __init__(self) -> None:
+    def __init__(self, mode: Optional[ModesConfig]) -> None:
         self._bash_command_mode: BashCommandMode = BashCommandMode("normal_mode", "all")
         self._file_edit_mode: FileEditMode = FileEditMode("all")
         self._write_if_empty_mode: WriteIfEmptyMode = WriteIfEmptyMode("all")
         self._mode = Modes.wcgw
+        if mode:
+            self._set_modes(mode)
         self._init()
 
     @property
@@ -244,7 +246,7 @@ class BashState:
     def write_if_empty_mode(self) -> WriteIfEmptyMode:
         return self._write_if_empty_mode
 
-    def set_modes(self, mode: ModesConfig) -> None:
+    def _set_modes(self, mode: ModesConfig) -> None:
         # First get default mode config
         if isinstance(mode, str):
             mode_impl = DEFAULT_MODES[Modes[mode]]  # converts str to Modes enum
@@ -337,25 +339,23 @@ class BashState:
             "mode": self._mode,
         }
 
-    @classmethod
-    def deserialize(cls, state: dict[str, Any]) -> "BashState":
-        instance = cls()
+    def load_state(self, state: dict[str, Any]) -> None:
         try:
             """Create a new BashState instance from a serialized state dictionary"""
-            instance._bash_command_mode = BashCommandMode.deserialize(
-                state["bash_command_mode"]
-            )
-            instance._file_edit_mode = FileEditMode.deserialize(state["file_edit_mode"])
-            instance._write_if_empty_mode = WriteIfEmptyMode.deserialize(
+            _bash_command_mode = BashCommandMode.deserialize(state["bash_command_mode"])
+            if _bash_command_mode != self._bash_command_mode:
+                self._bash_command_mode = _bash_command_mode
+                self.reset()
+
+            self._file_edit_mode = FileEditMode.deserialize(state["file_edit_mode"])
+            self._write_if_empty_mode = WriteIfEmptyMode.deserialize(
                 state["write_if_empty_mode"]
             )
-            instance._whitelist_for_overwrite = set(state["whitelist_for_overwrite"])
-            instance._mode = Modes[str(state["mode"])]
+            self._whitelist_for_overwrite = set(state["whitelist_for_overwrite"])
+            self._mode = Modes[str(state["mode"])]
         except Exception:
             console.print(traceback.format_exc())
             console.print("Error deserializing BashState")
-
-        return instance
 
     def get_pending_for(self) -> str:
         if isinstance(self._state, datetime.datetime):
@@ -385,7 +385,7 @@ class BashState:
         return self._pending_output
 
 
-BASH_STATE = BashState()
+BASH_STATE = BashState(None)
 
 
 def initialize(
@@ -420,18 +420,10 @@ def initialize(
         except Exception:
             memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
 
-    # Restore bash state if available
-    if bash_state is not None:
-        BASH_STATE = BashState.deserialize(bash_state)
-    else:
-        reset_shell()
+    folder_to_start = None
     if any_workspace_path:
         if os.path.exists(any_workspace_path):
             repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
-
-            BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
-            BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-            BASH_STATE.update_cwd()
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
 
@@ -445,8 +437,16 @@ def initialize(
                 f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
             )
 
-    # Set mode for the shell
-    BASH_STATE.set_modes(mode)
+    # Restore bash state if available
+    if bash_state is not None:
+        BASH_STATE.load_state(bash_state)
+    else:
+        BASH_STATE = BashState(mode)
+
+    if folder_to_start:
+        BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
+        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
+        BASH_STATE.update_cwd()
 
     initial_files_context = ""
     if read_files_:
