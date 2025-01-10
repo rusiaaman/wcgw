@@ -302,6 +302,8 @@ Additional instructions:
     Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
 
     Always write production ready, syntactically correct code.
+
+Important note: as soon as you encounter "The user has chosen to disallow the tool call.", immediately stop doing everything and ask user for the reason.
     """
 
             content.append(types.TextContent(type="text", text=output_or_done))
