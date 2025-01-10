@@ -1,5 +1,6 @@
 import base64
 import datetime
+import fnmatch
 import glob
 import importlib.metadata
 import json
@@ -39,12 +40,15 @@ from websockets.sync.client import connect as syncconnect
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    CodeWriterMode,
     ContextSave,
     FileEdit,
     FileEditFindReplace,
     GetScreenInfo,
     Initialize,
     Keyboard,
+    Modes,
+    ModesConfig,
     Mouse,
     ReadFiles,
     ReadImage,
@@ -55,6 +59,13 @@ from ..types_ import (
 from .computer_use import run_computer_tool
 from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
+from .modes import (
+    DEFAULT_MODES,
+    BashCommandMode,
+    FileEditMode,
+    ModeImpl,
+    WriteIfEmptyMode,
+)
 from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
 
@@ -125,8 +136,12 @@ PROMPT = PROMPT_CONST
 
 def start_shell() -> pexpect.spawn:  # type: ignore
     try:
+        cmd = "/bin/bash"
+        if BASH_STATE.bash_command_mode.bash_mode == "restricted_mode":
+            cmd += " -r"
+
         shell = pexpect.spawn(
-            "/bin/bash",
+            cmd,
             env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
             echo=False,
             encoding="utf-8",
@@ -204,7 +219,45 @@ BASH_CLF_OUTPUT = Literal["repl", "pending"]
 
 class BashState:
     def __init__(self) -> None:
+        self._bash_command_mode: BashCommandMode = BashCommandMode("normal_mode", "all")
+        self._file_edit_mode: FileEditMode = FileEditMode("all")
+        self._write_if_empty_mode: WriteIfEmptyMode = WriteIfEmptyMode("all")
         self._init()
+
+    @property
+    def bash_command_mode(self) -> BashCommandMode:
+        return self._bash_command_mode
+
+    @property
+    def file_edit_mode(self) -> FileEditMode:
+        return self._file_edit_mode
+
+    @property
+    def write_if_empty_mode(self) -> WriteIfEmptyMode:
+        return self._write_if_empty_mode
+
+    def set_modes(self, mode: ModesConfig) -> None:
+        # First get default mode config
+        if isinstance(mode, str):
+            mode_impl = DEFAULT_MODES[Modes[mode]]  # converts str to Modes enum
+        else:
+            # For CodeWriterMode, use code_writer as base and override
+            mode_impl = DEFAULT_MODES[Modes.code_writer]
+            # Override with custom settings from CodeWriterMode
+            mode_impl = ModeImpl(
+                prompt=mode_impl.prompt,
+                bash_command_mode=BashCommandMode(
+                    mode_impl.bash_command_mode.bash_mode,
+                    "all" if mode.allowed_commands == "all" else "none",
+                ),
+                file_edit_mode=FileEditMode(mode.allowed_globs),
+                write_if_empty_mode=WriteIfEmptyMode(mode.allowed_globs),
+            )
+
+        # Set the individual mode components
+        self._bash_command_mode = mode_impl.bash_command_mode
+        self._file_edit_mode = mode_impl.file_edit_mode
+        self._write_if_empty_mode = mode_impl.write_if_empty_mode
 
     def _init(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
@@ -298,6 +351,7 @@ def initialize(
     read_files_: list[str],
     task_id_to_resume: str,
     max_tokens: Optional[int],
+    mode: ModesConfig,
 ) -> str:
     reset_shell()
 
@@ -331,10 +385,19 @@ def initialize(
             BASH_STATE.update_cwd()
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
+
+            # update modes if they're relative
+            if isinstance(mode, CodeWriterMode):
+                mode.update_relative_globs(any_workspace_path)
+            else:
+                assert isinstance(mode, str)
         else:
             repo_context = (
                 f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
             )
+
+    # Set mode for the shell
+    BASH_STATE.set_modes(mode)
 
     initial_files_context = ""
     if read_files_:
@@ -472,6 +535,8 @@ def execute_bash(
     try:
         is_interrupt = False
         if isinstance(bash_arg, BashCommand):
+            if BASH_STATE.bash_command_mode.allowed_commands == "none":
+                return "Error: BashCommand not allowed in current mode", 0.0
             updated_repl_mode = update_repl_prompt(bash_arg.command)
             if updated_repl_mode:
                 BASH_STATE.set_repl()
@@ -766,6 +831,13 @@ def write_file(
         path_ = expand_user(writefile.file_path, BASH_STATE.is_in_docker)
 
     error_on_exist_ = error_on_exist and path_ not in BASH_STATE.whitelist_for_overwrite
+
+    # Validate using write_if_empty_mode after checking whitelist
+    allowed_globs = BASH_STATE.write_if_empty_mode.allowed_globs
+    if allowed_globs != "all" and not any(
+        fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
+    ):
+        return "Error: File path not allowed in current mode"
     add_overwrite_warning = ""
     if not BASH_STATE.is_in_docker:
         if (error_on_exist or error_on_exist_) and os.path.exists(path_):
@@ -896,6 +968,13 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
         )
     else:
         path_ = expand_user(fedit.file_path, BASH_STATE.is_in_docker)
+
+    # Validate using file_edit_mode
+    allowed_globs = BASH_STATE.file_edit_mode.allowed_globs
+    if allowed_globs != "all" and not any(
+        fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
+    ):
+        raise Exception("Error: File path not allowed in current mode")
 
     # The LLM is now aware that the file exists
     BASH_STATE.add_to_whitelist_for_overwrite(path_)
@@ -1106,6 +1185,7 @@ def get_tool_output(
                 arg.initial_files_to_read,
                 arg.task_id_to_resume,
                 max_tokens,
+                arg.mode,
             ),
             0.0,
         )

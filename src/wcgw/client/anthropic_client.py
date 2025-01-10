@@ -282,7 +282,7 @@ Saves provided description and file contents of all the relevant file paths or g
         ]
 
     initial_info = initialize(
-        os.getcwd(), [], resume if (memory and resume) else "", 8000
+        os.getcwd(), [], resume if (memory and resume) else "", max_tokens=8000
     )
     system = f"""
 You're an expert software engineer with shell and code knowledge.

@@ -1,5 +1,6 @@
+import os
 from enum import Enum
-from typing import Literal, Optional, Sequence
+from typing import Literal, Optional, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -18,12 +19,20 @@ class Modes(Enum):
     code_writer = "code_writer"
 
 
-class CodeWriterMode:
+class CodeWriterMode(BaseModel):
     allowed_globs: Literal["all"] | list[str]
     allowed_commands: Literal["all"] | list[str]
 
+    def update_relative_globs(self, workspace_root: str) -> None:
+        """Update globs if they're relative paths"""
+        if self.allowed_globs != "all":
+            self.allowed_globs = [
+                glob if os.path.isabs(glob) else os.path.join(workspace_root, glob)
+                for glob in self.allowed_globs
+            ]
 
-ModesConfig = Literal["wcgw", "architect"] | CodeWriterMode
+
+ModesConfig = Union[Literal["wcgw", "architect"], CodeWriterMode]
 
 
 class Initialize(BaseModel):
