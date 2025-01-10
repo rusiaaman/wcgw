@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Literal, Optional, Sequence
 
 from pydantic import BaseModel as PydanticBaseModel
@@ -9,6 +10,19 @@ class NoExtraArgs(PydanticBaseModel):
 
 
 BaseModel = NoExtraArgs
+
+
+class Modes(Enum):
+    wcgw = "wcgw"
+    architect = "architect"
+    coder = "coder"
+    test_writer = "test_writer"
+
+
+class Initialize(BaseModel):
+    any_workspace_path: str
+    initial_files_to_read: list[str]
+    task_id_to_resume: str
 
 
 class BashCommand(BaseModel):
@@ -54,12 +68,6 @@ class ResetShell(BaseModel):
 class FileEdit(BaseModel):
     file_path: str
     file_edit_using_search_replace_blocks: str
-
-
-class Initialize(BaseModel):
-    any_workspace_path: str
-    initial_files_to_read: list[str]
-    task_id_to_resume: str
 
 
 class GetScreenInfo(BaseModel):
