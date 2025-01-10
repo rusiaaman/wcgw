@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
 
-from ..types_ import Modes
+from ..types_ import Modes, ModesConfig
 
 
 @dataclass
@@ -106,3 +106,23 @@ DEFAULT_MODES: dict[Modes, ModeImpl] = {
         file_edit_mode=FileEditMode("all"),
     ),
 }
+
+def modes_to_state(mode: ModesConfig) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes]:
+    # First get default mode config
+    if isinstance(mode, str):
+        mode_impl = DEFAULT_MODES[Modes[mode]]  # converts str to Modes enum
+        mode_name = Modes[mode]
+    else:
+        # For CodeWriterMode, use code_writer as base and override
+        mode_impl = DEFAULT_MODES[Modes.code_writer]
+        # Override with custom settings from CodeWriterMode
+        mode_impl = ModeImpl(
+            bash_command_mode=BashCommandMode(
+                mode_impl.bash_command_mode.bash_mode,
+                "all" if mode.allowed_commands == "all" else "none",
+            ),
+            file_edit_mode=FileEditMode(mode.allowed_globs),
+            write_if_empty_mode=WriteIfEmptyMode(mode.allowed_globs),
+        )
+        mode_name = Modes.code_writer
+    return (mode_impl.bash_command_mode, mode_impl.file_edit_mode, mode_impl.write_if_empty_mode, mode_name)

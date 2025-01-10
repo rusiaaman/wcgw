@@ -62,12 +62,11 @@ from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
 from .modes import (
     ARCHITECT_PROMPT,
-    DEFAULT_MODES,
     BashCommandMode,
     FileEditMode,
-    ModeImpl,
     WriteIfEmptyMode,
     code_writer_prompt,
+    modes_to_state,
 )
 from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
@@ -221,13 +220,24 @@ BASH_CLF_OUTPUT = Literal["repl", "pending"]
 
 
 class BashState:
-    def __init__(self, mode: Optional[ModesConfig]) -> None:
-        self._bash_command_mode: BashCommandMode = BashCommandMode("normal_mode", "all")
-        self._file_edit_mode: FileEditMode = FileEditMode("all")
-        self._write_if_empty_mode: WriteIfEmptyMode = WriteIfEmptyMode("all")
-        self._mode = Modes.wcgw
-        if mode:
-            self._set_modes(mode)
+    def __init__(
+        self,
+        bash_command_mode: Optional[BashCommandMode],
+        file_edit_mode: Optional[FileEditMode],
+        write_if_empty_mode: Optional[WriteIfEmptyMode],
+        mode: Optional[Modes],
+        whitelist_for_overwrite: Optional[set[str]] = None,
+    ) -> None:
+        self._bash_command_mode: BashCommandMode = bash_command_mode or BashCommandMode(
+            "normal_mode", "all"
+        )
+        self._file_edit_mode: FileEditMode = file_edit_mode or FileEditMode("all")
+        self._write_if_empty_mode: WriteIfEmptyMode = (
+            write_if_empty_mode or WriteIfEmptyMode("all")
+        )
+        self._mode = mode or Modes.wcgw
+        self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
+
         self._init()
 
     @property
@@ -246,31 +256,6 @@ class BashState:
     def write_if_empty_mode(self) -> WriteIfEmptyMode:
         return self._write_if_empty_mode
 
-    def _set_modes(self, mode: ModesConfig) -> None:
-        # First get default mode config
-        if isinstance(mode, str):
-            mode_impl = DEFAULT_MODES[Modes[mode]]  # converts str to Modes enum
-            mode_name = Modes[mode]
-        else:
-            # For CodeWriterMode, use code_writer as base and override
-            mode_impl = DEFAULT_MODES[Modes.code_writer]
-            # Override with custom settings from CodeWriterMode
-            mode_impl = ModeImpl(
-                bash_command_mode=BashCommandMode(
-                    mode_impl.bash_command_mode.bash_mode,
-                    "all" if mode.allowed_commands == "all" else "none",
-                ),
-                file_edit_mode=FileEditMode(mode.allowed_globs),
-                write_if_empty_mode=WriteIfEmptyMode(mode.allowed_globs),
-            )
-            mode_name = Modes.code_writer
-
-        # Set the individual mode components
-        self._bash_command_mode = mode_impl.bash_command_mode
-        self._file_edit_mode = mode_impl.file_edit_mode
-        self._write_if_empty_mode = mode_impl.write_if_empty_mode
-        self._mode = mode_name
-
     def _init(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
@@ -278,7 +263,7 @@ class BashState:
         self._shell = start_shell(
             self._bash_command_mode.bash_mode == "restricted_mode"
         )
-        self._whitelist_for_overwrite: set[str] = set()
+
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
@@ -339,23 +324,35 @@ class BashState:
             "mode": self._mode,
         }
 
-    def load_state(self, state: dict[str, Any]) -> None:
-        try:
-            """Create a new BashState instance from a serialized state dictionary"""
-            _bash_command_mode = BashCommandMode.deserialize(state["bash_command_mode"])
-            if _bash_command_mode != self._bash_command_mode:
-                self._bash_command_mode = _bash_command_mode
-                self.reset()
+    @staticmethod
+    def parse_state(
+        state: dict[str, Any],
+    ) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes, list[str]]:
+        return (
+            BashCommandMode.deserialize(state["bash_command_mode"]),
+            FileEditMode.deserialize(state["file_edit_mode"]),
+            WriteIfEmptyMode.deserialize(state["write_if_empty_mode"]),
+            Modes[str(state["mode"])],
+            state["whitelist_for_overwrite"],
+        )
 
-            self._file_edit_mode = FileEditMode.deserialize(state["file_edit_mode"])
-            self._write_if_empty_mode = WriteIfEmptyMode.deserialize(
-                state["write_if_empty_mode"]
-            )
-            self._whitelist_for_overwrite = set(state["whitelist_for_overwrite"])
-            self._mode = Modes[str(state["mode"])]
-        except Exception:
-            console.print(traceback.format_exc())
-            console.print("Error deserializing BashState")
+    def load_state(
+        self,
+        bash_command_mode: BashCommandMode,
+        file_edit_mode: FileEditMode,
+        write_if_empty_mode: WriteIfEmptyMode,
+        mode: Modes,
+        whitelist_for_overwrite: list[str],
+    ) -> None:
+        """Create a new BashState instance from a serialized state dictionary"""
+        if bash_command_mode != self._bash_command_mode:
+            self._bash_command_mode = bash_command_mode
+            self.reset()
+
+        self._file_edit_mode = file_edit_mode
+        self._write_if_empty_mode = write_if_empty_mode
+        self._whitelist_for_overwrite = set(whitelist_for_overwrite)
+        self._mode = mode
 
     def get_pending_for(self) -> str:
         if isinstance(self._state, datetime.datetime):
@@ -385,7 +382,7 @@ class BashState:
         return self._pending_output
 
 
-BASH_STATE = BashState(None)
+BASH_STATE = BashState(None, None, None, None)
 INITIALIZED = False
 
 
@@ -440,9 +437,38 @@ def initialize(
 
     # Restore bash state if available
     if bash_state is not None:
-        BASH_STATE.load_state(bash_state)
+        try:
+            parsed_state = BashState.parse_state(bash_state)
+            if mode == "wcgw":
+                BASH_STATE.load_state(
+                    parsed_state[0],
+                    parsed_state[1],
+                    parsed_state[2],
+                    parsed_state[3],
+                    parsed_state[4],
+                )
+            else:
+                state = modes_to_state(mode)
+                BASH_STATE.load_state(
+                    state[0],
+                    state[1],
+                    state[2],
+                    state[3],
+                    parsed_state[4] + list(BASH_STATE.whitelist_for_overwrite),
+                )
+        except ValueError:
+            console.print(traceback.format_exc())
+            console.print("Error: couldn't load bash state")
+            pass
     else:
-        BASH_STATE = BashState(mode)
+        state = modes_to_state(mode)
+        BASH_STATE.load_state(
+            state[0],
+            state[1],
+            state[2],
+            state[3],
+            list(BASH_STATE.whitelist_for_overwrite),
+        )
 
     if folder_to_start:
         BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
