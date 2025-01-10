@@ -31,7 +31,11 @@ def format_memory(task_memory: ContextSave, relevant_files: str) -> str:
     return memory_data
 
 
-def save_memory(task_memory: ContextSave, relevant_files: str, bash_state_dict: Optional[dict[str, Any]] = None) -> str:
+def save_memory(
+    task_memory: ContextSave,
+    relevant_files: str,
+    bash_state_dict: Optional[dict[str, Any]] = None,
+) -> str:
     app_dir = get_app_dir_xdg()
     memory_dir = os.path.join(app_dir, "memory")
     os.makedirs(memory_dir, exist_ok=True)
@@ -60,7 +64,7 @@ def load_memory[T](
     max_tokens: Optional[int],
     encoder: Callable[[str], list[T]],
     decoder: Callable[[list[T]], str],
-) -> tuple[str, str, dict[str, Any]]:
+) -> tuple[str, str, Optional[dict[str, Any]]]:
     app_dir = get_app_dir_xdg()
     memory_dir = os.path.join(app_dir, "memory")
     memory_file = os.path.join(memory_dir, f"{task_id}.txt")
@@ -85,9 +89,9 @@ def load_memory[T](
 
     # Try to load bash state if exists
     state_file = os.path.join(memory_dir, f"{task_id}_bash_state.json")
-    bash_state = None
+    bash_state: Optional[dict[str, Any]] = None
     if os.path.exists(state_file):
         with open(state_file) as f:
-            bash_state: dict[str, Any] = json.load(f)
+            bash_state = json.load(f)
 
     return project_root_path, data, bash_state
