@@ -51,19 +51,30 @@ class ModeImpl:
 
 
 def code_writer_prompt(
-    allowed_globs: Literal["all"] | list[str],
+    allowed_file_edit_globs: Literal["all"] | list[str],
+    all_write_new_globs: Literal["all"] | list[str],
     allowed_commands: Literal["all"] | list[str],
 ) -> str:
     base = """You have to run in "code_writer" mode. This means
 """
 
     path_prompt = """
-    - You are allowed to create and update files in the provided repository only.
+    - You are allowed to edit or update files in the provided repository only.
     """
 
-    if allowed_globs != "all" and allowed_globs:
+    if allowed_file_edit_globs != "all" and allowed_file_edit_globs:
         path_prompt = f"""
-- You are allowed to create and update files in the following globs: {', '.join(allowed_globs)}
+- You are allowed to edit and update files only in the following globs: {', '.join(allowed_file_edit_globs)}
+"""
+    base += path_prompt
+
+    path_prompt = """
+    - You are allowed to create new files in the provided repository only.
+    """
+
+    if all_write_new_globs != "all" and all_write_new_globs:
+        path_prompt = f"""
+- You are allowed to create new files only in the following globs: {', '.join(allowed_file_edit_globs)}
 """
     base += path_prompt
 
@@ -107,7 +118,10 @@ DEFAULT_MODES: dict[Modes, ModeImpl] = {
     ),
 }
 
-def modes_to_state(mode: ModesConfig) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes]:
+
+def modes_to_state(
+    mode: ModesConfig,
+) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes]:
     # First get default mode config
     if isinstance(mode, str):
         mode_impl = DEFAULT_MODES[Modes[mode]]  # converts str to Modes enum
@@ -125,4 +139,9 @@ def modes_to_state(mode: ModesConfig) -> tuple[BashCommandMode, FileEditMode, Wr
             write_if_empty_mode=WriteIfEmptyMode(mode.allowed_globs),
         )
         mode_name = Modes.code_writer
-    return (mode_impl.bash_command_mode, mode_impl.file_edit_mode, mode_impl.write_if_empty_mode, mode_name)
+    return (
+        mode_impl.bash_command_mode,
+        mode_impl.file_edit_mode,
+        mode_impl.write_if_empty_mode,
+        mode_name,
+    )

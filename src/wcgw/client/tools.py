@@ -469,6 +469,7 @@ def initialize(
             state[3],
             list(BASH_STATE.whitelist_for_overwrite),
         )
+    del mode
 
     if folder_to_start:
         BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
@@ -484,9 +485,13 @@ def initialize(
     uname_machine = os.uname().machine
 
     mode_prompt = ""
-    if isinstance(BASH_STATE.mode, CodeWriterMode):
+    if BASH_STATE.mode == Modes.code_writer:
         mode_prompt = code_writer_prompt(
-            BASH_STATE.mode.allowed_globs, mode.allowed_commands
+            BASH_STATE.file_edit_mode.allowed_globs,
+            BASH_STATE.write_if_empty_mode.allowed_globs,
+            BASH_STATE.bash_command_mode.allowed_commands
+            if BASH_STATE.bash_command_mode.allowed_commands == "all"
+            else [],
         )
     elif BASH_STATE.mode == Modes.architect:
         mode_prompt = ARCHITECT_PROMPT
