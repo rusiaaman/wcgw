@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 from ..types_ import Modes
 
@@ -10,22 +10,37 @@ class RestrictedGlobs:
 
 
 class BashCommandMode(NamedTuple):
-    bash_mode: Literal[
-        "normal_mode", "restricted_mode"
-    ]  # restricted_mode runs 'bash --restricted'
-    allowed_commands: Literal["all", "none"]  # Allows all or none
+    bash_mode: Literal["normal_mode", "restricted_mode"]
+    allowed_commands: Literal["all", "none"]
+
+    def serialize(self) -> dict[str, Any]:
+        return {"bash_mode": self.bash_mode, "allowed_commands": self.allowed_commands}
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any])-> "BashCommandMode":
+        return cls(data["bash_mode"], data["allowed_commands"])
 
 
 class FileEditMode(NamedTuple):
-    allowed_globs: (
-        Literal["all"] | list[str]
-    )  # Allows all or a set of globs. Leave it empty to disable FileEdit.
+    allowed_globs: Literal["all"] | list[str]
+
+    def serialize(self) -> dict[str, Any]:
+        return {"allowed_globs": self.allowed_globs}
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any])-> "FileEditMode":
+        return cls(data["allowed_globs"])
 
 
 class WriteIfEmptyMode(NamedTuple):
-    allowed_globs: (
-        Literal["all"] | list[str]
-    )  # Allows all or a set of globs. Leave it empty to disable WriteIfEmpty.
+    allowed_globs: Literal["all"] | list[str]
+
+    def serialize(self) -> dict[str, Any]:
+        return {"allowed_globs": self.allowed_globs}
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any])-> "WriteIfEmptyMode":
+        return cls(data["allowed_globs"])
 
 
 @dataclass

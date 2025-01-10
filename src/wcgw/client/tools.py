@@ -15,6 +15,7 @@ from os.path import expanduser
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
+    Any,
     Callable,
     Literal,
     Optional,
@@ -315,6 +316,29 @@ class BashState:
         self.shell.close(True)
         self._init()
 
+    def serialize(self) -> dict[str, Any]:
+        """Serialize BashState to a dictionary for saving"""
+        return {
+            "bash_command_mode": self._bash_command_mode.serialize(),
+            "file_edit_mode": self._file_edit_mode.serialize(),
+            "write_if_empty_mode": self._write_if_empty_mode.serialize(),
+            "whitelist_for_overwrite": list(self._whitelist_for_overwrite),
+        }
+
+    @classmethod
+    def deserialize(cls, state: dict[str, Any]) -> "BashState":
+        """Create a new BashState instance from a serialized state dictionary"""
+        instance = cls()
+        instance._bash_command_mode = BashCommandMode.deserialize(
+            state["bash_command_mode"]
+        )
+        instance._file_edit_mode = FileEditMode.deserialize(state["file_edit_mode"])
+        instance._write_if_empty_mode = WriteIfEmptyMode.deserialize(
+            state["write_if_empty_mode"]
+        )
+        instance._whitelist_for_overwrite = set(state["whitelist_for_overwrite"])
+        return instance
+
     def get_pending_for(self) -> str:
         if isinstance(self._state, datetime.datetime):
             timedelta = datetime.datetime.now() - self._state
@@ -353,16 +377,17 @@ def initialize(
     max_tokens: Optional[int],
     mode: ModesConfig,
 ) -> str:
-    reset_shell()
+    global BASH_STATE
 
     # Expand the workspace path
-    any_workspace_path = expand_user(any_workspace_path, BASH_STATE.is_in_docker)
+    any_workspace_path = expand_user(any_workspace_path, None)
     repo_context = ""
 
     memory = ""
+    bash_state = None
     if task_id_to_resume:
         try:
-            project_root_path, task_mem = load_memory(
+            project_root_path, task_mem, bash_state = load_memory(
                 task_id_to_resume,
                 max_tokens,
                 lambda x: default_enc.encode(x).ids,
@@ -373,9 +398,15 @@ def initialize(
                 not any_workspace_path or not os.path.exists(any_workspace_path)
             ) and os.path.exists(project_root_path):
                 any_workspace_path = project_root_path
+
         except Exception:
             memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
 
+    # Restore bash state if available
+    if bash_state is not None:
+        BASH_STATE = BashState.deserialize(bash_state)
+    else:
+        reset_shell()
     if any_workspace_path:
         if os.path.exists(any_workspace_path):
             repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
@@ -1238,7 +1269,7 @@ def get_tool_output(
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
         relevant_files_data = read_files(relevant_files[:10_000], None)
-        output_ = save_memory(arg, relevant_files_data)
+        output_ = save_memory(arg, relevant_files_data, BASH_STATE.serialize())
         if not relevant_files and arg.relevant_file_globs:
             output_ = f'Error: No files found for the given globs. Context file successfully saved at "{output_}", but please fix the error.'
         elif warnings:
