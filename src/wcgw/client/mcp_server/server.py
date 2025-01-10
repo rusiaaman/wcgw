@@ -267,6 +267,8 @@ async def handle_call_tool(
     except ValidationError:
 
         def try_json(x: str) -> Any:
+            if not isinstance(x, str):
+                return x
             try:
                 return json.loads(x)
             except json.JSONDecodeError:
