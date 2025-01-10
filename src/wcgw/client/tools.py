@@ -489,9 +489,7 @@ def initialize(
         mode_prompt = code_writer_prompt(
             BASH_STATE.file_edit_mode.allowed_globs,
             BASH_STATE.write_if_empty_mode.allowed_globs,
-            BASH_STATE.bash_command_mode.allowed_commands
-            if BASH_STATE.bash_command_mode.allowed_commands == "all"
-            else [],
+            "all" if BASH_STATE.bash_command_mode.allowed_commands else [],
         )
     elif BASH_STATE.mode == Modes.architect:
         mode_prompt = ARCHITECT_PROMPT

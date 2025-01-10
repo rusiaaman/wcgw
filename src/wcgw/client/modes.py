@@ -133,7 +133,7 @@ def modes_to_state(
         mode_impl = ModeImpl(
             bash_command_mode=BashCommandMode(
                 mode_impl.bash_command_mode.bash_mode,
-                "all" if mode.allowed_commands == "all" else "none",
+                "all" if mode.allowed_commands else "none",
             ),
             file_edit_mode=FileEditMode(mode.allowed_globs),
             write_if_empty_mode=WriteIfEmptyMode(mode.allowed_globs),
