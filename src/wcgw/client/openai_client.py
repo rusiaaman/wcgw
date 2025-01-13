@@ -125,7 +125,7 @@ def loop(
     memory = None
     if resume:
         try:
-            _, memory = load_memory(
+            _, memory, _ = load_memory(
                 resume,
                 8000,
                 lambda x: default_enc.encode(x).ids,
@@ -226,23 +226,13 @@ Saves provided description and file contents of all the relevant file paths or g
         ),
     ]
 
-    initial_info = initialize(
-        os.getcwd(), [], resume if (memory and resume) else "", max_tokens=8000
+    system = initialize(
+        os.getcwd(),
+        [],
+        resume if (memory and resume) else "",
+        max_tokens=8000,
+        mode="wcgw",
     )
-    system = f"""
-You're an expert software engineer with shell and code knowledge.
-
-Instructions:
-
-    - You should use the provided bash execution, reading and writing file tools to complete objective.
-    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
-    - Always read relevant files before editing.
-    - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
-    - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
-
-{initial_info}
-
-"""
 
     with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:
         system += f.read()

@@ -85,21 +85,52 @@ def code_writer_prompt(
     if allowed_commands != "all":
         command_prompt = f"""
 - You are only allowed to run the following commands: {', '.join(allowed_commands)}
+- Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
+- Do not use echo to write multi-line files, always use FileEdit tool to update a code.
+- Do not provide code snippets unless asked by the user, instead directly add/edit the code.
+- You should use the provided bash execution, reading and writing file tools to complete objective.
+- First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
+- Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools.
 """
 
     base += command_prompt
     return base
 
 
+WCGW_PROMPT = """
+---
+You're an expert software engineer with shell and code knowledge.
+
+Instructions:
+
+    - You should use the provided bash execution, reading and writing file tools to complete objective.
+    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
+    - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
+    - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
+    - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools
+    - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
+    - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
+    
+Additional instructions:
+    Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
+
+    Always write production ready, syntactically correct code.
+
+
+"""
 ARCHITECT_PROMPT = """You have to run in "architect" mode. This means
 - You are not allowed to edit or update any file. You are not allowed to create any file. 
 - You are not allowed to run any commands that may change disk, system configuration, packages or environment. Only read-only commands are allowed.
 - Only run commands that allows you to explore the repository, understand the system or read anything of relevance. 
+- Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
 
 Your response should be in self-critique and brainstorm style.
 - Read as many relevant files as possible. 
 - Be comprehensive in your understanding and search of relevant files.
+- First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
 """
+
+
 DEFAULT_MODES: dict[Modes, ModeImpl] = {
     Modes.wcgw: ModeImpl(
         bash_command_mode=BashCommandMode("normal_mode", "all"),
