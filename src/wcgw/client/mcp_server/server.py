@@ -105,6 +105,8 @@ async def handle_list_tools() -> list[types.Tool]:
 - If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
 - If `any_workspace_path` is provided, a tree structure of the workspace will be shown.
 - Leave `any_workspace_path` as empty if no file or folder is mentioned.
+- Do not set a mode, unless user asks for a specific mode.
+- In code-writer mode, set the commands and globs which user asked to set, otherwise use 'all'.
 """,
         ),
         ToolParam(
