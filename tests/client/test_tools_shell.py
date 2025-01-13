@@ -62,8 +62,8 @@ class TestToolsShell(unittest.TestCase):
         mock_shell.before = ""
         mock_spawn.return_value = mock_shell
 
-        # Test successful shell start
-        shell = start_shell()
+        # Test successful shell start with non-restricted mode
+        shell = start_shell(is_restricted_mode=False)
         self.assertEqual(shell, mock_shell)
 
         # Verify shell initialization commands
@@ -72,8 +72,13 @@ class TestToolsShell(unittest.TestCase):
         mock_shell.sendline.assert_any_call("set +o pipefail")
 
         # Test error handling with fallback
+        # Test error handling with fallback in both modes
         mock_spawn.side_effect = [Exception("Failed"), mock_shell]
-        shell = start_shell()
+        shell = start_shell(is_restricted_mode=False)
+        self.assertEqual(shell, mock_shell)
+
+        mock_spawn.side_effect = [Exception("Failed"), mock_shell]
+        shell = start_shell(is_restricted_mode=True)
         self.assertEqual(shell, mock_shell)
 
     def test_is_int_validation(self):

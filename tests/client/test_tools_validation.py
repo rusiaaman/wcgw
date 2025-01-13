@@ -22,7 +22,27 @@ from wcgw.types_ import (
 class TestToolsValidation(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
+        from wcgw.client.tools import BASH_STATE, initialize
+        
         BASH_STATE.reset()
+        # Properly initialize tools for testing
+        initialize(
+            any_workspace_path="",
+            read_files_=[],
+            task_id_to_resume="",
+            max_tokens=None,
+            mode="wcgw"
+        )
+
+    def tearDown(self):
+        from wcgw.client.tools import INITIALIZED, TOOL_CALLS, BASH_STATE
+        global INITIALIZED, TOOL_CALLS
+        INITIALIZED = False  # Reset initialization state
+        TOOL_CALLS = []  # Clear tool calls
+        try:
+            BASH_STATE.reset()  # Reset bash state
+        except:
+            pass
 
     def test_ensure_no_previous_output_decorator(self):
         """Test ensure_no_previous_output decorator"""

@@ -18,9 +18,33 @@ from wcgw.types_ import BashCommand, BashInteraction, Keyboard, Mouse, WriteIfEm
 class TestToolsExtended(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-        from wcgw.client.tools import BASH_STATE
-
+        from wcgw.client.tools import BASH_STATE, initialize, INITIALIZED, TOOL_CALLS
+        global INITIALIZED, TOOL_CALLS
+        INITIALIZED = False
+        TOOL_CALLS = []
         BASH_STATE._is_in_docker = ""  # Reset Docker state without shell reset
+        
+        # Properly initialize tools for testing
+        initialize(
+            any_workspace_path="",
+            read_files_=[],
+            task_id_to_resume="",
+            max_tokens=None,
+            mode="wcgw"
+        )
+        
+    def tearDown(self):
+        from wcgw.client.tools import INITIALIZED, TOOL_CALLS, BASH_STATE
+        global INITIALIZED, TOOL_CALLS
+        INITIALIZED = False  # Reset initialization state
+        TOOL_CALLS = []  # Clear tool calls
+        try:
+            BASH_STATE.reset()  # Reset bash state
+        except Exception as e:
+            print(f"Warning: Failed to reset BASH_STATE: {e}")
+        # Clean up any temporary files or directories
+        if hasattr(self, '_saved_filepath') and os.path.exists(getattr(self, '_saved_filepath')):
+            os.remove(self._saved_filepath)
 
     def test_get_incremental_output(self):
         old_output = ["line1", "line2"]
@@ -196,7 +220,7 @@ class TestToolsExtended(unittest.TestCase):
         mock_spawn.return_value = mock_shell
 
         # Test successful shell start
-        shell = start_shell()
+        shell = start_shell(is_restricted_mode=False)
         self.assertEqual(shell, mock_shell)
 
         # Verify shell initialization
@@ -205,6 +229,11 @@ class TestToolsExtended(unittest.TestCase):
         mock_shell.sendline.assert_any_call("stty -icanon -echo")
         mock_shell.sendline.assert_any_call("set +o pipefail")
         mock_shell.sendline.assert_any_call("export GIT_PAGER=cat PAGER=cat")
+
+        # Test restricted mode
+        mock_shell.reset_mock()
+        shell = start_shell(is_restricted_mode=True)
+        self.assertEqual(shell, mock_shell)
 
     def test_save_out_of_context(self):
         from wcgw.client.tools import save_out_of_context
@@ -455,9 +484,23 @@ class TestToolsExtended(unittest.TestCase):
 
     def test_get_tool_output_invalid_tool(self):
         """Test get_tool_output function with invalid tool"""
+        from wcgw.client.tools import get_tool_output
 
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
+
+        # Test with None
+        with self.assertRaises(ValueError) as cm:
+            get_tool_output(None, mock_enc, 1.0, mock_loop_call, 100)
+        self.assertEqual(str(cm.exception), "Unknown tool: None")
+
+        # Test with invalid tool type
+        with self.assertRaises(ValueError) as cm:
+            get_tool_output(123, mock_enc, 1.0, mock_loop_call, 100)
+
+        # Test with empty dict
+        with self.assertRaises(ValueError) as cm:
+            result, cost = get_tool_output({}, mock_enc, 1.0, mock_loop_call, 100)
 
     def test_get_tool_output_exception_handling(self):
         """Test error handling in get_tool_output"""

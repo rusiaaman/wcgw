@@ -17,6 +17,15 @@ from wcgw.types_ import WriteIfEmpty
 
 class TestToolsFileOps(unittest.TestCase):
     def setUp(self):
+        from wcgw.client.tools import INITIALIZED, TOOL_CALLS, BASH_STATE
+        global INITIALIZED, TOOL_CALLS
+        INITIALIZED = False
+        TOOL_CALLS = []
+        if hasattr(BASH_STATE, 'reset'):
+            try:
+                BASH_STATE.reset()
+            except Exception:
+                pass
         self.mock_tokenizer = MagicMock()
         self.mock_tokenizer.encode.return_value.ids = [1, 2, 3]
         self.mock_tokenizer.decode.return_value = "decoded text"
