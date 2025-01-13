@@ -18,23 +18,25 @@ from wcgw.types_ import BashCommand, BashInteraction, Keyboard, Mouse, WriteIfEm
 class TestToolsExtended(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-        from wcgw.client.tools import BASH_STATE, initialize, INITIALIZED, TOOL_CALLS
+        from wcgw.client.tools import BASH_STATE, INITIALIZED, TOOL_CALLS, initialize
+
         global INITIALIZED, TOOL_CALLS
         INITIALIZED = False
         TOOL_CALLS = []
         BASH_STATE._is_in_docker = ""  # Reset Docker state without shell reset
-        
+
         # Properly initialize tools for testing
         initialize(
             any_workspace_path="",
             read_files_=[],
             task_id_to_resume="",
             max_tokens=None,
-            mode="wcgw"
+            mode="wcgw",
         )
-        
+
     def tearDown(self):
-        from wcgw.client.tools import INITIALIZED, TOOL_CALLS, BASH_STATE
+        from wcgw.client.tools import BASH_STATE, INITIALIZED, TOOL_CALLS
+
         global INITIALIZED, TOOL_CALLS
         INITIALIZED = False  # Reset initialization state
         TOOL_CALLS = []  # Clear tool calls
@@ -43,7 +45,9 @@ class TestToolsExtended(unittest.TestCase):
         except Exception as e:
             print(f"Warning: Failed to reset BASH_STATE: {e}")
         # Clean up any temporary files or directories
-        if hasattr(self, '_saved_filepath') and os.path.exists(getattr(self, '_saved_filepath')):
+        if hasattr(self, "_saved_filepath") and os.path.exists(
+            getattr(self, "_saved_filepath")
+        ):
             os.remove(self._saved_filepath)
 
     def test_get_incremental_output(self):
@@ -499,8 +503,9 @@ class TestToolsExtended(unittest.TestCase):
             get_tool_output(123, mock_enc, 1.0, mock_loop_call, 100)
 
         # Test with empty dict
-        with self.assertRaises(ValueError) as cm:
-            result, cost = get_tool_output({}, mock_enc, 1.0, mock_loop_call, 100)
+        result, cost = get_tool_output({}, mock_enc, 1.0, mock_loop_call, 100)
+        self.assertIn("Failure:", result[0])
+        self.assertEqual(cost, 0)
 
     def test_get_tool_output_exception_handling(self):
         """Test error handling in get_tool_output"""

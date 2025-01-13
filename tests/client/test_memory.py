@@ -94,7 +94,8 @@ class TestMemory(unittest.TestCase):
                 raise FileNotFoundError(filename)
             return mock_open(read_data=content)()
 
-        with patch("builtins.open", side_effect=mock_open_file):
+        with patch("builtins.open", side_effect=mock_open_file), \
+             patch("os.path.exists", lambda x: x.endswith("_bash_state.json")):
             project_root, data, bash_state = load_memory(
                 task_id, max_tokens=2, encoder=mock_encoder, decoder=mock_decoder
             )
@@ -139,7 +140,8 @@ class TestMemory(unittest.TestCase):
                 raise FileNotFoundError(filename)
             return mock_open(read_data=content)()
 
-        with patch("builtins.open", side_effect=mock_open_file):
+        with patch("builtins.open", side_effect=mock_open_file), \
+             patch("os.path.exists", lambda x: x.endswith("_bash_state.json")):
             project_root, data, bash_state = load_memory(
                 task_id, max_tokens=2, encoder=mock_encoder, decoder=mock_decoder
             )
