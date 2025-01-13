@@ -28,6 +28,7 @@ from ...types_ import (
 )
 from .. import tools
 from ..computer_use import SLEEP_TIME_MAX_S
+from ..modes import get_kt_prompt
 from ..tools import DoneFlag, default_enc, get_tool_output, which_tool_name
 
 COMPUTER_USE_ON_DOCKER_ENABLED = False
@@ -51,24 +52,7 @@ PROMPTS = {
             name="KnowledgeTransfer",
             description="Prompt for invoking ContextSave tool in order to do a comprehensive knowledge transfer of a coding task. Prompts to save detailed error log and instructions.",
         ),
-        """Use `ContextSave` tool to do a knowledge transfer of the task in hand.
-Write detailed description in order to do a KT.
-Save all information necessary for a person to understand the task and the problems.
-
-Format the `description` field using Markdown with the following sections.
-- "# Objective" section containing project and task objective.
-- "# All user instructions" section should be provided containing all instructions user shared in the conversation.
-- "# Current status of the task" should be provided containing only what is already achieved, not what's remaining.
-- "# All issues with snippets" section containing snippets of error, traceback, file snippets, commands, etc. But no comments or solutions.
-- Be very verbose in the all issues with snippets section providing as much error context as possible.
-- "# Build and development instructions" section containing instructions to build or run project or run tests, or envrionment related information. Only include what's known. Leave empty if unknown.
-- After the tool completes succesfully, tell me the task id and the file path the tool generated (important!)
-- This tool marks end of your conversation, do not run any further tools after calling this.
-
-Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
-
-(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
-""",
+        get_kt_prompt,
     )
 }
 
@@ -87,7 +71,7 @@ async def handle_get_prompt(
             role="user",
             content=types.TextContent(
                 type="text",
-                text=PROMPTS[name][1],
+                text=PROMPTS[name][1](),
             ),
         )
     ]

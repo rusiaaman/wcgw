@@ -176,3 +176,50 @@ def modes_to_state(
         mode_impl.write_if_empty_mode,
         mode_name,
     )
+
+
+WCGW_KT = """Use `ContextSave` tool to do a knowledge transfer of the task in hand.
+Write detailed description in order to do a KT.
+Save all information necessary for a person to understand the task and the problems.
+
+Format the `description` field using Markdown with the following sections.
+- "# Objective" section containing project and task objective.
+- "# All user instructions" section should be provided containing all instructions user shared in the conversation.
+- "# Current status of the task" should be provided containing only what is already achieved, not what's remaining.
+- "# All issues with snippets" section containing snippets of error, traceback, file snippets, commands, etc. But no comments or solutions.
+- Be very verbose in the all issues with snippets section providing as much error context as possible.
+- "# Build and development instructions" section containing instructions to build or run project or run tests, or envrionment related information. Only include what's known. Leave empty if unknown.
+- Any other relevant sections following the above.
+- After the tool completes succesfully, tell me the task id and the file path the tool generated (important!)
+- This tool marks end of your conversation, do not run any further tools after calling this.
+
+Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
+
+(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
+"""
+
+
+ARCHITECT_KT = """Use `ContextSave` tool to do a knowledge transfer of the task in hand.
+Write detailed description in order to do a KT.
+Save all information necessary for a person to understand the task and the problems.
+
+Format the `description` field using Markdown with the following sections.
+- "# Objective" section containing project and task objective.
+- "# All user instructions" section should be provided containing all instructions user shared in the conversation.
+- "# Designed plan" should be provided containing the designed plan as discussed.
+- Any other relevant sections following the above.
+- After the tool completes succesfully, tell me the task id and the file path the tool generated (important!)
+- This tool marks end of your conversation, do not run any further tools after calling this.
+
+Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
+
+(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
+"""
+
+KTS = {Modes.wcgw: WCGW_KT, Modes.architect: ARCHITECT_KT, Modes.code_writer: WCGW_KT}
+
+
+def get_kt_prompt() -> str:
+    from .tools import BASH_STATE
+
+    return KTS[BASH_STATE.mode]
