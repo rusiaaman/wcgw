@@ -939,7 +939,7 @@ def write_file(
     if allowed_globs != "all" and not any(
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
-        return f"Error: updating file {path_} not allowed in current mode. Matches restricted glob: {allowed_globs}"
+        return f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
     add_overwrite_warning = ""
     if not BASH_STATE.is_in_docker:
         if (error_on_exist or error_on_exist_) and os.path.exists(path_):
@@ -1077,7 +1077,7 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
         raise Exception(
-            f"Error: updating file {path_} not allowed in current mode. Matches restricted glob: {allowed_globs}"
+            f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
         )
 
     # The LLM is now aware that the file exists

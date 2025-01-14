@@ -107,6 +107,7 @@ async def handle_list_tools() -> list[types.Tool]:
 - Leave `any_workspace_path` as empty if no file or folder is mentioned.
 - By default use mode `wcgw`
 - In code-writer mode, set the commands and globs which user asked to set, otherwise use 'all'.
+- In order to change the mode later, call this tool again but be sure to not provide any other argument like task_id_to_resume unnecessarily.
 """,
         ),
         ToolParam(
