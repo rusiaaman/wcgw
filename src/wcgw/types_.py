@@ -39,11 +39,11 @@ class Initialize(BaseModel):
     any_workspace_path: str
     initial_files_to_read: list[str]
     task_id_to_resume: str
-    mode_name: Modes
+    mode_name: Literal["wcgw", "architect", "code_writer"]
     code_writer_config: Optional[CodeWriterMode] = None
 
     def model_post_init(self, __context: Any) -> None:
-        if self.mode_name == Modes.code_writer:
+        if self.mode_name == "code_writer":
             assert (
                 self.code_writer_config is not None
             ), "code_writer_config can't be null when the mode is code_writer"
@@ -51,9 +51,9 @@ class Initialize(BaseModel):
 
     @property
     def mode(self) -> ModesConfig:
-        if self.mode_name == Modes.wcgw:
+        if self.mode_name == "wcgw":
             return "wcgw"
-        if self.mode_name == Modes.architect:
+        if self.mode_name == "architect":
             return "architect"
         assert (
             self.code_writer_config is not None
