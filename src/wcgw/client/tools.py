@@ -263,6 +263,8 @@ class BashState:
     def _init_shell(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
+        # Ensure self._cwd exists
+        os.makedirs(self._cwd, exist_ok=True)
         self._shell = start_shell(
             self._bash_command_mode.bash_mode == "restricted_mode",
             self._cwd,
