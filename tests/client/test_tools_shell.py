@@ -63,7 +63,7 @@ class TestToolsShell(unittest.TestCase):
         mock_spawn.return_value = mock_shell
 
         # Test successful shell start with non-restricted mode
-        shell = start_shell(is_restricted_mode=False)
+        shell = start_shell(is_restricted_mode=False, initial_dir="/")
         self.assertEqual(shell, mock_shell)
 
         # Verify shell initialization commands
@@ -74,11 +74,11 @@ class TestToolsShell(unittest.TestCase):
         # Test error handling with fallback
         # Test error handling with fallback in both modes
         mock_spawn.side_effect = [Exception("Failed"), mock_shell]
-        shell = start_shell(is_restricted_mode=False)
+        shell = start_shell(is_restricted_mode=False, initial_dir="/")
         self.assertEqual(shell, mock_shell)
 
         mock_spawn.side_effect = [Exception("Failed"), mock_shell]
-        shell = start_shell(is_restricted_mode=True)
+        shell = start_shell(is_restricted_mode=True, initial_dir="/")
         self.assertEqual(shell, mock_shell)
 
     def test_is_int_validation(self):

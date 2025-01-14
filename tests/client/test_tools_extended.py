@@ -224,7 +224,7 @@ class TestToolsExtended(unittest.TestCase):
         mock_spawn.return_value = mock_shell
 
         # Test successful shell start
-        shell = start_shell(is_restricted_mode=False)
+        shell = start_shell(is_restricted_mode=False, initial_dir="/")
         self.assertEqual(shell, mock_shell)
 
         # Verify shell initialization
@@ -236,7 +236,7 @@ class TestToolsExtended(unittest.TestCase):
 
         # Test restricted mode
         mock_shell.reset_mock()
-        shell = start_shell(is_restricted_mode=True)
+        shell = start_shell(is_restricted_mode=True, initial_dir="/")
         self.assertEqual(shell, mock_shell)
 
     def test_save_out_of_context(self):
