@@ -52,7 +52,6 @@ def code_writer_prompt(
 ) -> str:
     base = """
 You have to run in "code_writer" mode.
-   - You are not allowed to change directory (bash will run in -r mode)
 """
 
     path_prompt = """
@@ -161,7 +160,7 @@ DEFAULT_MODES: dict[Modes, ModeImpl] = {
         file_edit_mode=FileEditMode([]),
     ),
     Modes.code_writer: ModeImpl(
-        bash_command_mode=BashCommandMode("restricted_mode", "all"),
+        bash_command_mode=BashCommandMode("normal_mode", "all"),
         write_if_empty_mode=WriteIfEmptyMode("all"),
         file_edit_mode=FileEditMode("all"),
     ),
