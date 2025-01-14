@@ -137,7 +137,7 @@ PROMPT_CONST = "#@wcgw@#"
 PROMPT = PROMPT_CONST
 
 
-def start_shell(is_restricted_mode: bool) -> pexpect.spawn:  # type: ignore
+def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore
     try:
         cmd = "/bin/bash"
         if is_restricted_mode:
@@ -149,6 +149,7 @@ def start_shell(is_restricted_mode: bool) -> pexpect.spawn:  # type: ignore
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
+            cwd=initial_dir,
         )
         shell.sendline(f"export PS1={PROMPT}")
     except Exception as e:
@@ -223,12 +224,14 @@ BASH_CLF_OUTPUT = Literal["repl", "pending"]
 class BashState:
     def __init__(
         self,
+        working_dir: str,
         bash_command_mode: Optional[BashCommandMode],
         file_edit_mode: Optional[FileEditMode],
         write_if_empty_mode: Optional[WriteIfEmptyMode],
         mode: Optional[Modes],
         whitelist_for_overwrite: Optional[set[str]] = None,
     ) -> None:
+        self._cwd = working_dir or os.getcwd()
         self._bash_command_mode: BashCommandMode = bash_command_mode or BashCommandMode(
             "normal_mode", "all"
         )
@@ -260,9 +263,9 @@ class BashState:
     def _init(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
-        self._cwd: str = os.getcwd()
         self._shell = start_shell(
-            self._bash_command_mode.bash_mode == "restricted_mode"
+            self._bash_command_mode.bash_mode == "restricted_mode",
+            self._cwd,
         )
 
         self._pending_output = ""
@@ -344,12 +347,13 @@ class BashState:
         write_if_empty_mode: WriteIfEmptyMode,
         mode: Modes,
         whitelist_for_overwrite: list[str],
+        cwd: str,
     ) -> None:
         """Create a new BashState instance from a serialized state dictionary"""
         if bash_command_mode != self._bash_command_mode:
             self._bash_command_mode = bash_command_mode
-            self.reset()
-
+        self._cwd = cwd or self._cwd
+        self.reset()
         self._file_edit_mode = file_edit_mode
         self._write_if_empty_mode = write_if_empty_mode
         self._whitelist_for_overwrite = set(whitelist_for_overwrite)
@@ -383,7 +387,7 @@ class BashState:
         return self._pending_output
 
 
-BASH_STATE = BashState(None, None, None, None)
+BASH_STATE = BashState(os.getcwd(), None, None, None, None)
 INITIALIZED = False
 
 
@@ -447,6 +451,7 @@ def initialize(
                     parsed_state[2],
                     parsed_state[3],
                     parsed_state[4],
+                    str(folder_to_start) if folder_to_start else "",
                 )
             else:
                 state = modes_to_state(mode)
@@ -456,6 +461,7 @@ def initialize(
                     state[2],
                     state[3],
                     parsed_state[4] + list(BASH_STATE.whitelist_for_overwrite),
+                    str(folder_to_start) if folder_to_start else "",
                 )
         except ValueError:
             console.print(traceback.format_exc())
@@ -469,6 +475,7 @@ def initialize(
             state[2],
             state[3],
             list(BASH_STATE.whitelist_for_overwrite),
+            str(folder_to_start) if folder_to_start else "",
         )
     del mode
 
