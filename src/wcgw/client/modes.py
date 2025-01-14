@@ -52,6 +52,7 @@ def code_writer_prompt(
 ) -> str:
     base = """
 You have to run in "code_writer" mode.
+   - You are not allowed to change directory (bash will run in -r mode)
 """
 
     path_prompt = """
@@ -139,6 +140,7 @@ ARCHITECT_PROMPT = """You have to run in "architect" mode. This means
 - You are not allowed to run any commands that may change disk, system configuration, packages or environment. Only read-only commands are allowed.
 - Only run commands that allows you to explore the repository, understand the system or read anything of relevance. 
 - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
+- You are not allowed to change directory (bash will run in -r mode)
 
 Your response should be in self-critique and brainstorm style.
 - Read as many relevant files as possible. 
