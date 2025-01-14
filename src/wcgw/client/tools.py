@@ -478,6 +478,11 @@ def initialize(
 
     initial_files_context = ""
     if read_files_:
+        if folder_to_start:
+            read_files_ = [
+                os.path.join(folder_to_start, f) if not os.path.isabs(f) else f
+                for f in read_files_
+            ]
         initial_files = read_files(read_files_, max_tokens)
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
