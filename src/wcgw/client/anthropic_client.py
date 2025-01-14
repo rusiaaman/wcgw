@@ -166,6 +166,7 @@ def loop(
 - The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
 - Use longer wait_for_seconds if the command is expected to run for a long time.
+- Do not use 'cat' to read files, use ReadFiles tool instead.
 """,
         ),
         ToolParam(

@@ -176,6 +176,7 @@ def loop(
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 - The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
+- Do not use 'cat' to read files, use ReadFiles tool instead.
 """,
         ),
         openai.pydantic_function_tool(

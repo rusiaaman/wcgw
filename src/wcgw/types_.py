@@ -39,7 +39,7 @@ class Initialize(BaseModel):
     any_workspace_path: str
     initial_files_to_read: list[str]
     task_id_to_resume: str
-    mode: ModesConfig = "wcgw"
+    mode: ModesConfig
 
 
 class BashCommand(BaseModel):
