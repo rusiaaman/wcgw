@@ -2,15 +2,11 @@ import os
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
-from websockets import frames
-from websockets.exceptions import ConnectionClosedError
-
 from wcgw.client.tools import (
     BASH_STATE,
     ImageData,
     expand_user,
     read_image_from_shell,
-    serve_image_in_bg,
     write_file,
 )
 from wcgw.types_ import WriteIfEmpty
@@ -64,63 +60,6 @@ class TestToolsFileOps(unittest.TestCase):
         # Test with non-home path
         result = expand_user("/absolute/path", None)
         self.assertEqual(result, "/absolute/path")
-
-    @patch("wcgw.client.tools.syncconnect")
-    def test_serve_image_in_bg(self, mock_connect):
-        # Test successful image serving
-        mock_websocket1 = MagicMock()
-        mock_websocket1.send = MagicMock()
-        mock_websocket2 = MagicMock()
-        mock_websocket2.send = MagicMock()
-
-        # First successful case
-        mock_connect.side_effect = [
-            type(
-                "Context",
-                (),
-                {
-                    "__enter__": lambda x: mock_websocket1,
-                    "__exit__": lambda x, exc_type, exc_val, exc_tb: None,
-                },
-            )()
-        ]
-
-        with patch("builtins.open", mock_open(read_data=b"test_image_data")):
-            serve_image_in_bg("/test/image.jpg", "test-uuid", "test-name")
-            mock_websocket1.send.assert_called_once()
-
-        # Test retry case - first connection fails, second succeeds
-        mock_websocket3 = MagicMock()
-        rcvd_frame = frames.Close(code=1006, reason="Connection closed abnormally")
-        sent_frame = frames.Close(code=1000, reason="Normal close")
-        mock_websocket3.send.side_effect = ConnectionClosedError(
-            rcvd_frame, sent_frame, True
-        )
-        mock_websocket4 = MagicMock()
-        mock_websocket4.send = MagicMock()
-
-        mock_connect.side_effect = [
-            type(
-                "Context",
-                (),
-                {
-                    "__enter__": lambda x: mock_websocket3,
-                    "__exit__": lambda x, exc_type, exc_val, exc_tb: None,
-                },
-            )(),
-            type(
-                "Context",
-                (),
-                {
-                    "__enter__": lambda x: mock_websocket4,
-                    "__exit__": lambda x, exc_type, exc_val, exc_tb: None,
-                },
-            )(),
-        ]
-
-        with patch("builtins.open", mock_open(read_data=b"test_image_data")):
-            serve_image_in_bg("/test/image.jpg", "test-uuid", "test-name")
-            self.assertEqual(mock_websocket4.send.call_count, 1)
 
     @patch("pathlib.Path.mkdir")
     @patch("pathlib.Path.open", new_callable=mock_open)
