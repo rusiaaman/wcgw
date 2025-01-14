@@ -4,11 +4,6 @@ from typing import Any, Literal, NamedTuple
 from ..types_ import Modes, ModesConfig
 
 
-@dataclass
-class RestrictedGlobs:
-    allowed_globs: list[str]
-
-
 class BashCommandMode(NamedTuple):
     bash_mode: Literal["normal_mode", "restricted_mode"]
     allowed_commands: Literal["all", "none"]
@@ -55,16 +50,22 @@ def code_writer_prompt(
     all_write_new_globs: Literal["all"] | list[str],
     allowed_commands: Literal["all"] | list[str],
 ) -> str:
-    base = """You have to run in "code_writer" mode. This means
+    base = """
+You have to run in "code_writer" mode.
 """
 
     path_prompt = """
     - You are allowed to run FileEdit in the provided repository only.
     """
 
-    if allowed_file_edit_globs != "all" and allowed_file_edit_globs:
-        path_prompt = f"""
-- You are allowed to run FileEdit for files matching only the following globs: {', '.join(allowed_file_edit_globs)}
+    if allowed_file_edit_globs != "all":
+        if allowed_file_edit_globs:
+            path_prompt = f"""
+    - You are allowed to run FileEdit for files matching only the following globs: {', '.join(allowed_file_edit_globs)}
+"""
+        else:
+            path_prompt = """
+    - You are not allowed to run FileEdit.
 """
     base += path_prompt
 
@@ -72,25 +73,40 @@ def code_writer_prompt(
     - You are allowed to run WriteIfEmpty in the provided repository only.
     """
 
-    if all_write_new_globs != "all" and all_write_new_globs:
-        path_prompt = f"""
-- You are allowed to run WriteIfEmpty files matching only the following globs: {', '.join(allowed_file_edit_globs)}
+    if all_write_new_globs != "all":
+        if all_write_new_globs:
+            path_prompt = f"""
+    - You are allowed to run WriteIfEmpty files matching only the following globs: {', '.join(allowed_file_edit_globs)}
+"""
+        else:
+            path_prompt = """
+    - You are not allowed to run WriteIfEmpty.
 """
     base += path_prompt
 
-    command_prompt = """
-- You are only allowed to run commands for project setup, code writing, editing, updating, testing, running and debugging related to the project.
-- Do not run anything that adds or removes packages, changes system configuration or environment.
+    run_command_common = """
+    - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
+    - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
+    - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
+    - You should use the provided bash execution, reading and writing file tools to complete objective.
+    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
+    - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools.
+"""
+
+    command_prompt = f"""
+    - You are only allowed to run commands for project setup, code writing, editing, updating, testing, running and debugging related to the project.
+    - Do not run anything that adds or removes packages, changes system configuration or environment.
+{run_command_common}
 """
     if allowed_commands != "all":
-        command_prompt = f"""
-- You are only allowed to run the following commands: {', '.join(allowed_commands)}
-- Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
-- Do not use echo to write multi-line files, always use FileEdit tool to update a code.
-- Do not provide code snippets unless asked by the user, instead directly add/edit the code.
-- You should use the provided bash execution, reading and writing file tools to complete objective.
-- First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
-- Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools.
+        if allowed_commands:
+            command_prompt = f"""
+    - You are only allowed to run the following commands: {', '.join(allowed_commands)}
+{run_command_common}
+"""
+        else:
+            command_prompt = """
+    - You are not allowed to run any commands.
 """
 
     base += command_prompt
