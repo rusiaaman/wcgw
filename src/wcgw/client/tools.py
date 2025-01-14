@@ -62,6 +62,7 @@ from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
 from .modes import (
     ARCHITECT_PROMPT,
+    WCGW_PROMPT,
     BashCommandMode,
     FileEditMode,
     WriteIfEmptyMode,
@@ -493,6 +494,9 @@ def initialize(
         )
     elif BASH_STATE.mode == Modes.architect:
         mode_prompt = ARCHITECT_PROMPT
+    else:
+        mode_prompt = WCGW_PROMPT
+
     output = f"""
 {mode_prompt}
 
