@@ -242,7 +242,7 @@ class BashState:
         self._mode = mode or Modes.wcgw
         self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
 
-        self._init()
+        self._init_shell()
 
     @property
     def mode(self) -> Modes:
@@ -260,7 +260,7 @@ class BashState:
     def write_if_empty_mode(self) -> WriteIfEmptyMode:
         return self._write_if_empty_mode
 
-    def _init(self) -> None:
+    def _init_shell(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
         self._shell = start_shell(
@@ -314,9 +314,9 @@ class BashState:
         self._cwd = current_dir
         return current_dir
 
-    def reset(self) -> None:
+    def reset_shell(self) -> None:
         self.shell.close(True)
-        self._init()
+        self._init_shell()
 
     def serialize(self) -> dict[str, Any]:
         """Serialize BashState to a dictionary for saving"""
@@ -350,14 +350,13 @@ class BashState:
         cwd: str,
     ) -> None:
         """Create a new BashState instance from a serialized state dictionary"""
-        if bash_command_mode != self._bash_command_mode:
-            self._bash_command_mode = bash_command_mode
+        self._bash_command_mode = bash_command_mode
         self._cwd = cwd or self._cwd
-        self.reset()
         self._file_edit_mode = file_edit_mode
         self._write_if_empty_mode = write_if_empty_mode
         self._whitelist_for_overwrite = set(whitelist_for_overwrite)
         self._mode = mode
+        self.reset_shell()
 
     def get_pending_for(self) -> str:
         if isinstance(self._state, datetime.datetime):
@@ -415,9 +414,7 @@ def initialize(
                 lambda x: default_enc.decode(x),
             )
             memory = "Following is the retrieved task:\n" + task_mem
-            if (
-                not any_workspace_path or not os.path.exists(any_workspace_path)
-            ) and os.path.exists(project_root_path):
+            if os.path.exists(project_root_path):
                 any_workspace_path = project_root_path
 
         except Exception:
@@ -450,7 +447,7 @@ def initialize(
                     parsed_state[1],
                     parsed_state[2],
                     parsed_state[3],
-                    parsed_state[4],
+                    parsed_state[4] + list(BASH_STATE.whitelist_for_overwrite),
                     str(folder_to_start) if folder_to_start else "",
                 )
             else:
@@ -478,11 +475,6 @@ def initialize(
             str(folder_to_start) if folder_to_start else "",
         )
     del mode
-
-    if folder_to_start:
-        BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
-        BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-        BASH_STATE.update_cwd()
 
     initial_files_context = ""
     if read_files_:
@@ -528,7 +520,7 @@ Current working directory: {BASH_STATE.cwd}
 
 
 def reset_shell() -> str:
-    BASH_STATE.reset()
+    BASH_STATE.reset_shell()
     return "Reset successful" + get_status()
 
 
@@ -814,7 +806,7 @@ def execute_bash(
         console.print(traceback.format_exc())
         console.print("Malformed output, restarting shell", style="red")
         # Malformed output, restart shell
-        BASH_STATE.reset()
+        BASH_STATE.reset_shell()
         output = "(exit shell has restarted)"
     return output, 0
 

@@ -41,7 +41,7 @@ class TestToolsExtended(unittest.TestCase):
         INITIALIZED = False  # Reset initialization state
         TOOL_CALLS = []  # Clear tool calls
         try:
-            BASH_STATE.reset()  # Reset bash state
+            BASH_STATE.reset_shell()  # Reset bash state
         except Exception as e:
             print(f"Warning: Failed to reset BASH_STATE: {e}")
         # Clean up any temporary files or directories
