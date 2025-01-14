@@ -59,27 +59,27 @@ def code_writer_prompt(
 """
 
     path_prompt = """
-    - You are allowed to edit or update files in the provided repository only.
+    - You are allowed to run FileEdit in the provided repository only.
     """
 
     if allowed_file_edit_globs != "all" and allowed_file_edit_globs:
         path_prompt = f"""
-- You are allowed to edit and update files only in the following globs: {', '.join(allowed_file_edit_globs)}
+- You are allowed to run FileEdit for files matching only the following globs: {', '.join(allowed_file_edit_globs)}
 """
     base += path_prompt
 
     path_prompt = """
-    - You are allowed to create new files in the provided repository only.
+    - You are allowed to run WriteIfEmpty in the provided repository only.
     """
 
     if all_write_new_globs != "all" and all_write_new_globs:
         path_prompt = f"""
-- You are allowed to create new files only in the following globs: {', '.join(allowed_file_edit_globs)}
+- You are allowed to run WriteIfEmpty files matching only the following globs: {', '.join(allowed_file_edit_globs)}
 """
     base += path_prompt
 
     command_prompt = """
-- You are only allowed to run commands for project setup, code writing, testing, running and debugging related to the proejct.
+- You are only allowed to run commands for project setup, code writing, editing, updating, testing, running and debugging related to the project.
 - Do not run anything that adds or removes packages, changes system configuration or environment.
 """
     if allowed_commands != "all":
