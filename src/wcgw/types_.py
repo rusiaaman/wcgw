@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from typing import Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -39,7 +39,26 @@ class Initialize(BaseModel):
     any_workspace_path: str
     initial_files_to_read: list[str]
     task_id_to_resume: str
-    mode: ModesConfig
+    mode_name: Modes
+    code_writer_config: Optional[CodeWriterMode] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.mode_name == Modes.code_writer:
+            assert (
+                self.code_writer_config is not None
+            ), "code_writer_config can't be null when the mode is code_writer"
+        return super().model_post_init(__context)
+
+    @property
+    def mode(self) -> ModesConfig:
+        if self.mode_name == Modes.wcgw:
+            return "wcgw"
+        if self.mode_name == Modes.architect:
+            return "architect"
+        assert (
+            self.code_writer_config is not None
+        ), "code_writer_config can't be null when the mode is code_writer"
+        return self.code_writer_config
 
 
 class BashCommand(BaseModel):
