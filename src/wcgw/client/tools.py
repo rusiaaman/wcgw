@@ -435,10 +435,13 @@ def initialize(
             else:
                 assert isinstance(mode, str)
         else:
-            repo_context = (
-                f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
-            )
-
+            if os.path.abspath(any_workspace_path):
+                os.makedirs(any_workspace_path, exist_ok=True)
+                repo_context = f"\nInfo: Workspace path {any_workspace_path} did not exist. I've created it for you.\n"
+            else:
+                repo_context = (
+                    f"\nInfo: Workspace path {any_workspace_path} does not exist."
+                )
     # Restore bash state if available
     if bash_state is not None:
         try:
