@@ -512,7 +512,7 @@ def initialize(
 # Environment
 System: {uname_sysname}
 Machine: {uname_machine}
-Current working directory: {BASH_STATE.cwd}
+Initialized in directory (also cwd): {BASH_STATE.cwd}
 
 {repo_context}
 
