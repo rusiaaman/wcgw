@@ -12,6 +12,8 @@
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
 
 ## Updates
+- [15 Jan 2025] Modes introduced: architect, code-writer, and all powerful wcgw mode. 
+
 - [8 Jan 2025] Context saving tool for saving relevant file paths along with a description in a single file. Can be used as a task checkpoint or for knowledge transfer.
 
 - [29 Dec 2024] Syntax checking on file writing and edits is now stable. Made `initialize` tool call useful; sending smart repo structure to claude if any repo is referenced. Large file handling is also now improved.
@@ -40,6 +42,11 @@
   - Current working directory is always returned after any shell command to prevent AI from getting lost. 
   - Command polling exits after a quick timeout to avoid slow feedback. However, status checking has wait tolerance based on fresh output streaming from a command. Both of these approach combined provides a good shell interaction experience.
 - ⚡ **Saving repo context in a single file**: Task checkpointing using "ContextSave" tool saves detailed context in a single file. Tasks can later be resumed in a new chat asking "Resume `task id`". The saved file can be used to do other kinds of knowledge transfer, such as taking help from another AI.
+- ⚡ **Easily switch between various modes**: 
+  - Ask it to run in 'architect' mode for planning. Inspired by adier's architect mode, work with Claude to come up with a plan first. Leads to better accuracy and prevents premature file editing.
+  - Ask it to run in 'code-writer' mode for code editing and project building. You can provide specific paths with wild card support to prevent other files getting edited.
+  - By default it runs in 'wcgw' mode that has no restrictions and full authorisation.
+  - More details in [Modes section](#modes)
 
 ## Top use cases examples
 
@@ -118,6 +125,16 @@ Then ask claude to execute shell commands, read files, edit files, run your code
 - On running "KnowledgeTransfer" prompt, the "ContextSave" tool will be called saving the task description and all file content together in a single file. An id for the task will be generated.
 - You can in a new chat say "Resume '<task id>'", the AI should then call "Initialize" with the task id and load the context from there.
 - Or you can directly open the file generated and share it with another AI for help.
+
+#### Modes
+There are three built-in modes. You may ask Claude to run in one of the modes, like "Use 'architect' mode"
+| **Mode**       | **Description**                                                             | **Allows**                                               | **Denies**                                    | **Invoke prompt**                                                                                  |
+|-----------------|-----------------------------------------------------------------------------|---------------------------------------------------------|----------------------------------------------|----------------------------------------------------------------------------------------------------|
+| **Architect**   | Designed for you to work with Claude to investigate and understand your repo. | Read-only commands                                       | FileEdit and Write tool                      | Run in mode='architect'                                                                          |
+| **Code-writer** | For code writing and development                                           | Specified path globs for editing or writing, specified commands | FileEdit for paths not matching specified glob, Write for paths not matching specified glob | Run in code writer mode, only 'tests/**' allowed, only uv command allowed |
+| **wcgw**        | Default mode with everything allowed                                       | Everything                                              | Nothing                                      | No prompt, or "Run in wcgw mode"                                                                                       |
+
+Note: in code-writer mode either all commands are allowed or none are allowed for now. If you give a list of allowed commands, Claude is instructed to run only those commands, but no actual check happens. (WIP)
 
 ### [Optional] Vs code extension 
 https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw
