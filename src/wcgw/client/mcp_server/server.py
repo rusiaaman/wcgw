@@ -279,7 +279,7 @@ async def handle_call_tool(
                 output_or_done += """
 - Additional important note: as soon as you encounter "The user has chosen to disallow the tool call.", immediately stop doing everything and ask user for the reason.
 
-Initialize ran successfully.
+Initialize call done.
     """
 
             content.append(types.TextContent(type="text", text=output_or_done))
