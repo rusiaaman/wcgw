@@ -22,6 +22,8 @@ class TestWriteFile:
         mock_exists.return_value = False
         mock_bash_state.is_in_docker = None
         mock_bash_state.whitelist_for_overwrite = set()
+        mock_bash_state.write_if_empty_mode = MagicMock()
+        mock_bash_state.write_if_empty_mode.allowed_globs = "all"
         
         # Setup Path mocking
         mock_path_instance = MagicMock(spec=Path)
@@ -58,6 +60,8 @@ class TestWriteFile:
         mock_exists.return_value = True
         mock_bash_state.is_in_docker = None
         mock_bash_state.whitelist_for_overwrite = set()
+        mock_bash_state.write_if_empty_mode = MagicMock()
+        mock_bash_state.write_if_empty_mode.allowed_globs = "all"
 
         # Setup Path with existing content
         mock_path_instance = MagicMock(spec=Path)
@@ -93,6 +97,8 @@ class TestWriteFile:
         mock_exists.return_value = True
         mock_bash_state.is_in_docker = None
         mock_bash_state.whitelist_for_overwrite = {self.test_path}
+        mock_bash_state.write_if_empty_mode = MagicMock()
+        mock_bash_state.write_if_empty_mode.allowed_globs = "all"
         
         # Setup Path mocking
         mock_path_instance = MagicMock(spec=Path)

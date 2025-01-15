@@ -1,24 +1,27 @@
 """Tests for user interaction functionality in tools.py"""
-import unittest
-from unittest.mock import patch, MagicMock
+
 import os
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 from wcgw.client.tools import (
-    update_repl_prompt,
+    BASH_STATE,
     get_status,
     save_out_of_context,
     truncate_if_over,
-    BASH_STATE,
+    update_repl_prompt,
 )
+
 
 class TestUserInteraction(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-        BASH_STATE.reset()
+        BASH_STATE.reset_shell()
 
     def test_update_repl_prompt(self):
         """Test REPL prompt updating"""
-        with patch('wcgw.client.tools.BASH_STATE') as mock_state:
+        with patch("wcgw.client.tools.BASH_STATE") as mock_state:
             mock_state.shell = MagicMock()
             mock_state.shell.before = "new_prompt"
             mock_state.shell.expect.return_value = 1
@@ -33,7 +36,7 @@ class TestUserInteraction(unittest.TestCase):
 
     def test_get_status(self):
         """Test status reporting"""
-        with patch('wcgw.client.tools.BASH_STATE') as mock_state:
+        with patch("wcgw.client.tools.BASH_STATE") as mock_state:
             # Test pending state
             mock_state.state = "pending"
             mock_state.cwd = "/test/dir"
@@ -47,9 +50,11 @@ class TestUserInteraction(unittest.TestCase):
             # Test completed state
             mock_state.state = "repl"
             mock_state.update_cwd.return_value = "/test/dir2"
-            with patch('wcgw.client.tools._ensure_env_and_bg_jobs', return_value=2):
+            with patch("wcgw.client.tools._ensure_env_and_bg_jobs", return_value=2):
                 status = get_status()
-                self.assertIn("status = process exited; 2 background jobs running", status)
+                self.assertIn(
+                    "status = process exited; 2 background jobs running", status
+                )
                 self.assertIn("cwd = /test/dir2", status)
 
     def test_save_out_of_context(self):
@@ -80,13 +85,17 @@ class TestUserInteraction(unittest.TestCase):
 
     def test_truncate_if_over(self):
         """Test content truncation based on token limits"""
-        with patch('wcgw.client.tools.default_enc') as mock_enc:
+        with patch("wcgw.client.tools.default_enc") as mock_enc:
             # Test content under limit
             content = "short content"
             mock_enc.encode.return_value = MagicMock(ids=list(range(5)))  # Under limit
             result = truncate_if_over(content, max_tokens=10)
-            self.assertEqual(result, content)  # Should return original content when under limit
-            self.assertEqual(mock_enc.decode.call_count, 0)  # Decode shouldn't be called
+            self.assertEqual(
+                result, content
+            )  # Should return original content when under limit
+            self.assertEqual(
+                mock_enc.decode.call_count, 0
+            )  # Decode shouldn't be called
 
             # Test with content over limit
             long_content = "very long content" * 50
@@ -94,10 +103,10 @@ class TestUserInteraction(unittest.TestCase):
             mock_encoding.ids = list(range(200))  # Over limit
             mock_encoding.__len__.return_value = 200  # Make len(tokens) return 200
             mock_enc.encode.return_value = mock_encoding
-            mock_enc.decode.return_value = "truncated content"  
+            mock_enc.decode.return_value = "truncated content"
 
             result = truncate_if_over(long_content, max_tokens=100)
-            
+
             # In truncate_if_over: max(0, max_tokens - 100) = max(0, 100-100)
             truncated_ids = []  # Since 100-100 = 0, max(0, 0) = 0
             mock_enc.decode.assert_called_once_with(truncated_ids)
@@ -112,5 +121,6 @@ class TestUserInteraction(unittest.TestCase):
             result = truncate_if_over(content, max_tokens=0)
             self.assertEqual(result, content)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

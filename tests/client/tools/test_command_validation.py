@@ -23,7 +23,7 @@ from wcgw.types_ import (
 class TestCommandValidation(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-        BASH_STATE.reset()
+        BASH_STATE.reset_shell()
 
     def test_which_tool(self):
         """Test tool type determination"""

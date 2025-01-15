@@ -28,6 +28,7 @@ from ...types_ import (
 )
 from .. import tools
 from ..computer_use import SLEEP_TIME_MAX_S
+from ..modes import get_kt_prompt
 from ..tools import DoneFlag, default_enc, get_tool_output, which_tool_name
 
 COMPUTER_USE_ON_DOCKER_ENABLED = False
@@ -45,48 +46,35 @@ async def handle_read_resource(uri: AnyUrl) -> str:
     raise ValueError("No resources available")
 
 
-@server.list_prompts()  # type: ignore
-async def handle_list_prompts() -> list[types.Prompt]:
-    return [
+PROMPTS = {
+    "KnowledgeTransfer": (
         types.Prompt(
             name="KnowledgeTransfer",
             description="Prompt for invoking ContextSave tool in order to do a comprehensive knowledge transfer of a coding task. Prompts to save detailed error log and instructions.",
-        )
-    ]
+        ),
+        get_kt_prompt,
+    )
+}
+
+
+@server.list_prompts()  # type: ignore
+async def handle_list_prompts() -> list[types.Prompt]:
+    return [x[0] for x in PROMPTS.values()]
 
 
 @server.get_prompt()  # type: ignore
 async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
-    messages = []
-    if name == "KnowledgeTransfer":
-        messages = [
-            types.PromptMessage(
-                role="user",
-                content=types.TextContent(
-                    type="text",
-                    text="""Use `ContextSave` tool to do a knowledge transfer of the task in hand.
-Write detailed description in order to do a KT.
-Save all information necessary for a person to understand the task and the problems.
-
-Format the `description` field using Markdown with the following sections.
-- "# Objective" section containing project and task objective.
-- "# All user instructions" section should be provided containing all instructions user shared in the conversation.
-- "# Current status of the task" should be provided containing only what is already achieved, not what's remaining.
-- "# All issues with snippets" section containing snippets of error, traceback, file snippets, commands, etc. But no comments or solutions.
-- Be very verbose in the all issues with snippets section providing as much error context as possible.
-- "# Build and development instructions" section containing instructions to build or run project or run tests, or envrionment related information. Only include what's known. Leave empty if unknown.
-- After the tool completes succesfully, tell me the task id and the file path the tool generated (important!)
-- This tool marks end of your conversation, do not run any further tools after calling this.
-
-Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
-
-(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
-""",
-                ),
-            )
-        ]
+    messages = [
+        types.PromptMessage(
+            role="user",
+            content=types.TextContent(
+                type="text",
+                text=PROMPTS[name][1](),
+            ),
+        )
+    ]
     return types.GetPromptResult(messages=messages)
 
 
@@ -117,6 +105,9 @@ async def handle_list_tools() -> list[types.Tool]:
 - If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
 - If `any_workspace_path` is provided, a tree structure of the workspace will be shown.
 - Leave `any_workspace_path` as empty if no file or folder is mentioned.
+- By default use mode "wcgw"
+- In "code-writer" mode, set the commands and globs which user asked to set, otherwise use 'all'.
+- In order to change the mode later, call this tool again but be sure to not provide any other argument like task_id_to_resume unnecessarily.
 """,
         ),
         ToolParam(
@@ -263,6 +254,8 @@ async def handle_call_tool(
     except ValidationError:
 
         def try_json(x: str) -> Any:
+            if not isinstance(x, str):
+                return x
             try:
                 return json.loads(x)
             except json.JSONDecodeError:
@@ -284,24 +277,7 @@ async def handle_call_tool(
         if isinstance(output_or_done, str):
             if issubclass(tool_type, Initialize):
                 output_or_done += """
----
-You're an expert software engineer with shell and code knowledge.
-
-Instructions:
-
-    - You should use the provided bash execution, reading and writing file tools to complete objective.
-    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
-    - Always read relevant files before editing.
-    - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
-    - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
-    - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using shell tools.
-    - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the program don't show any update but they still are running.
-    - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
-    
-Additional instructions:
-    Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
-
-    Always write production ready, syntactically correct code.
+Important note: as soon as you encounter "The user has chosen to disallow the tool call.", immediately stop doing everything and ask user for the reason.
     """
 
             content.append(types.TextContent(type="text", text=output_or_done))

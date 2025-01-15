@@ -1,5 +1,6 @@
 import base64
 import datetime
+import fnmatch
 import glob
 import importlib.metadata
 import json
@@ -14,6 +15,7 @@ from os.path import expanduser
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
+    Any,
     Callable,
     Literal,
     Optional,
@@ -39,12 +41,15 @@ from websockets.sync.client import connect as syncconnect
 from ..types_ import (
     BashCommand,
     BashInteraction,
+    CodeWriterMode,
     ContextSave,
     FileEdit,
     FileEditFindReplace,
     GetScreenInfo,
     Initialize,
     Keyboard,
+    Modes,
+    ModesConfig,
     Mouse,
     ReadFiles,
     ReadImage,
@@ -55,6 +60,15 @@ from ..types_ import (
 from .computer_use import run_computer_tool
 from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
+from .modes import (
+    ARCHITECT_PROMPT,
+    WCGW_PROMPT,
+    BashCommandMode,
+    FileEditMode,
+    WriteIfEmptyMode,
+    code_writer_prompt,
+    modes_to_state,
+)
 from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
 
@@ -123,14 +137,19 @@ PROMPT_CONST = "#@wcgw@#"
 PROMPT = PROMPT_CONST
 
 
-def start_shell() -> pexpect.spawn:  # type: ignore
+def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore
     try:
+        cmd = "/bin/bash"
+        if is_restricted_mode:
+            cmd += " -r"
+
         shell = pexpect.spawn(
-            "/bin/bash",
+            cmd,
             env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
+            cwd=initial_dir,
         )
         shell.sendline(f"export PS1={PROMPT}")
     except Exception as e:
@@ -203,15 +222,54 @@ BASH_CLF_OUTPUT = Literal["repl", "pending"]
 
 
 class BashState:
-    def __init__(self) -> None:
-        self._init()
+    def __init__(
+        self,
+        working_dir: str,
+        bash_command_mode: Optional[BashCommandMode],
+        file_edit_mode: Optional[FileEditMode],
+        write_if_empty_mode: Optional[WriteIfEmptyMode],
+        mode: Optional[Modes],
+        whitelist_for_overwrite: Optional[set[str]] = None,
+    ) -> None:
+        self._cwd = working_dir or os.getcwd()
+        self._bash_command_mode: BashCommandMode = bash_command_mode or BashCommandMode(
+            "normal_mode", "all"
+        )
+        self._file_edit_mode: FileEditMode = file_edit_mode or FileEditMode("all")
+        self._write_if_empty_mode: WriteIfEmptyMode = (
+            write_if_empty_mode or WriteIfEmptyMode("all")
+        )
+        self._mode = mode or Modes.wcgw
+        self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
 
-    def _init(self) -> None:
+        self._init_shell()
+
+    @property
+    def mode(self) -> Modes:
+        return self._mode
+
+    @property
+    def bash_command_mode(self) -> BashCommandMode:
+        return self._bash_command_mode
+
+    @property
+    def file_edit_mode(self) -> FileEditMode:
+        return self._file_edit_mode
+
+    @property
+    def write_if_empty_mode(self) -> WriteIfEmptyMode:
+        return self._write_if_empty_mode
+
+    def _init_shell(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
-        self._cwd: str = os.getcwd()
-        self._shell = start_shell()
-        self._whitelist_for_overwrite: set[str] = set()
+        # Ensure self._cwd exists
+        os.makedirs(self._cwd, exist_ok=True)
+        self._shell = start_shell(
+            self._bash_command_mode.bash_mode == "restricted_mode",
+            self._cwd,
+        )
+
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
@@ -258,9 +316,49 @@ class BashState:
         self._cwd = current_dir
         return current_dir
 
-    def reset(self) -> None:
+    def reset_shell(self) -> None:
         self.shell.close(True)
-        self._init()
+        self._init_shell()
+
+    def serialize(self) -> dict[str, Any]:
+        """Serialize BashState to a dictionary for saving"""
+        return {
+            "bash_command_mode": self._bash_command_mode.serialize(),
+            "file_edit_mode": self._file_edit_mode.serialize(),
+            "write_if_empty_mode": self._write_if_empty_mode.serialize(),
+            "whitelist_for_overwrite": list(self._whitelist_for_overwrite),
+            "mode": self._mode,
+        }
+
+    @staticmethod
+    def parse_state(
+        state: dict[str, Any],
+    ) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes, list[str]]:
+        return (
+            BashCommandMode.deserialize(state["bash_command_mode"]),
+            FileEditMode.deserialize(state["file_edit_mode"]),
+            WriteIfEmptyMode.deserialize(state["write_if_empty_mode"]),
+            Modes[str(state["mode"])],
+            state["whitelist_for_overwrite"],
+        )
+
+    def load_state(
+        self,
+        bash_command_mode: BashCommandMode,
+        file_edit_mode: FileEditMode,
+        write_if_empty_mode: WriteIfEmptyMode,
+        mode: Modes,
+        whitelist_for_overwrite: list[str],
+        cwd: str,
+    ) -> None:
+        """Create a new BashState instance from a serialized state dictionary"""
+        self._bash_command_mode = bash_command_mode
+        self._cwd = cwd or self._cwd
+        self._file_edit_mode = file_edit_mode
+        self._write_if_empty_mode = write_if_empty_mode
+        self._whitelist_for_overwrite = set(whitelist_for_overwrite)
+        self._mode = mode
+        self.reset_shell()
 
     def get_pending_for(self) -> str:
         if isinstance(self._state, datetime.datetime):
@@ -290,7 +388,8 @@ class BashState:
         return self._pending_output
 
 
-BASH_STATE = BashState()
+BASH_STATE = BashState(os.getcwd(), None, None, None, None)
+INITIALIZED = False
 
 
 def initialize(
@@ -298,53 +397,118 @@ def initialize(
     read_files_: list[str],
     task_id_to_resume: str,
     max_tokens: Optional[int],
+    mode: ModesConfig,
 ) -> str:
-    reset_shell()
+    global BASH_STATE
 
     # Expand the workspace path
-    any_workspace_path = expand_user(any_workspace_path, BASH_STATE.is_in_docker)
+    any_workspace_path = expand_user(any_workspace_path, None)
     repo_context = ""
 
     memory = ""
+    bash_state = None
     if task_id_to_resume:
         try:
-            project_root_path, task_mem = load_memory(
+            project_root_path, task_mem, bash_state = load_memory(
                 task_id_to_resume,
                 max_tokens,
                 lambda x: default_enc.encode(x).ids,
                 lambda x: default_enc.decode(x),
             )
             memory = "Following is the retrieved task:\n" + task_mem
-            if (
-                not any_workspace_path or not os.path.exists(any_workspace_path)
-            ) and os.path.exists(project_root_path):
+            if os.path.exists(project_root_path):
                 any_workspace_path = project_root_path
+
         except Exception:
             memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
 
+    folder_to_start = None
     if any_workspace_path:
         if os.path.exists(any_workspace_path):
             repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
 
-            BASH_STATE.shell.sendline(f"cd {shlex.quote(str(folder_to_start))}")
-            BASH_STATE.shell.expect(PROMPT, timeout=0.2)
-            BASH_STATE.update_cwd()
-
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
+
+            # update modes if they're relative
+            if isinstance(mode, CodeWriterMode):
+                mode.update_relative_globs(any_workspace_path)
+            else:
+                assert isinstance(mode, str)
         else:
-            repo_context = (
-                f"\nInfo: Workspace path {any_workspace_path} does not exist\n"
-            )
+            if os.path.abspath(any_workspace_path):
+                os.makedirs(any_workspace_path, exist_ok=True)
+                repo_context = f"\nInfo: Workspace path {any_workspace_path} did not exist. I've created it for you.\n"
+            else:
+                repo_context = (
+                    f"\nInfo: Workspace path {any_workspace_path} does not exist."
+                )
+    # Restore bash state if available
+    if bash_state is not None:
+        try:
+            parsed_state = BashState.parse_state(bash_state)
+            if mode == "wcgw":
+                BASH_STATE.load_state(
+                    parsed_state[0],
+                    parsed_state[1],
+                    parsed_state[2],
+                    parsed_state[3],
+                    parsed_state[4] + list(BASH_STATE.whitelist_for_overwrite),
+                    str(folder_to_start) if folder_to_start else "",
+                )
+            else:
+                state = modes_to_state(mode)
+                BASH_STATE.load_state(
+                    state[0],
+                    state[1],
+                    state[2],
+                    state[3],
+                    parsed_state[4] + list(BASH_STATE.whitelist_for_overwrite),
+                    str(folder_to_start) if folder_to_start else "",
+                )
+        except ValueError:
+            console.print(traceback.format_exc())
+            console.print("Error: couldn't load bash state")
+            pass
+    else:
+        state = modes_to_state(mode)
+        BASH_STATE.load_state(
+            state[0],
+            state[1],
+            state[2],
+            state[3],
+            list(BASH_STATE.whitelist_for_overwrite),
+            str(folder_to_start) if folder_to_start else "",
+        )
+    del mode
 
     initial_files_context = ""
     if read_files_:
+        if folder_to_start:
+            read_files_ = [
+                os.path.join(folder_to_start, f) if not os.path.isabs(f) else f
+                for f in read_files_
+            ]
         initial_files = read_files(read_files_, max_tokens)
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
 
+    mode_prompt = ""
+    if BASH_STATE.mode == Modes.code_writer:
+        mode_prompt = code_writer_prompt(
+            BASH_STATE.file_edit_mode.allowed_globs,
+            BASH_STATE.write_if_empty_mode.allowed_globs,
+            "all" if BASH_STATE.bash_command_mode.allowed_commands else [],
+        )
+    elif BASH_STATE.mode == Modes.architect:
+        mode_prompt = ARCHITECT_PROMPT
+    else:
+        mode_prompt = WCGW_PROMPT
+
     output = f"""
+{mode_prompt}
+
 # Environment
 System: {uname_sysname}
 Machine: {uname_machine}
@@ -359,11 +523,14 @@ Current working directory: {BASH_STATE.cwd}
 {memory}
 """
 
+    global INITIALIZED
+    INITIALIZED = True
+
     return output
 
 
 def reset_shell() -> str:
-    BASH_STATE.reset()
+    BASH_STATE.reset_shell()
     return "Reset successful" + get_status()
 
 
@@ -472,6 +639,8 @@ def execute_bash(
     try:
         is_interrupt = False
         if isinstance(bash_arg, BashCommand):
+            if BASH_STATE.bash_command_mode.allowed_commands == "none":
+                return "Error: BashCommand not allowed in current mode", 0.0
             updated_repl_mode = update_repl_prompt(bash_arg.command)
             if updated_repl_mode:
                 BASH_STATE.set_repl()
@@ -647,29 +816,9 @@ def execute_bash(
         console.print(traceback.format_exc())
         console.print("Malformed output, restarting shell", style="red")
         # Malformed output, restart shell
-        BASH_STATE.reset()
+        BASH_STATE.reset_shell()
         output = "(exit shell has restarted)"
     return output, 0
-
-
-def serve_image_in_bg(file_path: str, client_uuid: str, name: str) -> None:
-    if not client_uuid:
-        client_uuid = str(uuid.uuid4())
-
-    server_url = "wss://wcgw.arcfu.com/register_serve_image"
-
-    with open(file_path, "rb") as image_file:
-        image_bytes = image_file.read()
-        media_type = mimetypes.guess_type(file_path)[0]
-        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        uu = {"name": name, "image_b64": image_b64, "media_type": media_type}
-
-    with syncconnect(f"{server_url}/{client_uuid}") as websocket:
-        try:
-            websocket.send(json.dumps(uu))
-        except websockets.ConnectionClosed:
-            console.print(f"Connection closed for UUID: {client_uuid}, retrying")
-            serve_image_in_bg(file_path, client_uuid, name)
 
 
 MEDIA_TYPES = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
@@ -766,6 +915,13 @@ def write_file(
         path_ = expand_user(writefile.file_path, BASH_STATE.is_in_docker)
 
     error_on_exist_ = error_on_exist and path_ not in BASH_STATE.whitelist_for_overwrite
+
+    # Validate using write_if_empty_mode after checking whitelist
+    allowed_globs = BASH_STATE.write_if_empty_mode.allowed_globs
+    if allowed_globs != "all" and not any(
+        fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
+    ):
+        return f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
     add_overwrite_warning = ""
     if not BASH_STATE.is_in_docker:
         if (error_on_exist or error_on_exist_) and os.path.exists(path_):
@@ -896,6 +1052,15 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
         )
     else:
         path_ = expand_user(fedit.file_path, BASH_STATE.is_in_docker)
+
+    # Validate using file_edit_mode
+    allowed_globs = BASH_STATE.file_edit_mode.allowed_globs
+    if allowed_globs != "all" and not any(
+        fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
+    ):
+        raise Exception(
+            f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
+        )
 
     # The LLM is now aware that the file exists
     BASH_STATE.add_to_whitelist_for_overwrite(path_)
@@ -1063,7 +1228,7 @@ def get_tool_output(
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
-    global IS_IN_DOCKER, TOOL_CALLS
+    global IS_IN_DOCKER, TOOL_CALLS, INITIALIZED
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
         arg = adapter.validate_python(args)
@@ -1071,17 +1236,27 @@ def get_tool_output(
         arg = args
     output: tuple[str | DoneFlag | ImageData, float]
     TOOL_CALLS.append(arg)
+
     if isinstance(arg, Confirmation):
         console.print("Calling ask confirmation tool")
         output = ask_confirmation(arg), 0.0
     elif isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
+        if not INITIALIZED:
+            raise Exception("Initialize tool not called yet.")
+
         output = execute_bash(enc, arg, max_tokens, arg.wait_for_seconds)
     elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
+        if not INITIALIZED:
+            raise Exception("Initialize tool not called yet.")
+
         output = write_file(arg, True, max_tokens), 0
     elif isinstance(arg, FileEdit):
         console.print("Calling full file edit tool")
+        if not INITIALIZED:
+            raise Exception("Initialize tool not called yet.")
+
         output = do_diff_edit(arg, max_tokens), 0.0
     elif isinstance(arg, DoneFlag):
         console.print("Calling mark finish tool")
@@ -1106,6 +1281,7 @@ def get_tool_output(
                 arg.initial_files_to_read,
                 arg.task_id_to_resume,
                 max_tokens,
+                arg.mode,
             ),
             0.0,
         )
@@ -1158,7 +1334,7 @@ def get_tool_output(
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
         relevant_files_data = read_files(relevant_files[:10_000], None)
-        output_ = save_memory(arg, relevant_files_data)
+        output_ = save_memory(arg, relevant_files_data, BASH_STATE.serialize())
         if not relevant_files and arg.relevant_file_globs:
             output_ = f'Error: No files found for the given globs. Context file successfully saved at "{output_}", but please fix the error.'
         elif warnings:

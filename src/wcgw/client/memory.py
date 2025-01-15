@@ -1,7 +1,8 @@
+import json
 import os
 import re
 import shlex
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from ..types_ import ContextSave
 
@@ -30,7 +31,11 @@ def format_memory(task_memory: ContextSave, relevant_files: str) -> str:
     return memory_data
 
 
-def save_memory(task_memory: ContextSave, relevant_files: str) -> str:
+def save_memory(
+    task_memory: ContextSave,
+    relevant_files: str,
+    bash_state_dict: Optional[dict[str, Any]] = None,
+) -> str:
     app_dir = get_app_dir_xdg()
     memory_dir = os.path.join(app_dir, "memory")
     os.makedirs(memory_dir, exist_ok=True)
@@ -45,6 +50,12 @@ def save_memory(task_memory: ContextSave, relevant_files: str) -> str:
     with open(memory_file_full, "w") as f:
         f.write(memory_data)
 
+    # Save bash state if provided
+    if bash_state_dict is not None:
+        state_file = os.path.join(memory_dir, f"{task_id}_bash_state.json")
+        with open(state_file, "w") as f:
+            json.dump(bash_state_dict, f, indent=2)
+
     return memory_file_full
 
 
@@ -53,7 +64,7 @@ def load_memory[T](
     max_tokens: Optional[int],
     encoder: Callable[[str], list[T]],
     decoder: Callable[[list[T]], str],
-) -> tuple[str, str]:
+) -> tuple[str, str, Optional[dict[str, Any]]]:
     app_dir = get_app_dir_xdg()
     memory_dir = os.path.join(app_dir, "memory")
     memory_file = os.path.join(memory_dir, f"{task_id}.txt")
@@ -75,4 +86,12 @@ def load_memory[T](
         parsed_ = shlex.split(matched_path)
         if parsed_ and len(parsed_) == 1:
             project_root_path = parsed_[0]
-    return project_root_path, data
+
+    # Try to load bash state if exists
+    state_file = os.path.join(memory_dir, f"{task_id}_bash_state.json")
+    bash_state: Optional[dict[str, Any]] = None
+    if os.path.exists(state_file):
+        with open(state_file) as f:
+            bash_state = json.load(f)
+
+    return project_root_path, data, bash_state

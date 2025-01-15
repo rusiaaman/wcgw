@@ -408,6 +408,47 @@
         ],
         "title": "BashInteractionWithUUID"
       },
+      "CodeWriterMode": {
+        "properties": {
+          "allowed_globs": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "all"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Allowed Globs"
+          },
+          "allowed_commands": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "all"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Allowed Commands"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "allowed_globs",
+          "allowed_commands"
+        ],
+        "title": "CodeWriterMode"
+      },
       "CommandWithUUID": {
         "properties": {
           "command": {
@@ -520,6 +561,25 @@
             "type": "string",
             "title": "Task Id To Resume"
           },
+          "mode_name": {
+            "type": "string",
+            "enum": [
+              "wcgw",
+              "architect",
+              "code_writer"
+            ],
+            "title": "Mode Name"
+          },
+          "code_writer_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodeWriterMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "user_id": {
             "type": "string",
             "format": "uuid",
@@ -532,6 +592,7 @@
           "any_workspace_path",
           "initial_files_to_read",
           "task_id_to_resume",
+          "mode_name",
           "user_id"
         ],
         "title": "InitializeWithUUID"
