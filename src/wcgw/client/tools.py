@@ -13,6 +13,7 @@ import traceback
 import uuid
 from os.path import expanduser
 from pathlib import Path
+import platform
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import (
     Any,
@@ -142,6 +143,8 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
         cmd = "/bin/bash"
         if is_restricted_mode:
             cmd += " -r"
+        if platform.system() == "Linux":
+            cmd += " --noprofile --norc"
 
         shell = pexpect.spawn(
             cmd,
