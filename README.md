@@ -37,7 +37,7 @@
   - File edit based on search-replace tries to find correct search block if it has multiple matches based on previous search blocks. Fails otherwise (for correctness).
   - File edit has spacing tolerant matching, with warning on issues like indentation mismatch. If there's no match, the closest match is returned to the AI to fix its mistakes.
   - Using Aider-like search and replace, which has better performance than tool call based search and replace.
-- ⚡ **Shell optimisations**: 
+- ⚡ **Shell optimizations**: 
   - Only one command is allowed to be run at a time, simplifying management and avoiding rogue processes. There's only single shell instance at any point of time.
   - Current working directory is always returned after any shell command to prevent AI from getting lost. 
   - Command polling exits after a quick timeout to avoid slow feedback. However, status checking has wait tolerance based on fresh output streaming from a command. Both of these approach combined provides a good shell interaction experience.
