@@ -212,7 +212,7 @@ Format the `description` field using Markdown with the following sections.
 
 Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
 
-(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
+(Note to self: this conversation can then be resumed later asking "Resume wcgw task `<generated id>`" which should call Initialize tool)
 """
 
 
@@ -230,7 +230,7 @@ Format the `description` field using Markdown with the following sections.
 
 Provide all relevant file paths in order to understand and solve the the task. Err towards providing more file paths than fewer.
 
-(Note to self: this conversation can then be resumed later asking "Resume `<generated id>`" which should call Initialize tool)
+(Note to self: this conversation can then be resumed later asking "Resume wcgw task `<generated id>`" which should call Initialize tool)
 """
 
 KTS = {Modes.wcgw: WCGW_KT, Modes.architect: ARCHITECT_KT, Modes.code_writer: WCGW_KT}
