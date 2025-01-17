@@ -151,7 +151,7 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
             timeout=TIMEOUT,
             cwd=initial_dir,
         )
-        shell.sendline(f"export PS1={PROMPT}")
+        shell.sendline(f"export PROMPT_COMMAND= PS1={PROMPT}") # Unset prompt command to avoid interfering
         shell.expect(PROMPT, timeout=TIMEOUT)
     except Exception as e:
         console.print(traceback.format_exc())
