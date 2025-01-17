@@ -152,6 +152,7 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
             cwd=initial_dir,
         )
         shell.sendline(f"export PS1={PROMPT}")
+        shell.expect(PROMPT, timeout=TIMEOUT)
     except Exception as e:
         console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
@@ -163,8 +164,9 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
             encoding="utf-8",
             timeout=TIMEOUT,
         )
+        shell.sendline(f"export PS1={PROMPT}")
+        shell.expect(PROMPT, timeout=TIMEOUT)
 
-    shell.expect(PROMPT, timeout=TIMEOUT)
     shell.sendline("stty -icanon -echo")
     shell.expect(PROMPT, timeout=TIMEOUT)
     shell.sendline("set +o pipefail")
