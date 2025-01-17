@@ -138,11 +138,11 @@ PROMPT = PROMPT_CONST
 
 
 def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore
-    try:
-        cmd = "/bin/bash"
-        if is_restricted_mode:
-            cmd += " -r"
+    cmd = "/bin/bash"
+    if is_restricted_mode:
+        cmd += " -r"
 
+    try:
         shell = pexpect.spawn(
             cmd,
             env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
