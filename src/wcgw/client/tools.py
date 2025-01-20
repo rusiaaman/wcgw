@@ -151,7 +151,9 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
             timeout=TIMEOUT,
             cwd=initial_dir,
         )
-        shell.sendline(f"export PROMPT_COMMAND= PS1={PROMPT}") # Unset prompt command to avoid interfering
+        shell.sendline(
+            f"export PROMPT_COMMAND= PS1={PROMPT}"
+        )  # Unset prompt command to avoid interfering
         shell.expect(PROMPT, timeout=TIMEOUT)
     except Exception as e:
         console.print(traceback.format_exc())
@@ -440,6 +442,7 @@ def initialize(
             if os.path.abspath(any_workspace_path):
                 os.makedirs(any_workspace_path, exist_ok=True)
                 repo_context = f"\nInfo: Workspace path {any_workspace_path} did not exist. I've created it for you.\n"
+                folder_to_start = Path(any_workspace_path)
             else:
                 repo_context = (
                     f"\nInfo: Workspace path {any_workspace_path} does not exist."
