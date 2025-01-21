@@ -203,7 +203,7 @@ Format the `description` field using Markdown with the following sections.
 - "# Objective" section containing project and task objective.
 - "# All user instructions" section should be provided containing all instructions user shared in the conversation.
 - "# Current status of the task" should be provided containing only what is already achieved, not what's remaining.
-- "# All issues with snippets" section containing snippets of error, traceback, file snippets, commands, etc. But no comments or solutions.
+- "# Pending issues with snippets" section containing snippets of pending errors, traceback, file snippets, commands, etc. But no comments or solutions.
 - Be very verbose in the all issues with snippets section providing as much error context as possible.
 - "# Build and development instructions" section containing instructions to build or run project or run tests, or envrionment related information. Only include what's known. Leave empty if unknown.
 - Any other relevant sections following the above.
