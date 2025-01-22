@@ -51,7 +51,7 @@ def code_writer_prompt(
     allowed_commands: Literal["all"] | list[str],
 ) -> str:
     base = """
-You have to run in "code_writer" mode.
+You are now running in "code_writer" mode.
 """
 
     path_prompt = """
@@ -134,7 +134,7 @@ Additional instructions:
 
 
 """
-ARCHITECT_PROMPT = """You have to run in "architect" mode. This means
+ARCHITECT_PROMPT = """You are now running in "architect" mode. This means
 - You are not allowed to edit or update any file. You are not allowed to create any file. 
 - You are not allowed to run any commands that may change disk, system configuration, packages or environment. Only read-only commands are allowed.
 - Only run commands that allows you to explore the repository, understand the system or read anything of relevance. 
