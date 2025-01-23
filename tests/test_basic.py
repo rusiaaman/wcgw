@@ -1,15 +1,13 @@
-import unittest
-from unittest.mock import patch, mock_open
-from src.wcgw_cli.openai_client import (
-    text_from_editor,
-    save_history,
-    parse_user_message_special,
-    Config,
-)
-import os
-import tempfile
 import json
+import unittest
 from pathlib import Path
+from unittest.mock import mock_open, patch
+
+from wcgw_cli.openai_client import (
+    parse_user_message_special,
+    save_history,
+    text_from_editor,
+)
 
 
 class TestBasic(unittest.TestCase):
