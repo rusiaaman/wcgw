@@ -290,10 +290,9 @@ class TestToolsExtended(unittest.TestCase):
 
     @patch("wcgw.client.tools.command_run")
     def test_read_files_docker(self, mock_command_run):
-        from wcgw.client.tools import BASH_STATE, DisableConsole, read_files
+        from wcgw.client.tools import BASH_STATE, read_files
 
         # Setup mocks and test environment
-        console = DisableConsole()
         BASH_STATE.set_in_docker("test_container")
         mock_command_run.return_value = (0, "file content", "")
 
