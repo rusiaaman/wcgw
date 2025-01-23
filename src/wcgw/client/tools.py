@@ -20,6 +20,7 @@ from typing import (
     Literal,
     Optional,
     ParamSpec,
+    Protocol,
     Type,
     TypeVar,
 )
@@ -73,17 +74,13 @@ from .repo_ops.repo_context import get_repo_context
 from .sys_utils import command_run
 
 
-class DisableConsole:
-    def print(self, *args, **kwargs):  # type: ignore
-        pass
+class Console(Protocol):
+    def print(self, msg: str, *args: Any, **kwargs: Any) -> None: ...
 
-    def log(self, *args, **kwargs):  # type: ignore
-        pass
+    def log(self, msg: str, *args: Any, **kwargs: Any) -> None: ...
 
 
-console: rich.console.Console | DisableConsole = rich.console.Console(
-    style="magenta", highlight=False, markup=False
-)
+console: Console = rich.console.Console(style="magenta", highlight=False, markup=False)
 
 TIMEOUT = 5
 TIMEOUT_WHILE_OUTPUT = 20

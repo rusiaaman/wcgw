@@ -1,15 +1,15 @@
 import importlib
 import json
+import logging
 import os
 from typing import Any
-
-from pydantic import AnyUrl, ValidationError
 
 import mcp_wcgw.server.stdio
 import mcp_wcgw.types as types
 from mcp_wcgw.server import NotificationOptions, Server
 from mcp_wcgw.server.models import InitializationOptions
 from mcp_wcgw.types import Tool as ToolParam
+from pydantic import AnyUrl, ValidationError
 
 from ...types_ import (
     BashCommand,
@@ -34,6 +34,18 @@ from ..tools import DoneFlag, default_enc, get_tool_output, which_tool_name
 COMPUTER_USE_ON_DOCKER_ENABLED = False
 
 server = Server("wcgw")
+
+# Log only time stamp
+logging.basicConfig(level=logging.INFO, format="%(asctime)s: %(message)s")
+logger = logging.getLogger("wcgw")
+
+
+class Console:
+    def print(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        logger.info(msg)
+
+    def log(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        logger.info(msg)
 
 
 @server.list_resources()  # type: ignore
@@ -301,7 +313,7 @@ async def main(computer_use: bool) -> None:
     tools.TIMEOUT = SLEEP_TIME_MAX_S
     tools.TIMEOUT_WHILE_OUTPUT = 55
     tools.OUTPUT_WAIT_PATIENCE = 5
-    tools.console = tools.DisableConsole()
+    tools.console = Console()
 
     if computer_use:
         COMPUTER_USE_ON_DOCKER_ENABLED = True
