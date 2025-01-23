@@ -2,7 +2,7 @@ import pytest
 from typing import cast
 from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam, ParsedChatCompletionMessage
 from tokenizers import Tokenizer
-from wcgw.client.openai_utils import get_input_cost, get_output_cost
+from wcgw_cli.openai_utils import get_input_cost, get_output_cost
 from wcgw.client.common import CostData
 
 

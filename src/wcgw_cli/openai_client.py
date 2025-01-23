@@ -35,7 +35,7 @@ from src.wcgw.types_ import (
 )
 from src.wcgw.client.common import CostData, History, Models, discard_input
 from src.wcgw.client.memory import load_memory
-from src.wcgw.client.openai_utils import get_input_cost, get_output_cost
+from .openai_utils import get_input_cost, get_output_cost
 from src.wcgw.client.tools import (
     DoneFlag,
     ImageData,
