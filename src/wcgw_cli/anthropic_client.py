@@ -22,7 +22,7 @@ from anthropic.types import (
 from dotenv import load_dotenv
 from typer import Typer
 
-from ..types_ import (
+from src.wcgw.types_ import (
     BashCommand,
     BashInteraction,
     ContextSave,
@@ -36,9 +36,9 @@ from ..types_ import (
     ScreenShot,
     WriteIfEmpty,
 )
-from .common import discard_input
-from .memory import load_memory
-from .tools import (
+from src.wcgw.client.common import discard_input
+from src.wcgw.client.memory import load_memory
+from src.wcgw.client.tools import (
     DoneFlag,
     ImageData,
     default_enc,
@@ -290,7 +290,7 @@ Saves provided description and file contents of all the relevant file paths or g
         mode="wcgw",
     )
 
-    with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:
+    with open(os.path.join(os.path.dirname(__file__), "..", "wcgw", "client", "diff-instructions.txt")) as f:
         system += f.read()
 
     if history:

@@ -23,7 +23,7 @@ from openai.types.chat import (
 from pydantic import BaseModel
 from typer import Typer
 
-from ..types_ import (
+from src.wcgw.types_ import (
     BashCommand,
     BashInteraction,
     ContextSave,
@@ -33,10 +33,10 @@ from ..types_ import (
     ResetShell,
     WriteIfEmpty,
 )
-from .common import CostData, History, Models, discard_input
-from .memory import load_memory
-from .openai_utils import get_input_cost, get_output_cost
-from .tools import (
+from src.wcgw.client.common import CostData, History, Models, discard_input
+from src.wcgw.client.memory import load_memory
+from src.wcgw.client.openai_utils import get_input_cost, get_output_cost
+from src.wcgw.client.tools import (
     DoneFlag,
     ImageData,
     default_enc,
@@ -235,7 +235,7 @@ Saves provided description and file contents of all the relevant file paths or g
         mode="wcgw",
     )
 
-    with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:
+    with open(os.path.join(os.path.dirname(__file__), "..", "wcgw", "client", "diff-instructions.txt")) as f:
         system += f.read()
 
     if not history:

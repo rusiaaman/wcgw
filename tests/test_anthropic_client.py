@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
 import base64
-from wcgw.client.anthropic_client import parse_user_message_special, text_from_editor
-from wcgw.client.tools import ImageData
+from src.wcgw_cli.anthropic_client import parse_user_message_special, text_from_editor
+from src.wcgw.client.tools import ImageData
 import tempfile
 import os
 import json

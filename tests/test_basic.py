@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, mock_open
-from wcgw.client.openai_client import (
+from src.wcgw_cli.openai_client import (
     text_from_editor,
     save_history,
     parse_user_message_special,

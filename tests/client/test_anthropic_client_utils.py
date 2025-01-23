@@ -3,7 +3,7 @@ import os
 import pytest
 from pathlib import Path
 import tempfile
-from wcgw.client.anthropic_client import (
+from src.wcgw_cli.anthropic_client import (
     text_from_editor,
     save_history,
     parse_user_message_special,

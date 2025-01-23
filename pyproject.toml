@@ -42,7 +42,7 @@ packages = ["src/wcgw", "src/mcp_wcgw_fork/src/mcp_wcgw"]
 "src/wcgw" = "wcgw"
 
 [project.scripts]
-wcgw_local = "wcgw:app"
+wcgw_local = "wcgw_cli:app"
 wcgw = "wcgw:listen"
 wcgw_relay = "wcgw.relay.serve:run"
 wcgw_mcp = "wcgw:mcp_server"

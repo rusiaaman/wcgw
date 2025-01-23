@@ -3,8 +3,8 @@ from typing import Optional
 from typer import Typer
 import typer
 
-from .openai_client import loop as openai_loop
-from .anthropic_client import loop as claude_loop
+from src.wcgw_cli.openai_client import loop as openai_loop
+from src.wcgw_cli.anthropic_client import loop as claude_loop
 
 
 app = Typer(pretty_exceptions_show_locals=False)
