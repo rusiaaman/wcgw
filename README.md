@@ -148,7 +148,7 @@ Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
 
 ## Examples
 
-![example](https://github.com/rusiaaman/wcgw/main/blob/main/static/example.jpg?raw=true)
+![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
 
 ## [Optional] Local shell access with openai API key or anthropic API key
 
