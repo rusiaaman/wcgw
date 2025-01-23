@@ -10,6 +10,7 @@
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
+[![smithery badge](https://smithery.ai/badge/wcgw)](https://smithery.ai/server/wcgw)
 
 ## Updates
 - [15 Jan 2025] Modes introduced: architect, code-writer, and all powerful wcgw mode. 
@@ -99,7 +100,6 @@ _If there's an error in setting up_
 - Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
 
 ### Alternative configuration using smithery (npx required)
-[![smithery badge](https://smithery.ai/badge/wcgw)](https://smithery.ai/server/wcgw)
 
 You need to first install uv using homebrew. `brew install uv`
 
@@ -148,7 +148,7 @@ Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
 
 ## Examples
 
-![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
+![example](https://github.com/rusiaaman/wcgw/main/blob/main/static/example.jpg?raw=true)
 
 ## [Optional] Local shell access with openai API key or anthropic API key
 
