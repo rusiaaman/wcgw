@@ -1,4 +1,5 @@
 # Shell and Coding agent for Claude and Chatgpt
+Empowering chat applications to code, build and run on your local machine.
 
 - Claude - An MCP server on claude desktop for autonomous shell and coding agent. (mac only)
 - Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux or mac)
