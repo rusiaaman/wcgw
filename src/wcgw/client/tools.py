@@ -130,7 +130,7 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-PROMPT_CONST = "#@wcgw@#"
+PROMPT_CONST = "#" + "@wcgw@#"
 PROMPT = PROMPT_CONST
 
 
@@ -1459,7 +1459,7 @@ def read_files(file_paths: list[str], max_tokens: Optional[int]) -> str:
         if truncated or (max_tokens and max_tokens <= 0):
             not_reading = file_paths[i + 1 :]
             if not_reading:
-                message += f'\nNot reading the rest of the files: {", ".join(not_reading)} due to token limit, please call again'
+                message += f"\nNot reading the rest of the files: {', '.join(not_reading)} due to token limit, please call again"
             break
         else:
             message += "```"
