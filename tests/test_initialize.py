@@ -248,3 +248,78 @@ class TestInitialize(unittest.TestCase):
 
             # Verify task memory was still loaded despite state error
             self.assertIn("Following is the retrieved task:\ntest_memory", result)
+
+
+    def test_workspace_path_is_file(self):
+        """Test initialize when workspace path points to a file"""
+        # Create a test file
+        test_file = os.path.join(self.test_workspace, "test.py")
+        os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        with open(test_file, "w") as f:
+            f.write("print('test')")
+
+        with (
+            patch("os.path.exists") as mock_exists,
+            patch("os.path.isfile") as mock_isfile,
+            patch("wcgw.client.tools.get_repo_context") as mock_get_context,
+            patch("wcgw.client.tools.read_files") as mock_read_files,
+        ):
+            mock_exists.return_value = True
+            mock_isfile.return_value = True
+            mock_get_context.return_value = (self.repo_context, os.path.dirname(test_file))
+            mock_read_files.return_value = f"``` {test_file}print('test')```"
+
+            # Call initialize with file path and no read_files_
+            result = initialize(
+                any_workspace_path=test_file,
+                read_files_=[],
+                task_id_to_resume="",
+                max_tokens=None,
+                mode=Modes.wcgw,
+            )
+
+            # Verify read_files was called with the file path
+            mock_read_files.assert_called_once_with([test_file], None)
+
+            # Verify repo context uses parent directory
+            mock_get_context.assert_called_once_with(os.path.dirname(test_file), 200)
+
+            # Verify file content is in output
+            self.assertIn(f"``` {test_file}print('test')", result)
+
+            # Verify cwd
+            self.assertIn(f"Initialized in directory (also cwd): {os.path.dirname(test_file)}\n", result)
+
+    def test_workspace_path_is_file_with_read_files(self):
+        """Test initialize when workspace path points to a file and read_files_ is provided"""
+        test_file = os.path.join(self.test_workspace, "test.py")
+        extra_file = os.path.join(self.test_workspace, "extra.py")
+
+        with (
+            patch("os.path.exists") as mock_exists,
+            patch("os.path.isfile") as mock_isfile,
+            patch("wcgw.client.tools.get_repo_context") as mock_get_context,
+            patch("wcgw.client.tools.read_files") as mock_read_files,
+        ):
+            mock_exists.return_value = True
+            mock_isfile.return_value = True
+            mock_get_context.return_value = (self.repo_context, os.path.dirname(test_file))
+            mock_read_files.return_value = f"``` {extra_file}extra content```"
+
+            # Call initialize with file path and explicit read_files_
+            result = initialize(
+                any_workspace_path=test_file,
+                read_files_=[extra_file],
+                task_id_to_resume="",
+                max_tokens=None,
+                mode=Modes.wcgw,
+            )
+
+            # Verify read_files was called with the provided read_files_ only
+            mock_read_files.assert_called_once_with([extra_file], None)
+
+            # Verify repo context uses parent directory
+            mock_get_context.assert_called_once_with(os.path.dirname(test_file), 200)
+
+            # Verify extra file content is in output
+            self.assertIn(f"``` {extra_file}extra content", result)

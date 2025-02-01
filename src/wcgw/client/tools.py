@@ -457,6 +457,12 @@ def initialize(
     folder_to_start = None
     if any_workspace_path:
         if os.path.exists(any_workspace_path):
+            if os.path.isfile(any_workspace_path):
+                # Set any_workspace_path to the directory containing the file
+                # Add the file to read_files_ only if empty to avoid duplicates
+                if not read_files_:
+                    read_files_ = [any_workspace_path]
+                any_workspace_path = os.path.dirname(any_workspace_path)
             repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
