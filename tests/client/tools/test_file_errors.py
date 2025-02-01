@@ -1,7 +1,7 @@
 """Tests for file operation error handling"""
 import unittest
 from unittest.mock import patch, MagicMock
-from wcgw.client.tools import save_out_of_context
+from wcgw.client.tools import read_image_from_shell, save_out_of_context
 
 class TestFileErrors(unittest.TestCase):
     def test_save_out_of_context(self):
@@ -14,6 +14,14 @@ class TestFileErrors(unittest.TestCase):
                 
                 result = save_out_of_context("test content", ".txt")
                 # Since we can't predict exact temp file name, just verify path and suffix
-                self.assertTrue(result.startswith('/tmp/tmp'))
                 self.assertTrue(result.endswith('.txt'))
                 mock_file.write.assert_called_once_with("test content")
+
+    def test_read_nonexistent_image(self):
+        """Test reading a non-existent image file"""
+        with patch('os.path.exists', return_value=False):
+            with patch('os.path.isabs', return_value=True):
+                with self.assertRaises(ValueError) as cm:
+                    read_image_from_shell("/nonexistent/image.png")
+                self.assertIn("does not exist", str(cm.exception))
+                

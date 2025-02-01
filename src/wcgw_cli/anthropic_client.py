@@ -39,13 +39,9 @@ from wcgw.types_ import (
     BashInteraction,
     ContextSave,
     FileEdit,
-    GetScreenInfo,
-    Keyboard,
-    Mouse,
     ReadFiles,
     ReadImage,
     ResetShell,
-    ScreenShot,
     WriteIfEmpty,
 )
 
@@ -129,7 +125,6 @@ def loop(
     first_message: Optional[str] = None,
     limit: Optional[float] = None,
     resume: Optional[str] = None,
-    computer_use: bool = False,
 ) -> tuple[str, float]:
     load_dotenv()
 
@@ -263,7 +258,7 @@ def loop(
         ToolParam(
             input_schema=ResetShell.model_json_schema(),
             name="ResetShell",
-            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.\nAlso exits the docker environment.\nYou need to call GetScreenInfo again",
+            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
         ToolParam(
             input_schema=FileEdit.model_json_schema(),
@@ -284,57 +279,6 @@ Saves provided description and file contents of all the relevant file paths or g
 """,
         ),
     ]
-
-    if computer_use:
-        tools += [
-            ToolParam(
-                input_schema=GetScreenInfo.model_json_schema(),
-                name="GetScreenInfo",
-                description="""
-- Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
-- Get display information of a linux os running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
-- If user hasn't provided docker image id, check using `docker ps` and provide the id.
-- If the docker is not running, run using `docker run -d -p 6080:6080 ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest`
-- Connects shell to the docker environment.
-- Note: once this is called, the shell enters the docker environment. All bash commands will run over there.
-""",
-            ),
-            ToolParam(
-                input_schema=ScreenShot.model_json_schema(),
-                name="ScreenShot",
-                description="""
-- Capture screenshot of the linux os on docker.
-- All actions on UI using mouse and keyboard return within 0.5 seconds.
-    * So if you're doing something that takes longer for UI to update like heavy page loading, keep checking UI for update using ScreenShot upto 10 turns. 
-    * Notice for smallest of the loading icons to check if your action worked.
-    * After 10 turns of no change, ask user for permission to keep checking.
-    * If you don't notice even slightest of the change, it's likely you clicked on the wrong place.
-
-""",
-            ),
-            ToolParam(
-                input_schema=Mouse.model_json_schema(),
-                name="Mouse",
-                description="""
-- Interact with the linux os on docker using mouse.
-- Uses xdotool
-- About left_click_drag: the current mouse position will be used as the starting point, click and drag to the given x, y coordinates. Useful in things like sliders, moving things around, etc.
-- The output of this command has the screenshot after doing this action. Use this to verify if the action was successful.
-""",
-            ),
-            ToolParam(
-                input_schema=Keyboard.model_json_schema(),
-                name="Keyboard",
-                description="""
-- Interact with the linux os on docker using keyboard.
-- Emulate keyboard input to the screen
-- Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
-- Do not use it to interact with Bash tool.
-- Make sure you've selected a text area or an editable element before sending text.
-- The output of this command has the screenshot after doing this action. Use this to verify if the action was successful.
-""",
-            ),
-        ]
 
     system = initialize(
         os.getcwd(),

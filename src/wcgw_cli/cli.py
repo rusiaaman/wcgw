@@ -16,7 +16,6 @@ def loop(
     first_message: Optional[str] = None,
     limit: Optional[float] = None,
     resume: Optional[str] = None,
-    computer_use: bool = False,
     version: bool = typer.Option(False, "--version", "-v"),
 ) -> tuple[str, float]:
     if version:
@@ -28,7 +27,6 @@ def loop(
             first_message=first_message,
             limit=limit,
             resume=resume,
-            computer_use=computer_use,
         )
     else:
         return openai_loop(
