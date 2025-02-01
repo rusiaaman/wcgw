@@ -261,6 +261,7 @@ class BashState:
             raise ValueError(f"Malformed output: {before}")
 
     def _init_shell(self) -> None:
+        self._prompt = PROMPT_CONST
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
         # Ensure self._cwd exists
@@ -269,7 +270,7 @@ class BashState:
             self._bash_command_mode.bash_mode == "restricted_mode",
             self._cwd,
         )
-
+    
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
