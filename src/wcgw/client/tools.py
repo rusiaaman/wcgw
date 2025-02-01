@@ -131,7 +131,6 @@ def ask_confirmation(prompt: Confirmation) -> str:
 
 
 PROMPT_CONST = "#" + "@wcgw@#"
-PROMPT = PROMPT_CONST
 
 
 def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore
