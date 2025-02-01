@@ -240,7 +240,7 @@ class BashState:
         shell.expect(self._prompt, timeout=0.2)
         shell.sendline("jobs | wc -l")
         before = ""
-
+        counts = 0
         while not _is_int(before):  # Consume all previous output
             try:
                 shell.expect(self._prompt, timeout=0.2)
@@ -254,6 +254,9 @@ class BashState:
             assert isinstance(before_val, str)
             before_lines = render_terminal_output(before_val)
             before = "\n".join(before_lines).strip()
+            counts += 1
+            if counts > 100:
+                raise ValueError("Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it")
 
         try:
             return int(before)
@@ -405,9 +408,13 @@ class BashState:
             self._prompt = re.escape(self._prompt)
             console.print(f"Trying to update prompt to: {self._prompt.encode()!r}")
             index = 0
+            counts = 0
             while index == 0:
                 # Consume all REPL prompts till now
                 index = self.shell.expect([self._prompt, pexpect.TIMEOUT], timeout=0.2)
+                counts += 1
+                if counts > 100:
+                    raise ValueError("Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it")
             console.print(f"Prompt updated to: {self._prompt}")
             return True
         return False
