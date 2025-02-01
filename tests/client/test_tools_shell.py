@@ -312,7 +312,6 @@ class TestToolsShell(unittest.TestCase):
         self.assertIn("Failure", output)
         self.assertEqual(cost, 0)
 
-    @patch("wcgw.client.tools.PROMPT", new="TEST_PROMPT>")
     @patch("wcgw.client.tools.PROMPT_CONST", new="TEST_PROMPT>")
     @patch("wcgw.client.tools.BASH_STATE")
     @patch("wcgw.client.tools.pexpect")

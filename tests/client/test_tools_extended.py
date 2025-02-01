@@ -217,7 +217,7 @@ class TestToolsExtended(unittest.TestCase):
 
     @patch("pexpect.spawn")
     def test_start_shell(self, mock_spawn):
-        from wcgw.client.tools import PROMPT, start_shell
+        from wcgw.client.tools import PROMPT_CONST, start_shell
 
         # Setup mock shell
         mock_shell = MagicMock()
@@ -229,7 +229,7 @@ class TestToolsExtended(unittest.TestCase):
 
         # Verify shell initialization
         self.assertEqual(mock_shell.expect.call_count, 4)  # 4 setup commands
-        mock_shell.sendline.assert_any_call(f"export PROMPT_COMMAND= PS1={PROMPT}")
+        mock_shell.sendline.assert_any_call(f"export PROMPT_COMMAND= PS1={PROMPT_CONST}")
         mock_shell.sendline.assert_any_call("stty -icanon -echo")
         mock_shell.sendline.assert_any_call("set +o pipefail")
         mock_shell.sendline.assert_any_call("export GIT_PAGER=cat PAGER=cat")
