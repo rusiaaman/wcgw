@@ -12,7 +12,7 @@ from wcgw.client.tools import (
     which_tool,
     which_tool_name,
 )
-from wcgw.types_ import BashCommand, BashInteraction, Keyboard, Mouse, WriteIfEmpty
+from wcgw.types_ import BashCommand, BashInteraction, WriteIfEmpty
 
 
 class TestToolsExtended(unittest.TestCase):
@@ -22,8 +22,7 @@ class TestToolsExtended(unittest.TestCase):
 
         global INITIALIZED, TOOL_CALLS
         INITIALIZED = False
-        TOOL_CALLS = []
-        BASH_STATE._is_in_docker = ""  # Reset Docker state without shell reset
+        TOOL_CALLS = []  
 
         # Properly initialize tools for testing
         initialize(
@@ -94,12 +93,10 @@ class TestToolsExtended(unittest.TestCase):
     def test_which_tool_name(self):
         # Test valid tool names
         self.assertEqual(which_tool_name("BashCommand"), BashCommand)
-        self.assertEqual(which_tool_name("Mouse"), Mouse)
-        self.assertEqual(which_tool_name("Keyboard"), Keyboard)
 
         # Test invalid tool name
         with self.assertRaises(ValueError):
-            which_tool_name("InvalidTool")
+            which_tool_name("InvalidTool") 
 
         # Test pending state
         BASH_STATE.set_pending("test output")
@@ -264,56 +261,6 @@ class TestToolsExtended(unittest.TestCase):
         with self.assertRaises(json.JSONDecodeError):
             which_tool("invalid json")
 
-    @patch("os.system")
-    @patch("tempfile.TemporaryDirectory")
-    def test_write_file_docker(self, mock_temp_dir, mock_system):
-        from wcgw.client.tools import BASH_STATE, write_file
-
-        # Setup Docker environment
-        BASH_STATE.set_in_docker("test_container")
-
-        # Setup mocks
-        mock_temp_dir.return_value.__enter__.return_value = "/tmp/test"
-        mock_system.return_value = 0
-
-        # Test writing in Docker environment
-        test_file = WriteIfEmpty(
-            file_path="/test/file.py", file_content="print('test')"
-        )
-        result = write_file(test_file, error_on_exist=False, max_tokens=100)
-        self.assertIn("Success", result)
-
-        # Test Docker command failure
-        mock_system.return_value = 1
-        result = write_file(test_file, error_on_exist=False, max_tokens=100)
-        self.assertIn("Error: Write failed with code", result)
-
-    @patch("wcgw.client.tools.command_run")
-    def test_read_files_docker(self, mock_command_run):
-        from wcgw.client.tools import BASH_STATE, read_files
-
-        # Setup mocks and test environment
-        BASH_STATE.set_in_docker("test_container")
-        mock_command_run.return_value = (0, "file content", "")
-
-        with patch("wcgw.client.tools.read_file") as mock_read_file:
-            mock_read_file.return_value = ("file content", False, 10)
-
-            # Test file read
-            result = read_files(["/test/file.py"], max_tokens=100)
-            self.assertIn("file content", result)
-
-            # Cleanup
-            BASH_STATE._is_in_docker = ""
-
-        # Test read failure
-        mock_command_run.return_value = (1, "", "error message")
-        with patch("os.path.exists", return_value=False):
-            result = read_files(["/test/nonexistent.py"], max_tokens=100)
-        self.assertIn("file /test/nonexistent.py does not exist", result)
-
-        # Reset Docker state
-        BASH_STATE._is_in_docker = ""
 
     @patch("wcgw.client.tools.BASH_STATE")
     def test_execute_bash_interaction(self, mock_bash_state):
@@ -446,41 +393,6 @@ class TestToolsExtended(unittest.TestCase):
         )
         self.assertTrue(isinstance(result[0], str))
 
-    @patch("wcgw.client.tools.run_computer_tool")
-    def test_get_tool_output_computer_interactions(self, mock_run_computer):
-        """Test get_tool_output function with computer interaction tools"""
-        from wcgw.client.tools import BASH_STATE, get_tool_output
-
-        mock_enc = MagicMock()
-        mock_loop_call = MagicMock()
-
-        # Setup mock return value for computer tool
-        mock_run_computer.return_value = ("Tool output", "screenshot_data")
-
-        # Test Mouse tool
-        result, cost = get_tool_output(
-            {
-                "action": {"button_type": "left_click"},
-            },
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100,
-        )
-        self.assertEqual(len(result), 2)  # Output string and screenshot
-        self.assertTrue(isinstance(result[0], str))
-
-        # Test Keyboard tool with GetScreenInfo
-        BASH_STATE.set_in_docker("test_container")
-        result, cost = get_tool_output(
-            {"action": "type", "text": "test input"},
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100,
-        )
-        self.assertEqual(len(result), 2)
-        BASH_STATE._is_in_docker = ""
 
     @patch("wcgw.client.tools.take_help_of_ai_assistant")
     def test_get_tool_output_ai_assistant(self, mock_ai_helper):
