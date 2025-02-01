@@ -217,7 +217,7 @@ class TestToolsExtended(unittest.TestCase):
 
     @patch("pexpect.spawn")
     def test_start_shell(self, mock_spawn):
-        from wcgw.client.tools import PROMPT, start_shell
+        from wcgw.client.tools import PROMPT_CONST, start_shell
 
         # Setup mock shell
         mock_shell = MagicMock()
@@ -229,7 +229,7 @@ class TestToolsExtended(unittest.TestCase):
 
         # Verify shell initialization
         self.assertEqual(mock_shell.expect.call_count, 4)  # 4 setup commands
-        mock_shell.sendline.assert_any_call(f"export PROMPT_COMMAND= PS1={PROMPT}")
+        mock_shell.sendline.assert_any_call(f"export PROMPT_COMMAND= PS1={PROMPT_CONST}")
         mock_shell.sendline.assert_any_call("stty -icanon -echo")
         mock_shell.sendline.assert_any_call("set +o pipefail")
         mock_shell.sendline.assert_any_call("export GIT_PAGER=cat PAGER=cat")
@@ -315,39 +315,59 @@ class TestToolsExtended(unittest.TestCase):
         # Reset Docker state
         BASH_STATE._is_in_docker = ""
 
-    @patch("wcgw.client.tools.get_tool_output")
-    def test_execute_bash_interaction(self, mock_get_tool):
+    @patch("wcgw.client.tools.BASH_STATE")
+    def test_execute_bash_interaction(self, mock_bash_state):
         from wcgw.client.tools import BashInteraction, execute_bash
 
         mock_tokenizer = MagicMock()
-        mock_tokenizer.encode.return_value.ids = [1, 2, 3]
+        mock_tokenizer.encode.return_value = MagicMock(ids=[1, 2, 3])
 
-        # Test sending special keys
-        interaction = BashInteraction(
-            send_specials=[
-                "Enter",
-                "Key-up",
-                "Key-down",
-                "Key-left",
-                "Key-right",
-                "Ctrl-c",
-                "Ctrl-d",
-                "Ctrl-z",
-            ],
-        )
-        result, _ = execute_bash(
-            mock_tokenizer, interaction, max_tokens=100, timeout_s=1
-        )
-        self.assertIsInstance(result, str)
+        # Setup mock shell
+        mock_shell = MagicMock()
+        mock_shell.before = "test output\n"
+        mock_shell.expect.return_value = 0
+        mock_shell.linesep = "\n"
 
-        # Test sending ASCII characters
-        interaction = BashInteraction(
-            send_ascii=[97, 98, 99],  # 'abc'
-        )
-        result, _ = execute_bash(
-            mock_tokenizer, interaction, max_tokens=100, timeout_s=1
-        )
-        self.assertIsInstance(result, str)
+        # Setup mock BASH_STATE
+        mock_bash_state.shell = mock_shell
+        mock_bash_state.state = "repl"
+        mock_bash_state.pending_output = ""
+        mock_bash_state.update_cwd.return_value = "/test/dir"
+        mock_bash_state.update_repl_prompt.return_value = False
+        mock_bash_state.prompt = "TEST_PROMPT>"
+        mock_bash_state.ensure_env_and_bg_jobs.return_value = 0
+
+        def mock_get_status():
+            return "\n\nstatus = process exited\ncwd = /test/dir"
+
+        with patch("wcgw.client.tools.get_status", side_effect=mock_get_status):
+            # Test sending special keys
+            interaction = BashInteraction(
+                send_specials=[
+                    "Enter",
+                    "Key-up",
+                    "Key-down",
+                    "Key-left",
+                    "Key-right",
+                    "Ctrl-c",
+                    "Ctrl-d",
+                    "Ctrl-z",
+                ],
+            )
+            result, _ = execute_bash(
+                mock_tokenizer, interaction, max_tokens=100, timeout_s=1
+            )
+            self.assertIn("test output", result)
+
+            # Test sending ASCII characters
+            mock_shell.before = "abc output\n"
+            interaction = BashInteraction(
+                send_ascii=[97, 98, 99],  # 'abc'
+            )
+            result, _ = execute_bash(
+                mock_tokenizer, interaction, max_tokens=100, timeout_s=1
+            )
+            self.assertIn("abc output", result)
 
         # Test malformed interaction
         interaction = BashInteraction(

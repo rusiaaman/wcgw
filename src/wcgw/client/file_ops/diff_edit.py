@@ -6,6 +6,10 @@ from typing import Callable, DefaultDict, Literal, Optional
 TOLERANCE_TYPES = Literal["SILENT", "WARNING", "ERROR"]
 
 
+class SearchReplaceMatchError(Exception):
+    pass
+
+
 @dataclass
 class Tolerance:
     line_process: Callable[[str], str]
@@ -45,7 +49,7 @@ class FileEditOutput:
 Got error while processing the following search block:
 ---
 ```
-{'\n'.join(search_)}
+{"\n".join(search_)}
 ```
 ---
 Error:
@@ -53,7 +57,7 @@ Error:
 ---
                                   """)
                     if len(errors) >= max_errors:
-                        raise Exception("\n".join(errors))
+                        raise SearchReplaceMatchError("\n".join(errors))
             if last_idx < span.start:
                 new_lines.extend(self.original_content[last_idx : span.start])
 
@@ -64,7 +68,7 @@ Error:
             new_lines.extend(self.original_content[last_idx:])
 
         if errors:
-            raise Exception("\n".join(errors))
+            raise SearchReplaceMatchError("\n".join(errors))
 
         return new_lines, set(warnings)
 

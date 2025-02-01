@@ -8,7 +8,6 @@ from wcgw.client.tools import (
     BASH_STATE,
     get_status,
     is_status_check,
-    update_repl_prompt,
     which_tool,
     which_tool_name,
 )
@@ -83,13 +82,14 @@ class TestCommandValidation(unittest.TestCase):
             mock_state.shell = MagicMock()
             mock_state.shell.before = "new_prompt"
             mock_state.shell.expect.return_value = 1
+            mock_state.update_repl_prompt.side_effect = lambda cmd: "wcgw_update_prompt()" in cmd
 
             # Test valid prompt update command
-            result = update_repl_prompt("wcgw_update_prompt()")
+            result = mock_state.update_repl_prompt("wcgw_update_prompt()")
             self.assertTrue(result)
 
             # Test invalid command
-            result = update_repl_prompt("not_an_update_command")
+            result = mock_state.update_repl_prompt("not_an_update_command")
             self.assertFalse(result)
 
     def test_get_status(self):
@@ -108,18 +108,20 @@ class TestCommandValidation(unittest.TestCase):
             # Test completed state with background jobs
             mock_state.state = "repl"
             mock_state.update_cwd.return_value = "/test/dir2"
-            with patch("wcgw.client.tools._ensure_env_and_bg_jobs", return_value=2):
-                status = get_status()
-                self.assertIn(
-                    "status = process exited; 2 background jobs running", status
-                )
-                self.assertIn("cwd = /test/dir2", status)
+            mock_state.ensure_env_and_bg_jobs.return_value = 2
+
+            status = get_status()
+            self.assertIn(
+                "status = process exited; 2 background jobs running", status
+            )
+            self.assertIn("cwd = /test/dir2", status)
 
             # Test completed state without background jobs
             mock_state.state = "repl"
             mock_state.update_cwd.return_value = "/test/dir3"
-            with patch("wcgw.client.tools._ensure_env_and_bg_jobs", return_value=0):
-                status = get_status()
-                self.assertIn("status = process exited", status)
-                self.assertNotIn("background jobs running", status)
-                self.assertIn("cwd = /test/dir3", status)
+            mock_state.ensure_env_and_bg_jobs.return_value = 0
+
+            status = get_status()
+            self.assertIn("status = process exited", status)
+            self.assertNotIn("background jobs running", status)
+            self.assertIn("cwd = /test/dir3", status)

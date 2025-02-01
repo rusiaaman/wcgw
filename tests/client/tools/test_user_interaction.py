@@ -10,7 +10,6 @@ from wcgw.client.tools import (
     get_status,
     save_out_of_context,
     truncate_if_over,
-    update_repl_prompt,
 )
 
 
@@ -22,16 +21,25 @@ class TestUserInteraction(unittest.TestCase):
     def test_update_repl_prompt(self):
         """Test REPL prompt updating"""
         with patch("wcgw.client.tools.BASH_STATE") as mock_state:
-            mock_state.shell = MagicMock()
-            mock_state.shell.before = "new_prompt"
-            mock_state.shell.expect.return_value = 1
+            # Set up mock shell state and behavior
+            mock_shell = MagicMock()
+            mock_shell.before = "new_prompt"  
+            mock_shell.expect.return_value = 1
+            mock_state.shell = mock_shell
+            mock_state._prompt = "TEST_PROMPT>"
+            mock_state.update_repl_prompt.side_effect = lambda x: x.strip() == "wcgw_update_prompt()"
 
-            # Test valid prompt update
-            result = update_repl_prompt("wcgw_update_prompt()")
+            # Set up mock BashState behavior
+            def check_cmd(cmd: str) -> bool:
+                return cmd.strip() == "wcgw_update_prompt()"
+            mock_state.update_repl_prompt.side_effect = check_cmd
+
+            # Test valid prompt update command
+            result = mock_state.update_repl_prompt("wcgw_update_prompt()")
             self.assertTrue(result)
 
-            # Test invalid command
-            result = update_repl_prompt("invalid_command")
+            # Test invalid command 
+            result = mock_state.update_repl_prompt("invalid_command")
             self.assertFalse(result)
 
     def test_get_status(self):
@@ -50,12 +58,10 @@ class TestUserInteraction(unittest.TestCase):
             # Test completed state
             mock_state.state = "repl"
             mock_state.update_cwd.return_value = "/test/dir2"
-            with patch("wcgw.client.tools._ensure_env_and_bg_jobs", return_value=2):
-                status = get_status()
-                self.assertIn(
-                    "status = process exited; 2 background jobs running", status
-                )
-                self.assertIn("cwd = /test/dir2", status)
+            mock_state.ensure_env_and_bg_jobs.return_value = 2
+            status = get_status()
+            self.assertIn("status = process exited; 2 background jobs running", status)
+            self.assertIn("cwd = /test/dir2", status)
 
     def test_save_out_of_context(self):
         """Test saving content to temporary files"""

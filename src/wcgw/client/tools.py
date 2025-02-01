@@ -130,8 +130,7 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-PROMPT_CONST = "#@wcgw@#"
-PROMPT = PROMPT_CONST
+PROMPT_CONST = "#" + "@wcgw@#"
 
 
 def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore
@@ -142,36 +141,36 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
     try:
         shell = pexpect.spawn(
             cmd,
-            env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
+            env={**os.environ, **{"PS1": PROMPT_CONST}},  # type: ignore[arg-type]
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
             cwd=initial_dir,
         )
         shell.sendline(
-            f"export PROMPT_COMMAND= PS1={PROMPT}"
+            f"export PROMPT_COMMAND= PS1={PROMPT_CONST}"
         )  # Unset prompt command to avoid interfering
-        shell.expect(PROMPT, timeout=TIMEOUT)
+        shell.expect(PROMPT_CONST, timeout=TIMEOUT)
     except Exception as e:
         console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
 
         shell = pexpect.spawn(
             "/bin/bash --noprofile --norc",
-            env={**os.environ, **{"PS1": PROMPT}},  # type: ignore[arg-type]
+            env={**os.environ, **{"PS1": PROMPT_CONST}},  # type: ignore[arg-type]
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
         )
-        shell.sendline(f"export PS1={PROMPT}")
-        shell.expect(PROMPT, timeout=TIMEOUT)
+        shell.sendline(f"export PS1={PROMPT_CONST}")
+        shell.expect(PROMPT_CONST, timeout=TIMEOUT)
 
     shell.sendline("stty -icanon -echo")
-    shell.expect(PROMPT, timeout=TIMEOUT)
+    shell.expect(PROMPT_CONST, timeout=TIMEOUT)
     shell.sendline("set +o pipefail")
-    shell.expect(PROMPT, timeout=TIMEOUT)
+    shell.expect(PROMPT_CONST, timeout=TIMEOUT)
     shell.sendline("export GIT_PAGER=cat PAGER=cat")
-    shell.expect(PROMPT, timeout=TIMEOUT)
+    shell.expect(PROMPT_CONST, timeout=TIMEOUT)
     return shell
 
 
@@ -181,42 +180,6 @@ def _is_int(mystr: str) -> bool:
         return True
     except ValueError:
         return False
-
-
-def _ensure_env_and_bg_jobs(shell: pexpect.spawn) -> Optional[int]:  # type: ignore
-    if PROMPT != PROMPT_CONST:
-        return None
-    # First reset the prompt in case venv was sourced or other reasons.
-    shell.sendline(f"export PS1={PROMPT}")
-    shell.expect(PROMPT, timeout=0.2)
-    # Reset echo also if it was enabled
-    shell.sendline("stty -icanon -echo")
-    shell.expect(PROMPT, timeout=0.2)
-    shell.sendline("set +o pipefail")
-    shell.expect(PROMPT, timeout=0.2)
-    shell.sendline("export GIT_PAGER=cat PAGER=cat")
-    shell.expect(PROMPT, timeout=0.2)
-    shell.sendline("jobs | wc -l")
-    before = ""
-
-    while not _is_int(before):  # Consume all previous output
-        try:
-            shell.expect(PROMPT, timeout=0.2)
-        except pexpect.TIMEOUT:
-            console.print(f"Couldn't get exit code, before: {before}")
-            raise
-
-        before_val = shell.before
-        if not isinstance(before_val, str):
-            before_val = str(before_val)
-        assert isinstance(before_val, str)
-        before_lines = render_terminal_output(before_val)
-        before = "\n".join(before_lines).strip()
-
-    try:
-        return int(before)
-    except ValueError:
-        raise ValueError(f"Malformed output: {before}")
 
 
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
@@ -242,7 +205,7 @@ class BashState:
         )
         self._mode = mode or Modes.wcgw
         self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
-
+        self._prompt = PROMPT_CONST
         self._init_shell()
 
     @property
@@ -261,7 +224,44 @@ class BashState:
     def write_if_empty_mode(self) -> WriteIfEmptyMode:
         return self._write_if_empty_mode
 
+    def ensure_env_and_bg_jobs(self) -> Optional[int]:
+        if self._prompt != PROMPT_CONST:
+            return None
+        shell = self.shell
+        # First reset the prompt in case venv was sourced or other reasons.
+        shell.sendline(f"export PS1={self._prompt}")
+        shell.expect(self._prompt, timeout=0.2)
+        # Reset echo also if it was enabled
+        shell.sendline("stty -icanon -echo")
+        shell.expect(self._prompt, timeout=0.2)
+        shell.sendline("set +o pipefail")
+        shell.expect(self._prompt, timeout=0.2)
+        shell.sendline("export GIT_PAGER=cat PAGER=cat")
+        shell.expect(self._prompt, timeout=0.2)
+        shell.sendline("jobs | wc -l")
+        before = ""
+
+        while not _is_int(before):  # Consume all previous output
+            try:
+                shell.expect(self._prompt, timeout=0.2)
+            except pexpect.TIMEOUT:
+                console.print(f"Couldn't get exit code, before: {before}")
+                raise
+
+            before_val = shell.before
+            if not isinstance(before_val, str):
+                before_val = str(before_val)
+            assert isinstance(before_val, str)
+            before_lines = render_terminal_output(before_val)
+            before = "\n".join(before_lines).strip()
+
+        try:
+            return int(before)
+        except ValueError:
+            raise ValueError(f"Malformed output: {before}")
+
     def _init_shell(self) -> None:
+        self._prompt = PROMPT_CONST
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
         # Ensure self._cwd exists
@@ -270,11 +270,11 @@ class BashState:
             self._bash_command_mode.bash_mode == "restricted_mode",
             self._cwd,
         )
-
+    
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
-        _ensure_env_and_bg_jobs(self._shell)
+        self.ensure_env_and_bg_jobs()
 
     @property
     def shell(self) -> pexpect.spawn:  # type: ignore
@@ -306,9 +306,13 @@ class BashState:
     def cwd(self) -> str:
         return self._cwd
 
+    @property
+    def prompt(self) -> str:
+        return self._prompt
+
     def update_cwd(self) -> str:
         self.shell.sendline("pwd")
-        self.shell.expect(PROMPT, timeout=0.2)
+        self.shell.expect(self._prompt, timeout=0.2)
         before_val = self.shell.before
         if not isinstance(before_val, str):
             before_val = str(before_val)
@@ -387,6 +391,26 @@ class BashState:
     @property
     def pending_output(self) -> str:
         return self._pending_output
+
+    def update_repl_prompt(self, command: str) -> bool:
+        if re.match(r"^wcgw_update_prompt\(\)$", command.strip()):
+            self.shell.sendintr()
+            index = self.shell.expect([self._prompt, pexpect.TIMEOUT], timeout=0.2)
+            if index == 0:
+                return True
+            before = self.shell.before or ""
+            assert before, "Something went wrong updating repl prompt"
+            self._prompt = before.split("\n")[-1].strip()
+            # Escape all regex
+            self._prompt = re.escape(self._prompt)
+            console.print(f"Trying to update prompt to: {self._prompt.encode()!r}")
+            index = 0
+            while index == 0:
+                # Consume all REPL prompts till now
+                index = self.shell.expect([self._prompt, pexpect.TIMEOUT], timeout=0.2)
+            console.print(f"Prompt updated to: {self._prompt}")
+            return True
+        return False
 
 
 BASH_STATE = BashState(os.getcwd(), None, None, None, None)
@@ -544,28 +568,6 @@ WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run mul
 """
 
 
-def update_repl_prompt(command: str) -> bool:
-    global PROMPT
-    if re.match(r"^wcgw_update_prompt\(\)$", command.strip()):
-        BASH_STATE.shell.sendintr()
-        index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
-        if index == 0:
-            return True
-        before = BASH_STATE.shell.before or ""
-        assert before, "Something went wrong updating repl prompt"
-        PROMPT = before.split("\n")[-1].strip()
-        # Escape all regex
-        PROMPT = re.escape(PROMPT)
-        console.print(f"Trying to update prompt to: {PROMPT.encode()!r}")
-        index = 0
-        while index == 0:
-            # Consume all REPL prompts till now
-            index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=0.2)
-        console.print(f"Prompt updated to: {PROMPT}")
-        return True
-    return False
-
-
 def get_status() -> str:
     status = "\n\n---\n\n"
     if BASH_STATE.state == "pending":
@@ -573,7 +575,7 @@ def get_status() -> str:
         status += "running for = " + BASH_STATE.get_pending_for() + "\n"
         status += "cwd = " + BASH_STATE.cwd + "\n"
     else:
-        bg_jobs = _ensure_env_and_bg_jobs(BASH_STATE.shell)
+        bg_jobs = BASH_STATE.ensure_env_and_bg_jobs()
         bg_desc = ""
         if bg_jobs and bg_jobs > 0:
             bg_desc = f"; {bg_jobs} background jobs running"
@@ -643,7 +645,7 @@ def execute_bash(
         if isinstance(bash_arg, BashCommand):
             if BASH_STATE.bash_command_mode.allowed_commands == "none":
                 return "Error: BashCommand not allowed in current mode", 0.0
-            updated_repl_mode = update_repl_prompt(bash_arg.command)
+            updated_repl_mode = BASH_STATE.update_repl_prompt(bash_arg.command)
             if updated_repl_mode:
                 BASH_STATE.set_repl()
                 response = (
@@ -720,7 +722,7 @@ def execute_bash(
                         0.0,
                     )
 
-                updated_repl_mode = update_repl_prompt(bash_arg.send_text)
+                updated_repl_mode = BASH_STATE.update_repl_prompt(bash_arg.send_text)
                 if updated_repl_mode:
                     BASH_STATE.set_repl()
                     response = "Prompt updated, you can execute REPL lines using BashCommand now"
@@ -736,11 +738,11 @@ def execute_bash(
 
     except KeyboardInterrupt:
         BASH_STATE.shell.sendintr()
-        BASH_STATE.shell.expect(PROMPT)
+        BASH_STATE.shell.expect(BASH_STATE.prompt)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
     wait = min(timeout_s or TIMEOUT, TIMEOUT_WHILE_OUTPUT)
-    index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
+    index = BASH_STATE.shell.expect([BASH_STATE.prompt, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
         text = BASH_STATE.shell.before or ""
         incremental_text = _incremental_text(text, BASH_STATE.pending_output)
@@ -754,7 +756,9 @@ def execute_bash(
                 patience -= 1
             itext = incremental_text
             while remaining > 0 and patience > 0:
-                index = BASH_STATE.shell.expect([PROMPT, pexpect.TIMEOUT], timeout=wait)
+                index = BASH_STATE.shell.expect(
+                    [BASH_STATE.prompt, pexpect.TIMEOUT], timeout=wait
+                )
                 if index == 0:
                     second_wait_success = True
                     break
@@ -1310,7 +1314,7 @@ def get_tool_output(
                     # At this point we should go into the docker env
                     res, _ = execute_bash(
                         enc,
-                        BashInteraction(send_text=f"export PS1={PROMPT}"),
+                        BashInteraction(send_text=f"export PS1={BASH_STATE.prompt}"),
                         None,
                         0.2,
                     )
@@ -1459,7 +1463,7 @@ def read_files(file_paths: list[str], max_tokens: Optional[int]) -> str:
         if truncated or (max_tokens and max_tokens <= 0):
             not_reading = file_paths[i + 1 :]
             if not_reading:
-                message += f'\nNot reading the rest of the files: {", ".join(not_reading)} due to token limit, please call again'
+                message += f"\nNot reading the rest of the files: {', '.join(not_reading)} due to token limit, please call again"
             break
         else:
             message += "```"
