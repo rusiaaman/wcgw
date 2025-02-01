@@ -318,7 +318,8 @@ async def main(computer_use: bool) -> None:
     if computer_use:
         COMPUTER_USE_ON_DOCKER_ENABLED = True
 
-    version = importlib.metadata.version("wcgw")
+    version = str(importlib.metadata.version("wcgw"))
+    tools.console.log("wcgw version: " + version)
     # Run the server using stdin/stdout streams
     async with mcp_wcgw.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(

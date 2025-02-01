@@ -1,9 +1,9 @@
 # Shell and Coding agent for Claude and Chatgpt
+
 Empowering chat applications to code, build and run on your local machine.
 
 - Claude - An MCP server on claude desktop for autonomous shell and coding agent. (mac only)
 - Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux or mac)
-
 
 ⚠️ Warning: do not allow BashCommand tool without reviewing the command, it may result in data loss.
 
@@ -14,13 +14,14 @@ Empowering chat applications to code, build and run on your local machine.
 [![smithery badge](https://smithery.ai/badge/wcgw)](https://smithery.ai/server/wcgw)
 
 ## Updates
-- [15 Jan 2025] Modes introduced: architect, code-writer, and all powerful wcgw mode. 
+
+- [15 Jan 2025] Modes introduced: architect, code-writer, and all powerful wcgw mode.
 
 - [8 Jan 2025] Context saving tool for saving relevant file paths along with a description in a single file. Can be used as a task checkpoint or for knowledge transfer.
 
 - [29 Dec 2024] Syntax checking on file writing and edits is now stable. Made `initialize` tool call useful; sending smart repo structure to claude if any repo is referenced. Large file handling is also now improved.
 
-- [9 Dec 2024] [Vscode extension to paste context on Claude app](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw)  
+- [9 Dec 2024] [Vscode extension to paste context on Claude app](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw)
 
 - [01 Dec 2024] Removed author hosted relay server for chatgpt.
 
@@ -32,19 +33,19 @@ Empowering chat applications to code, build and run on your local machine.
 - ⚡ **Large file edit**: Supports large file incremental edits to avoid token limit issues. Faster than full file write.
 - ⚡ **Syntax checking on edits**: Reports feedback to the LLM if its edits have any syntax errors, so that it can redo it.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
-- ⚡ **File protections**: 
-  - The AI needs to read a file at least once before it's allowed to edit or rewrite it. This avoids accidental overwrites. 
-  - Avoids context filling up while reading very large files. Files get chunked based on token length. 
+- ⚡ **File protections**:
+  - The AI needs to read a file at least once before it's allowed to edit or rewrite it. This avoids accidental overwrites.
+  - Avoids context filling up while reading very large files. Files get chunked based on token length.
   - On initialisation the provided workspace's directory structure is returned after selecting important files (based on .gitignore as well as a statistical approach)
   - File edit based on search-replace tries to find correct search block if it has multiple matches based on previous search blocks. Fails otherwise (for correctness).
   - File edit has spacing tolerant matching, with warning on issues like indentation mismatch. If there's no match, the closest match is returned to the AI to fix its mistakes.
   - Using Aider-like search and replace, which has better performance than tool call based search and replace.
-- ⚡ **Shell optimizations**: 
+- ⚡ **Shell optimizations**:
   - Only one command is allowed to be run at a time, simplifying management and avoiding rogue processes. There's only single shell instance at any point of time.
-  - Current working directory is always returned after any shell command to prevent AI from getting lost. 
+  - Current working directory is always returned after any shell command to prevent AI from getting lost.
   - Command polling exits after a quick timeout to avoid slow feedback. However, status checking has wait tolerance based on fresh output streaming from a command. Both of these approach combined provides a good shell interaction experience.
 - ⚡ **Saving repo context in a single file**: Task checkpointing using "ContextSave" tool saves detailed context in a single file. Tasks can later be resumed in a new chat asking "Resume `task id`". The saved file can be used to do other kinds of knowledge transfer, such as taking help from another AI.
-- ⚡ **Easily switch between various modes**: 
+- ⚡ **Easily switch between various modes**:
   - Ask it to run in 'architect' mode for planning. Inspired by adier's architect mode, work with Claude to come up with a plan first. Leads to better accuracy and prevents premature file editing.
   - Ask it to run in 'code-writer' mode for code editing and project building. You can provide specific paths with wild card support to prevent other files getting edited.
   - By default it runs in 'wcgw' mode that has no restrictions and full authorisation.
@@ -122,25 +123,29 @@ over here
 Then ask claude to execute shell commands, read files, edit files, run your code, etc.
 
 #### Task checkpoint or knowledge transfer
+
 - You can do a task checkpoint or a knowledge transfer by attaching "KnowledgeTransfer" prompt using "Attach from MCP" button.
 - On running "KnowledgeTransfer" prompt, the "ContextSave" tool will be called saving the task description and all file content together in a single file. An id for the task will be generated.
 - You can in a new chat say "Resume '<task id>'", the AI should then call "Initialize" with the task id and load the context from there.
 - Or you can directly open the file generated and share it with another AI for help.
 
 #### Modes
+
 There are three built-in modes. You may ask Claude to run in one of the modes, like "Use 'architect' mode"
-| **Mode**       | **Description**                                                             | **Allows**                                               | **Denies**                                    | **Invoke prompt**                                                                                  |
+| **Mode** | **Description** | **Allows** | **Denies** | **Invoke prompt** |
 |-----------------|-----------------------------------------------------------------------------|---------------------------------------------------------|----------------------------------------------|----------------------------------------------------------------------------------------------------|
-| **Architect**   | Designed for you to work with Claude to investigate and understand your repo. | Read-only commands                                       | FileEdit and Write tool                      | Run in mode='architect'                                                                          |
-| **Code-writer** | For code writing and development                                           | Specified path globs for editing or writing, specified commands | FileEdit for paths not matching specified glob, Write for paths not matching specified glob | Run in code writer mode, only 'tests/**' allowed, only uv command allowed |
-| **wcgw**        | Default mode with everything allowed                                       | Everything                                              | Nothing                                      | No prompt, or "Run in wcgw mode"                                                                                       |
+| **Architect** | Designed for you to work with Claude to investigate and understand your repo. | Read-only commands | FileEdit and Write tool | Run in mode='architect' |
+| **Code-writer** | For code writing and development | Specified path globs for editing or writing, specified commands | FileEdit for paths not matching specified glob, Write for paths not matching specified glob | Run in code writer mode, only 'tests/**' allowed, only uv command allowed |
+| **wcgw\*\* | Default mode with everything allowed | Everything | Nothing | No prompt, or "Run in wcgw mode" |
 
 Note: in code-writer mode either all commands are allowed or none are allowed for now. If you give a list of allowed commands, Claude is instructed to run only those commands, but no actual check happens. (WIP)
 
-### [Optional] Vs code extension 
+### [Optional] Vs code extension
+
 https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw
 
-Commands: 
+Commands:
+
 - Select a text and press `cmd+'` and then enter instructions. This will switch the app to Claude and paste a text containing your instructions, file path, workspace dir, and the selected text.
 
 ## Chatgpt Setup
@@ -172,3 +177,36 @@ Then run
 `uvx --from wcgw@latest wcgw_local --claude`
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
+
+## Tools
+
+The server provides the following MCP tools:
+
+**Shell Operations:**
+
+- `Initialize`: Reset shell and set up workspace environment
+  - Parameters: `any_workspace_path` (string), `initial_files_to_read` (string[]), `mode_name` ("wcgw"|"architect"|"code_writer"), `task_id_to_resume` (string)
+- `BashCommand`: Execute shell commands with timeout control
+  - Parameters: `command` (string), `wait_for_seconds` (int, optional)
+- `BashInteraction`: Send keyboard input to running programs
+  - Parameters: `send_text` (string) or `send_specials` (["Enter"|"Key-up"|...]) or `send_ascii` (int[]), `wait_for_seconds` (int, optional)
+
+**File Operations:**
+
+- `ReadFiles`: Read content from one or more files
+  - Parameters: `file_paths` (string[])
+- `WriteIfEmpty`: Create new files or write to empty files
+  - Parameters: `file_path` (string), `file_content` (string)
+- `FileEdit`: Edit existing files using search/replace blocks
+  - Parameters: `file_path` (string), `file_edit_using_search_replace_blocks` (string)
+- `ReadImage`: Read image files for display/processing
+  - Parameters: `file_path` (string)
+
+**Project Management:**
+
+- `ContextSave`: Save project context and files for Knowledge Transfer or saving task checkpoints to be resumed later
+  - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[])
+- `ResetShell`: Emergency reset for shell environment
+  - Parameters: `should_reset` (boolean)
+
+All tools support absolute paths and include built-in protections against common errors. See the [MCP specification](https://modelcontextprotocol.io/) for detailed protocol information.
