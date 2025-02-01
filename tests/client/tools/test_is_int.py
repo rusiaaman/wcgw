@@ -20,6 +20,6 @@ def test_is_int_edge_cases():
     assert _is_int("+123") is True     # Positive sign
     assert _is_int("-0") is True       # Negative zero
     assert _is_int("00123") is True    # Leading zeros
-    assert _is_int(" 123") is True     # Leading space
-    assert _is_int("123 ") is True     # Trailing space
-    assert _is_int(" 123 ") is True    # Both spaces
+    assert _is_int(" 123") is True      # Leading space allowed
+    assert _is_int("123 ") is True      # Trailing space allowed
+    assert _is_int(" 123 ") is True     # Both spaces allowed
