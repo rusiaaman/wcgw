@@ -9,7 +9,21 @@ DIVIDER_MARKER = re.compile(r"^======*\s*$")
 REPLACE_MARKER = re.compile(r"^>>>>>>+\s*REPLACE\s*$")
 
 class SearchReplaceSyntaxError(Exception):
-    pass
+    def __init__(self, message: str):
+        message =f"""Got syntax error while parsing search replace blocks:
+{message}
+---
+
+Make sure blocks are in correct sequence, and the markers are in separate lines:
+
+<{'<<<<<< SEARCH'}
+    example old
+=======
+    example new
+>{'>>>>>> REPLACE'}
+ 
+"""
+        super().__init__(message)
 
 def search_replace_edit(
     lines: list[str], original_content: str, logger: Callable[[str], object]
