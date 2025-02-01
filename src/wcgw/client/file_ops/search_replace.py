@@ -63,7 +63,7 @@ def search_replace_edit(
 
             search_replace_blocks.append((search_block, replace_block))
         else:
-            if SEARCH_MARKER.match(lines[i]) or REPLACE_MARKER.match(lines[i]) or DIVIDER_MARKER.match(lines[i]):
+            if REPLACE_MARKER.match(lines[i]) or DIVIDER_MARKER.match(lines[i]):
                 raise SearchReplaceSyntaxError(f"Line {i+1}: Found stray marker outside block: {lines[i]}")
             i += 1
 
