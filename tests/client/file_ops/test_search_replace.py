@@ -1,7 +1,13 @@
 """Tests for search_replace.py functionality."""
 
 import unittest
-from wcgw.client.file_ops.search_replace import search_replace_edit
+
+from wcgw.client.file_ops.diff_edit import SearchReplaceMatchError
+from wcgw.client.file_ops.search_replace import (
+    SearchReplaceSyntaxError,
+    search_replace_edit,
+)
+
 
 class TestSearchReplace(unittest.TestCase):
     def setUp(self):
@@ -15,10 +21,10 @@ class TestSearchReplace(unittest.TestCase):
             "original line",
             "=======",
             "new line",
-            ">>>>>>> REPLACE"
+            ">>>>>>> REPLACE",
         ]
         original = "before\noriginal line\nafter"
-        
+
         result, comments = search_replace_edit(lines, original, self.mock_logger)
         self.assertEqual(result, "before\nnew line\nafter")
         self.assertEqual(comments, "Edited successfully")
@@ -35,49 +41,49 @@ class TestSearchReplace(unittest.TestCase):
             "line2",
             "=======",
             "new2",
-            ">>>>>>> REPLACE"
+            ">>>>>>> REPLACE",
         ]
         original = "line1\nline2"  # Changed from original to avoid line ordering issues
-        
+
         result, comments = search_replace_edit(lines, original, self.mock_logger)
         self.assertEqual(result, "new1\nnew2")
         self.assertEqual(comments, "Edited successfully")
 
     def test_search_replace_edit_no_input(self):
         # Test empty input
-        with self.assertRaises(Exception) as ctx:
+        with self.assertRaises(SearchReplaceSyntaxError) as ctx:
             search_replace_edit([], "content", self.mock_logger)
         self.assertIn("Error: No input to search replace edit", str(ctx.exception))
 
     def test_search_replace_edit_malformed_blocks(self):
         # Test missing SEARCH marker
-        lines = [
-            "original line",
-            "=======",
-            "new line",
-            ">>>>>>> REPLACE"
-        ]
-        with self.assertRaises(Exception):
+        lines = ["original line", "=======", "new line", ">>>>>>> REPLACE"]
+        with self.assertRaises(SearchReplaceSyntaxError):
             search_replace_edit(lines, "content", self.mock_logger)
 
         # Test missing REPLACE marker
-        lines = [
-            "<<<<<<< SEARCH",
-            "original line",
-            "=======",
-            "new line"
-        ]
-        with self.assertRaises(Exception):
+        lines = ["<<<<<<< SEARCH", "original line", "=======", "new line"]
+        with self.assertRaises(SearchReplaceSyntaxError):
             search_replace_edit(lines, "content", self.mock_logger)
 
         # Test missing separator
-        lines = [
-            "<<<<<<< SEARCH",
-            "original line",
-            "new line",
-            ">>>>>>> REPLACE"
-        ]
-        with self.assertRaises(Exception):
+        lines = ["<<<<<<< SEARCH", "original line", "new line", ">>>>>>> REPLACE"]
+        with self.assertRaises(SearchReplaceSyntaxError):
+            search_replace_edit(lines, "content", self.mock_logger)
+
+        # Test missing multiple searches
+        lines = ["<<<<<<< SEARCH", "<<<<<<< SEARCH", "original line", "=======",  "new line", ">>>>>>> REPLACE"]
+        with self.assertRaises(SearchReplaceSyntaxError):
+            search_replace_edit(lines, "content", self.mock_logger)
+
+        # Test missing multiple divider
+        lines = ["<<<<<<< SEARCH",  "=======", "original line", "=======",  "new line", ">>>>>>> REPLACE"]
+        with self.assertRaises(SearchReplaceSyntaxError):
+            search_replace_edit(lines, "content", self.mock_logger)
+
+        # Test missing multiple replace
+        lines = ["<<<<<<< SEARCH", "original line", "=======",   ">>>>>>> REPLACE", "new line", ">>>>>>> REPLACE"]
+        with self.assertRaises(SearchReplaceSyntaxError):
             search_replace_edit(lines, "content", self.mock_logger)
 
     def test_search_replace_edit_whitespace(self):
@@ -86,27 +92,35 @@ class TestSearchReplace(unittest.TestCase):
             "<<<<<<< SEARCH  ",
             "original line",
             "=======  ",
-            "new line\n  >>>>>>> REPLACE",  # Updated to match source behavior
-            ""
+            "new line",
+            ">>>>>>>  REPLACE",
         ]
         original = "original line"
-        
+
         result, comments = search_replace_edit(lines, original, self.mock_logger)
-        self.assertEqual(result, "new line\n  >>>>>>> REPLACE\n")  # Source includes markers in output and trailing newline
+        self.assertEqual(result, "new line")
+        self.assertEqual(comments, "Edited successfully")
+
+        # Test with missing or extra angles
+        lines = [
+            "<<<<<< SEARCH  ",
+            "original line",
+            "========  ",
+            "new line",
+            ">>>>>>>>  REPLACE",
+        ]
+        original = "original line"
+
+        result, comments = search_replace_edit(lines, original, self.mock_logger)
+        self.assertEqual(result, "new line")
         self.assertEqual(comments, "Edited successfully")
 
     def test_search_replace_edit_multiple_matches(self):
         # Test when block matches multiple times
-        lines = [
-            "<<<<<<< SEARCH",
-            "repeat",
-            "=======",
-            "replaced",
-            ">>>>>>> REPLACE"
-        ]
+        lines = ["<<<<<<< SEARCH", "repeat", "=======", "replaced", ">>>>>>> REPLACE"]
         original = "repeat\nother\nrepeat"
-        
-        with self.assertRaises(Exception) as ctx:
+
+        with self.assertRaises(SearchReplaceMatchError) as ctx:
             search_replace_edit(lines, original, self.mock_logger)
         self.assertIn("The following block matched more than once", str(ctx.exception))
 
@@ -117,10 +131,10 @@ class TestSearchReplace(unittest.TestCase):
             "    indented line",
             "=======",
             "  new indented line",
-            ">>>>>>> REPLACE"
+            ">>>>>>> REPLACE",
         ]
         original = "before\n    indented line\nafter"
-        
+
         result, comments = search_replace_edit(lines, original, self.mock_logger)
         self.assertEqual(result, "before\n  new indented line\nafter")
         # Warning message not implemented in source, so we don't check for it
@@ -132,11 +146,11 @@ class TestSearchReplace(unittest.TestCase):
             "nonexistent line",
             "=======",
             "new line",
-            ">>>>>>> REPLACE"
+            ">>>>>>> REPLACE",
         ]
         original = "different content"
-        
-        with self.assertRaises(Exception) as ctx:
+
+        with self.assertRaises(SearchReplaceMatchError) as ctx:
             search_replace_edit(lines, original, self.mock_logger)
         self.assertIn("Couldn't find match", str(ctx.exception))
 
@@ -151,28 +165,26 @@ class TestSearchReplace(unittest.TestCase):
             "new1",
             "",
             "new2",
-            ">>>>>>> REPLACE"
+            ">>>>>>> REPLACE",
         ]
         original = "start\nline1\n\nline2\nend"
-        
+
         result, comments = search_replace_edit(lines, original, self.mock_logger)
         self.assertEqual(result, "start\nnew1\n\nnew2\nend")
         self.assertEqual(comments, "Edited successfully")
 
     def test_search_replace_edit_partial_matches(self):
         # Test when only part of the content matches
-        lines = [
-            "<<<<<<< SEARCH",
-            "middle",
-            "=======",
-            "new middle",
-            ">>>>>>> REPLACE"
-        ]
-        original = "begin\nmiddle\nend"
-        
-        result, comments = search_replace_edit(lines, original, self.mock_logger)
-        self.assertEqual(result, "begin\nnew middle\nend")
-        self.assertEqual(comments, "Edited successfully")
+        lines = ["<<<<<<< SEARCH", "middle", "=======", "new middle", ">>>>>>> REPLACE"]
+        original = "begin\nmiddl\nend"
 
-if __name__ == '__main__':
+        with self.assertRaises(SearchReplaceMatchError) as ctx:
+            search_replace_edit(lines, original, self.mock_logger)
+        self.assertIn(
+            "Couldn't find match. Do you mean to match the lines in the following context?\n```begin\nmiddl\nend\n```",
+            str(ctx.exception),
+        )
+
+
+if __name__ == "__main__":
     unittest.main()

@@ -1,32 +1,57 @@
 import re
 from typing import Callable
 
-from .diff_edit import FileEditInput, FileEditOutput
+from .diff_edit import FileEditInput, FileEditOutput, SearchReplaceMatchError
 
+# Global regex patterns
+SEARCH_MARKER = re.compile(r"^<<<<<<+\s*SEARCH\s*$")
+DIVIDER_MARKER = re.compile(r"^======*\s*$") 
+REPLACE_MARKER = re.compile(r"^>>>>>>+\s*REPLACE\s*$")
+
+class SearchReplaceSyntaxError(Exception):
+    pass
 
 def search_replace_edit(
     lines: list[str], original_content: str, logger: Callable[[str], object]
 ) -> tuple[str, str]:
     if not lines:
-        raise Exception("Error: No input to search replace edit")
+        raise SearchReplaceSyntaxError("Error: No input to search replace edit")
+    
     original_lines = original_content.split("\n")
     n_lines = len(lines)
     i = 0
     search_replace_blocks = list[tuple[list[str], list[str]]]()
+    
     while i < n_lines:
-        if re.match(r"^<<<<<<+\s*SEARCH\s*$", lines[i]):
+        if SEARCH_MARKER.match(lines[i]):
+            line_num = i + 1
             search_block = []
             i += 1
-            while i < n_lines and not re.match(r"^======*\s*$", lines[i]):
+            
+            while i < n_lines and not DIVIDER_MARKER.match(lines[i]):
+                if SEARCH_MARKER.match(lines[i]) or REPLACE_MARKER.match(lines[i]):
+                    raise SearchReplaceSyntaxError(f"Line {i+1}: Found stray marker in SEARCH block: {lines[i]}")
                 search_block.append(lines[i])
                 i += 1
-            i += 1
+            
+            if i >= n_lines:
+                raise SearchReplaceSyntaxError(f"Line {line_num}: Unclosed SEARCH block - missing ======= marker")
+            
             if not search_block:
-                raise Exception("SEARCH block can not be empty")
+                raise SearchReplaceSyntaxError(f"Line {line_num}: SEARCH block cannot be empty")
+            
+            i += 1
             replace_block = []
-            while i < n_lines and not re.match(r"^>>>>>>+\s*REPLACE\s*$", lines[i]):
+            
+            while i < n_lines and not REPLACE_MARKER.match(lines[i]):
+                if SEARCH_MARKER.match(lines[i]) or DIVIDER_MARKER.match(lines[i]):
+                    raise SearchReplaceSyntaxError(f"Line {i+1}: Found stray marker in REPLACE block: {lines[i]}")
                 replace_block.append(lines[i])
                 i += 1
+            
+            if i >= n_lines:
+                raise SearchReplaceSyntaxError(f"Line {line_num}: Unclosed block - missing REPLACE marker")
+            
             i += 1
 
             for line in search_block:
@@ -38,10 +63,12 @@ def search_replace_edit(
 
             search_replace_blocks.append((search_block, replace_block))
         else:
+            if SEARCH_MARKER.match(lines[i]) or REPLACE_MARKER.match(lines[i]) or DIVIDER_MARKER.match(lines[i]):
+                raise SearchReplaceSyntaxError(f"Line {i+1}: Found stray marker outside block: {lines[i]}")
             i += 1
 
     if not search_replace_blocks:
-        raise Exception(
+        raise SearchReplaceSyntaxError(
             "No valid search replace blocks found, ensure your SEARCH/REPLACE blocks are formatted correctly"
         )
 
@@ -80,7 +107,7 @@ def greedy_context_replace(
     if len(best_matches) > 1:
         # Duplicate found, try to ground using previous blocks.
         if current_block_offset == 0:
-            raise Exception(f"""
+            raise SearchReplaceMatchError(f"""
     The following block matched more than once:
     ---
     ```
