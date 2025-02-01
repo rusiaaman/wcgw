@@ -11,6 +11,8 @@ class TestErrorHandling(unittest.TestCase):
         mock_shell.expect.side_effect = Exception("Error")
         mock_bash_state.shell = mock_shell
         mock_bash_state.state = "repl"
+        mock_bash_state.update_repl_prompt.return_value = False
+        mock_bash_state.prompt = "TEST_PROMPT>"
 
         command = BashCommand(command="invalid command")
         with self.assertRaises(Exception):

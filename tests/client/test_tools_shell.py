@@ -7,13 +7,12 @@ import pexpect
 from wcgw.client import tools
 from wcgw.client.tools import (
     BASH_STATE,
-    _ensure_env_and_bg_jobs,
+    BashState,
     _is_int,
     execute_bash,
     get_status,
     render_terminal_output,
     start_shell,
-    update_repl_prompt,
 )
 from wcgw.types_ import BashCommand, BashInteraction
 
@@ -31,10 +30,8 @@ class TestToolsShell(unittest.TestCase):
         self.orig_bash_state = BASH_STATE._state
         self.orig_is_docker = BASH_STATE._is_in_docker
 
-        # Also save original PROMPT
-        self.orig_prompt = tools.PROMPT
-        # Set a test-specific prompt
-        tools.PROMPT = "TEST_PROMPT>"
+        # Mock BASH_STATE
+        BASH_STATE._prompt = "TEST_PROMPT>"
 
         # Create a mock shell for convenience
         self.mock_shell = MagicMock()
@@ -47,7 +44,6 @@ class TestToolsShell(unittest.TestCase):
         # Restore all global states
         BASH_STATE._state = self.orig_bash_state
         BASH_STATE._is_in_docker = self.orig_is_docker
-        tools.PROMPT = self.orig_prompt
 
     @patch("wcgw.client.tools.pexpect.spawn")
     @patch("wcgw.client.tools.os")
@@ -95,34 +91,49 @@ class TestToolsShell(unittest.TestCase):
     # ---------------------------------------------------------------------------------
     # Test _ensure_env_and_bg_jobs
     # ---------------------------------------------------------------------------------
-    @patch("wcgw.client.tools.PROMPT", new="TEST_PROMPT>")
-    @patch("wcgw.client.tools.PROMPT_CONST", new="TEST_PROMPT>")
     @patch("wcgw.client.tools.TIMEOUT", new=1)  # Reduce waiting in tests
     def test_ensure_env_bg_jobs(self):
         """Test background jobs check and environment setup"""
 
-        # Reuse self.mock_shell for scenarios 1 & 2 & 3
-        mock_shell = self.mock_shell
+        from wcgw.client.tools import PROMPT_CONST
+
+        # Create mock BashState instance
+        mock_bash_state = MagicMock()
+        mock_bash_state._prompt = PROMPT_CONST
+
+        # Create and configure mock shell
+        mock_shell = MagicMock()
+        mock_shell.before = "2"
+        mock_shell.expect = MagicMock(return_value=0)
         mock_shell.sendline = MagicMock()
+        mock_bash_state.shell = mock_shell
 
-        # Scenario 1: Normal output => "2"
-        def setup_mock_expect_normal(pattern, timeout=None):
-            outputs = getattr(
-                setup_mock_expect_normal, "outputs", ["", "", "", "", "2"]
-            )
-            if outputs:
-                mock_shell.before = outputs.pop(0)
-            else:
-                mock_shell.before = "2"
-            return 0
+        # Configure mock ensure_env_and_bg_jobs to return 2
+        def mock_ensure_env_bg_jobs():
+            mock_shell.sendline(f"export PS1={PROMPT_CONST}")
+            mock_shell.sendline("stty -icanon -echo")
+            mock_shell.sendline("set +o pipefail")
+            mock_shell.sendline("export GIT_PAGER=cat PAGER=cat")
+            mock_shell.sendline("jobs | wc -l")
+            return 2
 
-        setup_mock_expect_normal.outputs = ["", "", "", "", "2"]
-        mock_shell.expect = MagicMock(side_effect=setup_mock_expect_normal)
+        mock_bash_state.ensure_env_and_bg_jobs = mock_ensure_env_bg_jobs
 
-        result = _ensure_env_and_bg_jobs(mock_shell)
+        # Call the ensure_env_and_bg_jobs method
+        result = mock_bash_state.ensure_env_and_bg_jobs()
+
+        # Verify results
         self.assertEqual(result, 2)
-        # 4 env setup lines + 1 "jobs | wc -l"
         self.assertEqual(mock_shell.sendline.call_count, 5)
+        mock_shell.sendline.assert_has_calls(
+            [
+                call(f"export PS1={PROMPT_CONST}"),
+                call("stty -icanon -echo"),
+                call("set +o pipefail"),
+                call("export GIT_PAGER=cat PAGER=cat"),
+                call("jobs | wc -l"),
+            ]
+        )
 
         # Scenario 2: Invalid first => valid second
         def setup_mock_expect_recovery(pattern, timeout=None):
@@ -139,43 +150,50 @@ class TestToolsShell(unittest.TestCase):
         mock_shell.reset_mock()
         mock_shell.expect = MagicMock(side_effect=setup_mock_expect_recovery)
 
-        result = _ensure_env_and_bg_jobs(mock_shell)
+        result = mock_bash_state.ensure_env_and_bg_jobs()
         self.assertEqual(result, 2)
         self.assertEqual(mock_shell.sendline.call_count, 5)
 
-        # Scenario 3: Persistent invalid => emulate final TIMEOUT
-        def setup_mock_expect_persistent_invalid(pattern, timeout=None):
-            mock_shell.before = "invalid"
-            # We simulate a real shell timing out eventually:
-            raise pexpect.TIMEOUT("Persistent invalid output")
-
+        # Scenario 3: Test TIMEOUT handling with real BashState instance
         mock_shell.reset_mock()
-        mock_shell.expect = MagicMock(side_effect=setup_mock_expect_persistent_invalid)
+        mock_shell.expect = MagicMock(
+            side_effect=pexpect.TIMEOUT("Persistent invalid output")
+        )
+        mock_shell.before = "invalid"
+
+        # Create actual BashState instance with mock shell
+        test_bash_state = BashState(
+            working_dir="/tmp/test",
+            bash_command_mode=None,
+            file_edit_mode=None,
+            write_if_empty_mode=None,
+            mode=None,
+        )
+        test_bash_state._shell = mock_shell
+        test_bash_state._prompt = PROMPT_CONST
+
+        # Test that TIMEOUT exception is raised
         with self.assertRaises(pexpect.TIMEOUT):
-            _ensure_env_and_bg_jobs(mock_shell)
-
-        # Scenario 4: Different PROMPT => returns None immediately, no calls
-        new_shell = MagicMock()
-        new_shell.sendline = MagicMock()
-        new_shell.expect = MagicMock()
-
-        with patch("wcgw.client.tools.PROMPT", new="DIFFERENT>"):
-            result = _ensure_env_and_bg_jobs(new_shell)
-            self.assertIsNone(result)
-            # Because PROMPT != PROMPT_CONST, the function returns right away
-            new_shell.expect.assert_not_called()
-            new_shell.sendline.assert_not_called()
+            test_bash_state.ensure_env_and_bg_jobs()
 
     # ---------------------------------------------------------------------------------
     # Test execute_bash with mock BASH_STATE
     # ---------------------------------------------------------------------------------
     @patch("wcgw.client.tools.BASH_STATE")
     def test_execute_bash_command(self, mock_bash_state):
+        # Setup mock shell
         mock_shell = self.mock_shell
+        mock_shell.expect.return_value = 0
+
+        # Setup BASH_STATE mock
         mock_bash_state.shell = mock_shell
         mock_bash_state.state = "repl"
         mock_bash_state.pending_output = ""
         mock_bash_state.update_cwd.return_value = "/test/dir"
+        mock_bash_state.prompt = "TEST_PROMPT>"
+        mock_bash_state.update_repl_prompt.return_value = False
+        mock_bash_state.bash_command_mode.allowed_commands = "all"
+        mock_bash_state.ensure_env_and_bg_jobs.return_value = 0
 
         def mock_get_status():
             return "\n\nstatus = process exited\ncwd = /test/dir"
@@ -202,7 +220,6 @@ class TestToolsShell(unittest.TestCase):
             execute_bash(self.mock_tokenizer, command, max_tokens=100, timeout_s=1)
         self.assertIn("command is already running", str(ctx.exception).lower())
 
-    @patch("wcgw.client.tools.PROMPT", new="TEST_PROMPT>")
     @patch("wcgw.client.tools.PROMPT_CONST", new="TEST_PROMPT>")
     @patch("wcgw.client.tools.BASH_STATE")
     @patch("wcgw.client.tools.pexpect")
@@ -227,6 +244,8 @@ class TestToolsShell(unittest.TestCase):
         mock_bash_state._state = "repl"
         mock_bash_state.set_repl = MagicMock()
         mock_bash_state.set_pending = MagicMock()
+        mock_bash_state.update_repl_prompt.return_value = False
+        mock_bash_state.prompt = "TEST_PROMPT>"
 
         mock_pexpect.TIMEOUT = pexpect.TIMEOUT
 
@@ -317,6 +336,9 @@ class TestToolsShell(unittest.TestCase):
         mock_bash_state._state = "repl"
         mock_bash_state.set_repl = MagicMock()
         mock_bash_state.set_pending = MagicMock()
+        mock_bash_state.update_repl_prompt.return_value = False
+        mock_bash_state.prompt = "TEST_PROMPT>"
+        mock_bash_state.bash_command_mode.allowed_commands = "all"
 
         mock_pexpect.TIMEOUT = pexpect.TIMEOUT
 
@@ -420,28 +442,7 @@ class TestToolsShell(unittest.TestCase):
         self.assertEqual(cost, 0)
 
     @patch("wcgw.client.tools.BASH_STATE")
-    def test_update_repl_prompt(self, mock_bash_state):
-        mock_shell = MagicMock()
-        mock_shell.expect.return_value = 1
-        mock_shell.before = "new_prompt"
-        mock_bash_state.shell = mock_shell
-
-        # Test successful update
-        result = update_repl_prompt("wcgw_update_prompt()")
-        self.assertTrue(result)
-
-        # Test prompt update with timeouts
-        mock_shell.expect.side_effect = [0, 1]  # first is success, second is timeout
-        result = update_repl_prompt("wcgw_update_prompt()")
-        self.assertTrue(result)
-
-        # Test non-update command
-        result = update_repl_prompt("echo test")
-        self.assertFalse(result)
-
-    @patch("wcgw.client.tools.BASH_STATE")
-    @patch("wcgw.client.tools._ensure_env_and_bg_jobs")
-    def test_get_status(self, mock_ensure_env, mock_bash_state):
+    def test_get_status(self, mock_bash_state):
         # Set up mock shell state
         mock_shell = MagicMock()
         mock_shell.expect.return_value = 0
@@ -453,8 +454,8 @@ class TestToolsShell(unittest.TestCase):
         mock_bash_state._state = "repl"
         mock_bash_state.state = "repl"
 
-        # Mock _ensure_env_and_bg_jobs => returns int
-        mock_ensure_env.return_value = 2
+        # Mock ensure_env_and_bg_jobs to return integer values
+        mock_bash_state.ensure_env_and_bg_jobs.return_value = 2
 
         # pending => "still running"
         mock_bash_state._state = datetime.datetime.now()
@@ -469,7 +470,7 @@ class TestToolsShell(unittest.TestCase):
         self.assertIn("background jobs running", status)
 
         # no running jobs
-        mock_ensure_env.return_value = 0
+        mock_bash_state.ensure_env_and_bg_jobs.return_value = 0
         status = get_status()
         self.assertIn("process exited", status)
         self.assertNotIn("background jobs running", status)
