@@ -115,11 +115,8 @@ async def handle_list_tools() -> list[types.Tool]:
 - If the user has mentioned a workspace or project root, use it to set `any_workspace_path`.
 - If the user has mentioned a folder or file with unclear project root, use the file or folder as `any_workspace_path`.
 - If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
-- If `any_workspace_path` is provided, a tree structure of the workspace will be shown.
 - Leave `any_workspace_path` as empty if no file or folder is mentioned.
-- By default use mode "wcgw"
 - In "code-writer" mode, set the commands and globs which user asked to set, otherwise use 'all'.
-- In order to change the mode later, call this tool again but be sure to not provide any other argument like task_id_to_resume unnecessarily.
 """,
         ),
         ToolParam(
@@ -127,14 +124,11 @@ async def handle_list_tools() -> list[types.Tool]:
             name="BashCommand",
             description=f"""
 - Execute a bash command. This is stateful (beware with subsequent calls).
-- Do not use interactive commands like nano. Prefer writing simpler commands.
 - Status of the command and the current working directory will always be returned at the end.
-- Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first or the last line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 - The control will return to you in {SLEEP_TIME_MAX_S} seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
-- Use longer wait_for_seconds if the command is expected to run for a long time.
 - Do not use 'cat' to read files, use ReadFiles tool instead.
 """,
         ),
@@ -143,14 +137,12 @@ async def handle_list_tools() -> list[types.Tool]:
             name="BashInteraction",
             description=f"""
 - Interact with running program using this tool
-- Special keys like arrows, interrupts, enter, etc.
 - Send text input to the running program.
 - Send send_specials=["Enter"] to recheck status of a running program.
 - Only one of send_text, send_specials, send_ascii should be provided.
 - This returns within {SLEEP_TIME_MAX_S} seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
 - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
 - Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
-- Set longer wait_for_seconds when program is expected to run for a long time.
 """,
         ),
         ToolParam(
@@ -178,7 +170,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ToolParam(
             inputSchema=ResetShell.model_json_schema(),
             name="ResetShell",
-            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.\nAlso exits the docker environment.\nYou need to call GetScreenInfo again.",
+            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
         ToolParam(
             inputSchema=FileEdit.model_json_schema(),

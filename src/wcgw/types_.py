@@ -36,17 +36,18 @@ ModesConfig = Union[Literal["wcgw", "architect"], CodeWriterMode]
 
 
 class Initialize(BaseModel):
+    first_call: bool
     any_workspace_path: str
     initial_files_to_read: list[str]
-    task_id_to_resume: str
-    mode_name: Literal["wcgw", "architect", "code_writer"]
+    task_id_to_resume: Optional[str] = None
+    mode_name: Literal["wcgw", "architect", "code_writer"] = "wcgw"
     code_writer_config: Optional[CodeWriterMode] = None
 
     def model_post_init(self, __context: Any) -> None:
         if self.mode_name == "code_writer":
-            assert (
-                self.code_writer_config is not None
-            ), "code_writer_config can't be null when the mode is code_writer"
+            assert self.code_writer_config is not None, (
+                "code_writer_config can't be null when the mode is code_writer"
+            )
         return super().model_post_init(__context)
 
     @property
@@ -55,9 +56,9 @@ class Initialize(BaseModel):
             return "wcgw"
         if self.mode_name == "architect":
             return "architect"
-        assert (
-            self.code_writer_config is not None
-        ), "code_writer_config can't be null when the mode is code_writer"
+        assert self.code_writer_config is not None, (
+            "code_writer_config can't be null when the mode is code_writer"
+        )
         return self.code_writer_config
 
 

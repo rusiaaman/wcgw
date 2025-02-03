@@ -127,7 +127,7 @@ if __name__ == "__main__":
     # Profile using cProfile for overall function statistics
     profiler = cProfile.Profile()
     profiler.enable()
-    result = get_repo_context(folder, 200)[0]
+    result = get_repo_context(folder, 100)[0]
     profiler.disable()
 
     # Print cProfile stats
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     # Profile using line_profiler for line-by-line statistics
     lp = LineProfiler()
     lp_wrapper = lp(get_repo_context)
-    lp_wrapper(folder, 200)
+    lp_wrapper(folder, 100)
 
     print("\n=== Line-by-line profiling ===")
     lp.print_stats()

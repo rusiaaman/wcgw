@@ -256,7 +256,9 @@ class BashState:
             before = "\n".join(before_lines).strip()
             counts += 1
             if counts > 100:
-                raise ValueError("Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it")
+                raise ValueError(
+                    "Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it"
+                )
 
         try:
             return int(before)
@@ -273,7 +275,7 @@ class BashState:
             self._bash_command_mode.bash_mode == "restricted_mode",
             self._cwd,
         )
-    
+
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
@@ -414,7 +416,9 @@ class BashState:
                 index = self.shell.expect([self._prompt, pexpect.TIMEOUT], timeout=0.2)
                 counts += 1
                 if counts > 100:
-                    raise ValueError("Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it")
+                    raise ValueError(
+                        "Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it"
+                    )
             console.print(f"Prompt updated to: {self._prompt}")
             return True
         return False
@@ -425,13 +429,19 @@ INITIALIZED = False
 
 
 def initialize(
+    first_call: bool,
     any_workspace_path: str,
     read_files_: list[str],
-    task_id_to_resume: str,
+    task_id_to_resume: Optional[str],
     max_tokens: Optional[int],
     mode: ModesConfig,
 ) -> str:
     global BASH_STATE
+
+    if not first_call:
+        task_id_to_resume = None
+        if any_workspace_path == BASH_STATE.cwd:
+            any_workspace_path = ""
 
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path, None)
@@ -463,7 +473,7 @@ def initialize(
                 if not read_files_:
                     read_files_ = [any_workspace_path]
                 any_workspace_path = os.path.dirname(any_workspace_path)
-            repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
+            repo_context, folder_to_start = get_repo_context(any_workspace_path, 100)
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
 
@@ -560,6 +570,9 @@ Initialized in directory (also cwd): {BASH_STATE.cwd}
 ---
 
 {memory}
+
+---
+{"Note: only initialize with first_call=false from now on." if first_call else ""}
 """
 
     global INITIALIZED
@@ -1296,6 +1309,7 @@ def get_tool_output(
         console.print("Calling initial info tool")
         output = (
             initialize(
+                arg.first_call,
                 arg.any_workspace_path,
                 arg.initial_files_to_read,
                 arg.task_id_to_resume,
