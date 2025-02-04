@@ -146,6 +146,7 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
             encoding="utf-8",
             timeout=TIMEOUT,
             cwd=initial_dir,
+            codec_errors="backslashreplace",
         )
         shell.sendline(
             f"export PROMPT_COMMAND= PS1={PROMPT_CONST}"
@@ -161,6 +162,7 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
+            codec_errors="backslashreplace",
         )
         shell.sendline(f"export PS1={PROMPT_CONST}")
         shell.expect(PROMPT_CONST, timeout=TIMEOUT)
@@ -256,7 +258,9 @@ class BashState:
             before = "\n".join(before_lines).strip()
             counts += 1
             if counts > 100:
-                raise ValueError("Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it")
+                raise ValueError(
+                    "Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it"
+                )
 
         try:
             return int(before)
@@ -273,7 +277,7 @@ class BashState:
             self._bash_command_mode.bash_mode == "restricted_mode",
             self._cwd,
         )
-    
+
         self._pending_output = ""
 
         # Get exit info to ensure shell is ready
@@ -414,7 +418,9 @@ class BashState:
                 index = self.shell.expect([self._prompt, pexpect.TIMEOUT], timeout=0.2)
                 counts += 1
                 if counts > 100:
-                    raise ValueError("Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it")
+                    raise ValueError(
+                        "Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it"
+                    )
             console.print(f"Prompt updated to: {self._prompt}")
             return True
         return False
