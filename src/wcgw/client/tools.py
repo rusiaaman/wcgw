@@ -6,8 +6,10 @@ import importlib.metadata
 import json
 import mimetypes
 import os
+import platform
 import re
 import shlex
+import subprocess
 import time
 import traceback
 import uuid
@@ -133,15 +135,38 @@ def ask_confirmation(prompt: Confirmation) -> str:
 PROMPT_CONST = "#" + "@wcgw@#"
 
 
+def is_mac() -> bool:
+    return platform.system() == "Darwin"
+
+
+def get_tmpdir() -> str:
+    current_tmpdir = os.environ.get("TMPDIR", "")
+    if current_tmpdir or not is_mac():
+        return current_tmpdir
+    try:
+        # Fix issue while running ocrmypdf -> tesseract -> leptonica, set TMPDIR
+        # https://github.com/tesseract-ocr/tesseract/issues/4333
+        result = subprocess.check_output(
+            ["getconf", "DARWIN_USER_TEMP_DIR"],
+            text=True,
+        ).strip()
+        return result
+    except subprocess.CalledProcessError:
+        return "//tmp"
+    except Exception:
+        return ""
+
+
 def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore
     cmd = "/bin/bash"
     if is_restricted_mode:
         cmd += " -r"
 
+    overrideenv = {**os.environ, "PS1": PROMPT_CONST, "TMPDIR": get_tmpdir()}  # type: ignore[arg-type]
     try:
         shell = pexpect.spawn(
             cmd,
-            env={**os.environ, **{"PS1": PROMPT_CONST}},  # type: ignore[arg-type]
+            env=overrideenv,
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
@@ -158,7 +183,7 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
 
         shell = pexpect.spawn(
             "/bin/bash --noprofile --norc",
-            env={**os.environ, **{"PS1": PROMPT_CONST}},  # type: ignore[arg-type]
+            env=overrideenv,
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
