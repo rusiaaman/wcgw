@@ -157,16 +157,16 @@ def get_tmpdir() -> str:
         return ""
 
 
-def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore
+def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  # type: ignore[type-arg]
     cmd = "/bin/bash"
     if is_restricted_mode:
         cmd += " -r"
 
-    overrideenv = {**os.environ, "PS1": PROMPT_CONST, "TMPDIR": get_tmpdir()}  # type: ignore[arg-type]
+    overrideenv = {**os.environ, "PS1": PROMPT_CONST, "TMPDIR": get_tmpdir()}
     try:
         shell = pexpect.spawn(
             cmd,
-            env=overrideenv,
+            env=overrideenv,  # type: ignore[arg-type]
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
@@ -183,7 +183,7 @@ def start_shell(is_restricted_mode: bool, initial_dir: str) -> pexpect.spawn:  #
 
         shell = pexpect.spawn(
             "/bin/bash --noprofile --norc",
-            env=overrideenv,
+            env=overrideenv,  # type: ignore[arg-type]
             echo=False,
             encoding="utf-8",
             timeout=TIMEOUT,
