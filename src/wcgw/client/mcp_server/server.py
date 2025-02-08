@@ -25,7 +25,7 @@ from ...types_ import (
     WriteIfEmpty,
 )
 from ..bash_state.bash_state import CONFIG, BashState
-from ..tools import default_enc, get_tool_output, which_tool_name
+from ..tools import Context, default_enc, get_tool_output, which_tool_name
 
 server = Server("wcgw")
 
@@ -223,7 +223,12 @@ async def handle_call_tool(
     try:
         assert BASH_STATE
         output_or_dones, _, BASH_STATE = get_tool_output(
-            BASH_STATE, tool_call, default_enc, 0.0, lambda x, y: ("", 0), 8000
+            Context(BASH_STATE, BASH_STATE.console),
+            tool_call,
+            default_enc,
+            0.0,
+            lambda x, y: ("", 0),
+            8000,
         )
 
     except Exception as e:
