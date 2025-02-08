@@ -14,8 +14,6 @@ from wcgw.client.tools import (
 from wcgw.types_ import (
     BashCommand,
     BashInteraction,
-    Keyboard,
-    Mouse,
 )
 
 
@@ -51,8 +49,6 @@ class TestCommandValidation(unittest.TestCase):
         # Test valid tool names
         self.assertEqual(which_tool_name("BashCommand"), BashCommand)
         self.assertEqual(which_tool_name("BashInteraction"), BashInteraction)
-        self.assertEqual(which_tool_name("Mouse"), Mouse)
-        self.assertEqual(which_tool_name("Keyboard"), Keyboard)
 
         # Test invalid tool name
         with self.assertRaises(ValueError):

@@ -25,16 +25,10 @@ class TestFileOperations(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp()
         self.test_file_path = os.path.join(self.test_dir, "test_file.py")
         BASH_STATE.add_to_whitelist_for_overwrite(self.test_file_path)
-        # Mock command_run for Docker tests
-        self.mock_command_run_patcher = patch("wcgw.client.tools.command_run")
-        self.mock_command_run = self.mock_command_run_patcher.start()
-        self.mock_command_run.return_value = (0, "", "")
 
     def tearDown(self):
         """Clean up test environment after each test case"""
-        self.mock_command_run_patcher.stop()
         shutil.rmtree(self.test_dir)
-        BASH_STATE.set_in_docker("")
 
     def test_truncate_if_over(self):
         """Test content truncation based on token limit"""

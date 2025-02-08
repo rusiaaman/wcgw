@@ -13,9 +13,12 @@ from wcgw.client.tools import (
 from wcgw.types_ import (
     BashCommand,
     BashInteraction,
-    Keyboard,
-    Mouse,
     WriteIfEmpty,
+    ReadFiles,
+    ReadImage,
+    ResetShell,
+    FileEdit,
+    ContextSave,
 )
 
 
@@ -132,8 +135,11 @@ class TestToolsValidation(unittest.TestCase):
         self.assertEqual(which_tool_name("BashCommand"), BashCommand)
         self.assertEqual(which_tool_name("BashInteraction"), BashInteraction)
         self.assertEqual(which_tool_name("WriteIfEmpty"), WriteIfEmpty)
-        self.assertEqual(which_tool_name("Mouse"), Mouse)
-        self.assertEqual(which_tool_name("Keyboard"), Keyboard)
+        self.assertEqual(which_tool_name("ReadFiles"), ReadFiles)
+        self.assertEqual(which_tool_name("ReadImage"), ReadImage)
+        self.assertEqual(which_tool_name("ResetShell"), ResetShell)
+        self.assertEqual(which_tool_name("FileEdit"), FileEdit) 
+        self.assertEqual(which_tool_name("ContextSave"), ContextSave)
 
         # Test invalid tool name
         with self.assertRaises(ValueError):
@@ -183,58 +189,10 @@ class TestToolsValidation(unittest.TestCase):
             get_tool_output({"type": "InvalidTool"}, mock_enc, 1.0, mock_loop_call, 100)
         self.assertIn("validation errors for union", str(context.exception))
 
-    def test_get_tool_output_computer_tools(self):
-        """Test get_tool_output with computer interaction tools"""
-        mock_enc = MagicMock()
-        mock_loop_call = MagicMock()
-
-        # Test Mouse tool
-        with patch("wcgw.client.tools.run_computer_tool") as mock_run:
-            mock_run.return_value = ("Mouse clicked", "screenshot_data")
-            result, cost = get_tool_output(
-                Mouse(action={"button_type": "left_click"}),
-                mock_enc,
-                1.0,
-                mock_loop_call,
-                100,
-            )
-            self.assertEqual(result[0], "Mouse clicked")
-            self.assertTrue(hasattr(result[1], "media_type"))
-            self.assertEqual(result[1].media_type, "image/png")
-            self.assertEqual(result[1].data, "screenshot_data")
-
-        # Test Keyboard tool
-        with patch("wcgw.client.tools.run_computer_tool") as mock_run:
-            mock_run.return_value = ("Keys typed", "screenshot_data")
-            result, cost = get_tool_output(
-                Keyboard(action="type", text="test"), mock_enc, 1.0, mock_loop_call, 100
-            )
-            self.assertEqual(result[0], "Keys typed")
-            self.assertTrue(hasattr(result[1], "media_type"))
-            self.assertEqual(result[1].media_type, "image/png")
-            self.assertEqual(result[1].data, "screenshot_data")
-
-    @patch("wcgw.client.tools.run_computer_tool")
-    def test_get_tool_output_error_propagation(self, mock_run):
+    def test_get_tool_output_error_propagation(self):
         """Test error propagation in get_tool_output"""
         mock_enc = MagicMock()
         mock_loop_call = MagicMock()
-
-        # Test error propagation from computer tools
-        mock_run.return_value = (
-            "Error: Computer tool error",
-            None,
-        )  # Return error style tuple instead of raising
-        result, cost = get_tool_output(
-            Mouse(action={"button_type": "left_click"}),
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100,
-        )
-        # When error happens, first element should be error string, second element should be None
-        self.assertEqual(result[0], "Error: Computer tool error")
-        self.assertEqual(cost, 0)
 
         # Test error propagation from bash execution
         with patch("wcgw.client.tools.execute_bash") as mock_bash:

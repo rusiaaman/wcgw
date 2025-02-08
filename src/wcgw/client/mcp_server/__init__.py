@@ -7,9 +7,9 @@ main = Typer()
 
 
 @main.command()
-def app(computer_use: bool = False) -> None:
+def app() -> None:
     """Main entry point for the package."""
-    asyncio.run(server.main(computer_use))
+    asyncio.run(server.main())
 
 
 # Optionally expose other important items at package level

@@ -48,19 +48,14 @@ from ..types_ import (
     ContextSave,
     FileEdit,
     FileEditFindReplace,
-    GetScreenInfo,
     Initialize,
-    Keyboard,
     Modes,
     ModesConfig,
-    Mouse,
     ReadFiles,
     ReadImage,
     ResetShell,
-    ScreenShot,
     WriteIfEmpty,
 )
-from .computer_use import run_computer_tool
 from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
 from .modes import (
@@ -295,7 +290,6 @@ class BashState:
     def _init_shell(self) -> None:
         self._prompt = PROMPT_CONST
         self._state: Literal["repl"] | datetime.datetime = "repl"
-        self._is_in_docker: Optional[str] = ""
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
         self._shell = start_shell(
@@ -326,13 +320,6 @@ class BashState:
         if self._state == "repl":
             return "repl"
         return "pending"
-
-    @property
-    def is_in_docker(self) -> Optional[str]:
-        return self._is_in_docker
-
-    def set_in_docker(self, docker_image_id: str) -> None:
-        self._is_in_docker = docker_image_id
 
     @property
     def cwd(self) -> str:
@@ -465,7 +452,7 @@ def initialize(
     global BASH_STATE
 
     # Expand the workspace path
-    any_workspace_path = expand_user(any_workspace_path, None)
+    any_workspace_path = expand_user(any_workspace_path)
     repo_context = ""
 
     memory = ""
@@ -643,8 +630,8 @@ def rstrip(lines: list[str]) -> str:
     return "\n".join([line.rstrip() for line in lines])
 
 
-def expand_user(path: str, docker_id: Optional[str]) -> str:
-    if not path or not path.startswith("~") or docker_id:
+def expand_user(path: str) -> str:
+    if not path or not path.startswith("~"):
         return path
     return expanduser(path)
 
@@ -911,33 +898,19 @@ def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
 
 def read_image_from_shell(file_path: str) -> ImageData:
     # Expand the path
-    file_path = expand_user(file_path, BASH_STATE.is_in_docker)
+    file_path = expand_user(file_path)
 
     if not os.path.isabs(file_path):
         file_path = os.path.join(BASH_STATE.cwd, file_path)
 
-    if not BASH_STATE.is_in_docker:
-        if not os.path.exists(file_path):
-            raise ValueError(f"File {file_path} does not exist")
+    if not os.path.exists(file_path):
+        raise ValueError(f"File {file_path} does not exist")
 
-        with open(file_path, "rb") as image_file:
-            image_bytes = image_file.read()
-            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-            image_type = mimetypes.guess_type(file_path)[0]
-            return ImageData(media_type=image_type, data=image_b64)  # type: ignore
-    else:
-        with TemporaryDirectory() as tmpdir:
-            rcode = os.system(
-                f"docker cp {BASH_STATE.is_in_docker}:{shlex.quote(file_path)} {tmpdir}"
-            )
-            if rcode != 0:
-                raise Exception(f"Error: Read failed with code {rcode}")
-            path_ = os.path.join(tmpdir, os.path.basename(file_path))
-            with open(path_, "rb") as f:
-                image_bytes = f.read()
-            image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-            image_type = mimetypes.guess_type(file_path)[0]
-            return ImageData(media_type=image_type, data=image_b64)  # type: ignore
+    with open(file_path, "rb") as image_file:
+        image_bytes = image_file.read()
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        image_type = mimetypes.guess_type(file_path)[0]
+        return ImageData(media_type=image_type, data=image_b64)  # type: ignore
 
 
 def get_context_for_errors(
@@ -962,7 +935,7 @@ def write_file(
     if not os.path.isabs(writefile.file_path):
         return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
     else:
-        path_ = expand_user(writefile.file_path, BASH_STATE.is_in_docker)
+        path_ = expand_user(writefile.file_path)
 
     error_on_exist_ = error_on_exist and path_ not in BASH_STATE.whitelist_for_overwrite
 
@@ -972,69 +945,32 @@ def write_file(
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
         return f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
+    
     add_overwrite_warning = ""
-    if not BASH_STATE.is_in_docker:
-        if (error_on_exist or error_on_exist_) and os.path.exists(path_):
-            content = Path(path_).read_text().strip()
-            if content:
-                content = truncate_if_over(content, max_tokens)
+    if (error_on_exist or error_on_exist_) and os.path.exists(path_):
+        content = Path(path_).read_text().strip()
+        if content:
+            content = truncate_if_over(content, max_tokens)
 
-                if error_on_exist_:
-                    return (
-                        f"Error: can't write to existing file {path_}, use other functions to edit the file"
-                        + f"\nHere's the existing content:\n```\n{content}\n```"
-                    )
-                else:
-                    add_overwrite_warning = content
+            if error_on_exist_:
+                return (
+                    f"Error: can't write to existing file {path_}, use other functions to edit the file"
+                    + f"\nHere's the existing content:\n```\n{content}\n```"
+                )
+            else:
+                add_overwrite_warning = content
 
-        # Since we've already errored once, add this to whitelist
-        BASH_STATE.add_to_whitelist_for_overwrite(path_)
+    # Since we've already errored once, add this to whitelist
+    BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
-        path = Path(path_)
-        path.parent.mkdir(parents=True, exist_ok=True)
+    path = Path(path_)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-        try:
-            with path.open("w") as f:
-                f.write(writefile.file_content)
-        except OSError as e:
-            return f"Error: {e}"
-    else:
-        if error_on_exist or error_on_exist_:
-            return_code, content, stderr = command_run(
-                f"docker exec {BASH_STATE.is_in_docker} cat {shlex.quote(path_)}",
-                timeout=TIMEOUT,
-            )
-            if return_code != 0 and content.strip():
-                content = truncate_if_over(content, max_tokens)
-
-                if error_on_exist_:
-                    return (
-                        f"Error: can't write to existing file {path_}, use other functions to edit the file"
-                        + f"\nHere's the existing content:\n```\n{content}\n```"
-                    )
-                else:
-                    add_overwrite_warning = content
-
-        # Since we've already errored once, add this to whitelist
-        BASH_STATE.add_to_whitelist_for_overwrite(path_)
-
-        with TemporaryDirectory() as tmpdir:
-            tmppath = os.path.join(tmpdir, os.path.basename(path_))
-            with open(tmppath, "w") as f:
-                f.write(writefile.file_content)
-            os.chmod(tmppath, 0o777)
-            parent_dir = os.path.dirname(path_)
-            rcode = os.system(
-                f"docker exec {BASH_STATE.is_in_docker} mkdir -p {parent_dir}"
-            )
-            if rcode != 0:
-                return f"Error: Write failed with code while creating dirs {rcode}"
-
-            rcode = os.system(
-                f"docker cp {shlex.quote(tmppath)} {BASH_STATE.is_in_docker}:{shlex.quote(path_)}"
-            )
-            if rcode != 0:
-                return f"Error: Write failed with code {rcode}"
+    try:
+        with path.open("w") as f:
+            f.write(writefile.file_content)
+    except OSError as e:
+        return f"Error: {e}"
 
     extension = Path(path_).suffix.lstrip(".")
 
@@ -1101,7 +1037,7 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
             f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
         )
     else:
-        path_ = expand_user(fedit.file_path, BASH_STATE.is_in_docker)
+        path_ = expand_user(fedit.file_path)
 
     # Validate using file_edit_mode
     allowed_globs = BASH_STATE.file_edit_mode.allowed_globs
@@ -1115,23 +1051,11 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
     # The LLM is now aware that the file exists
     BASH_STATE.add_to_whitelist_for_overwrite(path_)
 
-    if not BASH_STATE.is_in_docker:
-        if not os.path.exists(path_):
-            raise Exception(f"Error: file {path_} does not exist")
+    if not os.path.exists(path_):
+        raise Exception(f"Error: file {path_} does not exist")
 
-        with open(path_) as f:
-            apply_diff_to = f.read()
-    else:
-        # Copy from docker
-        with TemporaryDirectory() as tmpdir:
-            rcode = os.system(
-                f"docker cp {BASH_STATE.is_in_docker}:{shlex.quote(path_)} {tmpdir}"
-            )
-            if rcode != 0:
-                raise Exception(f"Error: Read failed with code {rcode}")
-            path_tmp = os.path.join(tmpdir, os.path.basename(path_))
-            with open(path_tmp, "r") as f:
-                apply_diff_to = f.read()
+    with open(path_) as f:
+        apply_diff_to = f.read()
 
     fedit.file_edit_using_search_replace_blocks = (
         fedit.file_edit_using_search_replace_blocks.strip()
@@ -1140,21 +1064,8 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
 
     apply_diff_to, comments = search_replace_edit(lines, apply_diff_to, console.log)
 
-    if not BASH_STATE.is_in_docker:
-        with open(path_, "w") as f:
-            f.write(apply_diff_to)
-    else:
-        with TemporaryDirectory() as tmpdir:
-            path_tmp = os.path.join(tmpdir, os.path.basename(path_))
-            with open(path_tmp, "w") as f:
-                f.write(apply_diff_to)
-            os.chmod(path_tmp, 0o777)
-            # Copy to docker using docker cp
-            rcode = os.system(
-                f"docker cp {shlex.quote(path_tmp)} {BASH_STATE.is_in_docker}:{shlex.quote(path_)}"
-            )
-            if rcode != 0:
-                raise Exception(f"Error: Write failed with code {rcode}")
+    with open(path_, "w") as f:
+        f.write(apply_diff_to)
 
     syntax_errors = ""
     extension = Path(path_).suffix.lstrip(".")
@@ -1216,10 +1127,6 @@ TOOLS = (
     | ReadImage
     | ReadFiles
     | Initialize
-    | Mouse
-    | Keyboard
-    | ScreenShot
-    | GetScreenInfo
     | ContextSave
 )
 
@@ -1254,14 +1161,6 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return ReadFiles
     elif name == "Initialize":
         return Initialize
-    elif name == "Mouse":
-        return Mouse
-    elif name == "Keyboard":
-        return Keyboard
-    elif name == "ScreenShot":
-        return ScreenShot
-    elif name == "GetScreenInfo":
-        return GetScreenInfo
     elif name == "ContextSave":
         return ContextSave
     else:
@@ -1278,7 +1177,7 @@ def get_tool_output(
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData | DoneFlag], float]:
-    global IS_IN_DOCKER, TOOL_CALLS, INITIALIZED
+    global TOOL_CALLS, INITIALIZED
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
         arg = adapter.validate_python(args)
@@ -1335,48 +1234,12 @@ def get_tool_output(
             ),
             0.0,
         )
-    elif isinstance(arg, (Mouse, Keyboard, ScreenShot, GetScreenInfo)):
-        console.print(f"Calling {type(arg).__name__} tool")
-        outputs_cost = run_computer_tool(arg), 0.0
-        console.print(outputs_cost[0][0])
-        outputs: list[ImageData | str | DoneFlag] = [outputs_cost[0][0]]
-        imgBs64 = outputs_cost[0][1]
-        if imgBs64:
-            console.print("Captured screenshot")
-            outputs.append(ImageData(media_type="image/png", data=imgBs64))
-            if not BASH_STATE.is_in_docker and isinstance(arg, GetScreenInfo):
-                try:
-                    # At this point we should go into the docker env
-                    res, _ = execute_bash(
-                        enc,
-                        BashCommand(
-                            command=f"docker exec -it {arg.docker_image_id} sh"
-                        ),
-                        None,
-                        0.2,
-                    )
-                    # At this point we should go into the docker env
-                    res, _ = execute_bash(
-                        enc,
-                        BashInteraction(send_text=f"export PS1={BASH_STATE.prompt}"),
-                        None,
-                        0.2,
-                    )
-                    # Do chown of home dir
-                except Exception as e:
-                    reset_shell()
-                    raise Exception(
-                        f"Some error happened while going inside docker. I've reset the shell. Please start again. Error {e}"
-                    )
-                BASH_STATE.set_in_docker(arg.docker_image_id)
-        return outputs, outputs_cost[1]
     elif isinstance(arg, ContextSave):
         console.print("Calling task memory tool")
-        assert not BASH_STATE.is_in_docker, "KT not supported in docker"
         relevant_files = []
         warnings = ""
         for fglob in arg.relevant_file_globs:
-            fglob = expand_user(fglob, None)
+            fglob = expand_user(fglob)
             if not os.path.isabs(fglob) and arg.project_root_path:
                 fglob = os.path.join(arg.project_root_path, fglob)
             globs = glob.glob(fglob, recursive=True)
@@ -1519,7 +1382,7 @@ def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int
     console.print(f"Reading file: {file_path}")
 
     # Expand the path before checking if it's absolute
-    file_path = expand_user(file_path, BASH_STATE.is_in_docker)
+    file_path = expand_user(file_path)
 
     if not os.path.isabs(file_path):
         raise ValueError(
@@ -1528,23 +1391,12 @@ def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int
 
     BASH_STATE.add_to_whitelist_for_overwrite(file_path)
 
-    if not BASH_STATE.is_in_docker:
-        path = Path(file_path)
-        if not path.exists():
-            raise ValueError(f"Error: file {file_path} does not exist")
+    path = Path(file_path)
+    if not path.exists():
+        raise ValueError(f"Error: file {file_path} does not exist")
 
-        with path.open("r") as f:
-            content = f.read(10_000_000)
-
-    else:
-        return_code, content, stderr = command_run(
-            f"docker exec {BASH_STATE.is_in_docker} cat {shlex.quote(file_path)}",
-            timeout=TIMEOUT,
-        )
-        if return_code != 0:
-            raise Exception(
-                f"Error: cat {file_path} failed with code {return_code}\nstdout: {content}\nstderr: {stderr}"
-            )
+    with path.open("r") as f:
+        content = f.read(10_000_000)
 
     truncated = False
     tokens_counts = 0

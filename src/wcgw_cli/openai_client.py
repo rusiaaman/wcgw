@@ -114,7 +114,6 @@ def loop(
     first_message: Optional[str] = None,
     limit: Optional[float] = None,
     resume: Optional[str] = None,
-    computer_use: bool = False,
 ) -> tuple[str, float]:
     load_dotenv()
 

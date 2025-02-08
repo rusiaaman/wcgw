@@ -106,45 +106,6 @@ class FileEdit(BaseModel):
     file_edit_using_search_replace_blocks: str
 
 
-class GetScreenInfo(BaseModel):
-    docker_image_id: str
-
-
-class ScreenShot(BaseModel):
-    take_after_delay_seconds: int
-
-
-class MouseMove(BaseModel):
-    x: int
-    y: int
-    do_left_click_on_move: bool
-
-
-class LeftClickDrag(BaseModel):
-    x: int
-    y: int
-
-
-class MouseButton(BaseModel):
-    button_type: Literal[
-        "left_click",
-        "right_click",
-        "middle_click",
-        "double_click",
-        "scroll_up",
-        "scroll_down",
-    ]
-
-
-class Mouse(BaseModel):
-    action: MouseButton | LeftClickDrag | MouseMove
-
-
-class Keyboard(BaseModel):
-    action: Literal["key", "type"]
-    text: str
-
-
 class ContextSave(BaseModel):
     id: str
     project_root_path: str

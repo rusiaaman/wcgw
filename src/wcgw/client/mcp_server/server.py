@@ -16,22 +16,15 @@ from ...types_ import (
     BashInteraction,
     ContextSave,
     FileEdit,
-    GetScreenInfo,
     Initialize,
-    Keyboard,
-    Mouse,
     ReadFiles,
     ReadImage,
     ResetShell,
-    ScreenShot,
     WriteIfEmpty,
 )
 from .. import tools
-from ..computer_use import SLEEP_TIME_MAX_S
 from ..modes import get_kt_prompt
 from ..tools import DoneFlag, default_enc, get_tool_output, which_tool_name
-
-COMPUTER_USE_ON_DOCKER_ENABLED = False
 
 server = Server("wcgw")
 
@@ -104,7 +97,7 @@ async def handle_list_tools() -> list[types.Tool]:
     ) as f:
         diffinstructions = f.read()
 
-    tools = [
+    tools_ = [
         ToolParam(
             inputSchema=Initialize.model_json_schema(),
             name="Initialize",
@@ -132,7 +125,7 @@ async def handle_list_tools() -> list[types.Tool]:
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first or the last line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
-- The control will return to you in {SLEEP_TIME_MAX_S} seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
+- The control will return to you in {tools.TIMEOUT} seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
 - Use longer wait_for_seconds if the command is expected to run for a long time.
 - Do not use 'cat' to read files, use ReadFiles tool instead.
@@ -141,13 +134,13 @@ async def handle_list_tools() -> list[types.Tool]:
         ToolParam(
             inputSchema=BashInteraction.model_json_schema(),
             name="BashInteraction",
-            description=f"""
+            description="""
 - Interact with running program using this tool
 - Special keys like arrows, interrupts, enter, etc.
 - Send text input to the running program.
 - Send send_specials=["Enter"] to recheck status of a running program.
 - Only one of send_text, send_specials, send_ascii should be provided.
-- This returns within {SLEEP_TIME_MAX_S} seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
+- This returns within 5 seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
 - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
 - Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
 - Set longer wait_for_seconds when program is expected to run for a long time.
@@ -178,7 +171,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ToolParam(
             inputSchema=ResetShell.model_json_schema(),
             name="ResetShell",
-            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.\nAlso exits the docker environment.\nYou need to call GetScreenInfo again.",
+            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
         ),
         ToolParam(
             inputSchema=FileEdit.model_json_schema(),
@@ -199,57 +192,7 @@ Saves provided description and file contents of all the relevant file paths or g
 - Leave project path as empty string if no project path""",
         ),
     ]
-    if COMPUTER_USE_ON_DOCKER_ENABLED:
-        tools += [
-            ToolParam(
-                inputSchema=GetScreenInfo.model_json_schema(),
-                name="GetScreenInfo",
-                description="""
-- Important: call this first in the conversation before ScreenShot, Mouse, and Keyboard tools.
-- Get display information of a linux os running on docker using image "ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest"
-- If user hasn't provided docker image id, check using `docker ps` and provide the id.
-- If the docker is not running, run using `docker run -d -p 6080:6080 ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest`
-- Connects shell to the docker environment.
-- Note: once this is called, the shell enters the docker environment. All bash commands will run over there.
-""",
-            ),
-            ToolParam(
-                inputSchema=ScreenShot.model_json_schema(),
-                name="ScreenShot",
-                description="""
-- Capture screenshot of the linux os on docker.
-- All actions on UI using mouse and keyboard return within 0.5 seconds.
-    * So if you're doing something that takes longer for UI to update like heavy page loading, keep checking UI for update using ScreenShot upto 10 turns. 
-    * Notice for smallest of the loading icons to check if your action worked.
-    * After 10 turns of no change, ask user for permission to keep checking.
-    * If you don't notice even slightest of the change, it's likely you clicked on the wrong place.
-""",
-            ),
-            ToolParam(
-                inputSchema=Mouse.model_json_schema(),
-                name="Mouse",
-                description="""
-- Interact with the linux os on docker using mouse.
-- Uses xdotool
-- About left_click_drag: the current mouse position will be used as the starting point, click and drag to the given x, y coordinates. Useful in things like sliders, moving things around, etc.
-- The output of this command has the screenshot after doing this action. Use this to verify if the action was successful.
-""",
-            ),
-            ToolParam(
-                inputSchema=Keyboard.model_json_schema(),
-                name="Keyboard",
-                description="""
-- Interact with the linux os on docker using keyboard.
-- Emulate keyboard input to the screen
-- Uses xdootool to send keyboard input, keys like Return, BackSpace, Escape, Page_Up, etc. can be used.
-- Do not use it to interact with Bash tool.
-- Make sure you've selected a text area or an editable element before sending text.
-- The output of this command has the screenshot after doing this action. Use this to verify if the action was successful.
-""",
-            ),
-        ]
-
-    return tools
+    return tools_
 
 
 @server.call_tool()  # type: ignore
@@ -307,16 +250,11 @@ Initialize call done.
     return content
 
 
-async def main(computer_use: bool) -> None:
-    global COMPUTER_USE_ON_DOCKER_ENABLED
-
-    tools.TIMEOUT = SLEEP_TIME_MAX_S
+async def main() -> None:
+    tools.TIMEOUT = 3
     tools.TIMEOUT_WHILE_OUTPUT = 55
     tools.OUTPUT_WAIT_PATIENCE = 5
     tools.console = Console()
-
-    if computer_use:
-        COMPUTER_USE_ON_DOCKER_ENABLED = True
 
     version = str(importlib.metadata.version("wcgw"))
     tools.console.log("wcgw version: " + version)
