@@ -1,7 +1,9 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from wcgw.client.tools import BASH_STATE, execute_bash
+from unittest.mock import MagicMock, patch
+
+from wcgw.client.bash_state.bash_state import execute_bash
 from wcgw.types_ import BashCommand
+
 
 class TestDockerOperations(unittest.TestCase):
     @patch("wcgw.client.tools.BASH_STATE")
@@ -29,11 +31,14 @@ class TestDockerOperations(unittest.TestCase):
         with patch("wcgw.client.tools.get_status", side_effect=mock_get_status):
             # Test command execution
             command = BashCommand(command="echo test")
-            output, cost = execute_bash(MagicMock(), command, max_tokens=100, timeout_s=1)
+            output, cost = execute_bash(
+                MagicMock(), command, max_tokens=100, timeout_s=1
+            )
 
-            # Verify output 
+            # Verify output
             self.assertIn("test output", output)
             self.assertEqual(cost, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

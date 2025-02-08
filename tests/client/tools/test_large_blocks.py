@@ -1,7 +1,9 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from wcgw.client.tools import BASH_STATE, execute_bash
+from unittest.mock import MagicMock, patch
+
+from wcgw.client.bash_state.bash_state import execute_bash
 from wcgw.types_ import BashCommand
+
 
 class TestLargeBlocks(unittest.TestCase):
     @patch("wcgw.client.tools.BASH_STATE")
@@ -27,11 +29,14 @@ class TestLargeBlocks(unittest.TestCase):
         with patch("wcgw.client.tools.get_status", side_effect=mock_get_status):
             # Test command with large output
             command = BashCommand(command="generate_large_output")
-            output, cost = execute_bash(MagicMock(), command, max_tokens=100, timeout_s=1)
+            output, cost = execute_bash(
+                MagicMock(), command, max_tokens=100, timeout_s=1
+            )
 
             # Verify output
             self.assertIn("large output", output)
             self.assertEqual(cost, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

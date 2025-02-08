@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch
-from wcgw.client.tools import render_terminal_output, ask_confirmation, Confirmation
+
+from wcgw.client.bash_state.bash_state import render_terminal_output
+from wcgw.client.tools import Confirmation, ask_confirmation
 from wcgw.types_ import WriteIfEmpty
 
 

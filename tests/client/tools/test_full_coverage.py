@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+from wcgw.client.bash_state.bash_state import render_terminal_output
 from wcgw.client.tools import (
     get_incremental_output,
-    render_terminal_output,
     truncate_if_over,
 )
 

@@ -10,11 +10,12 @@ from pathlib import Path
 from typing import Literal, Optional, cast
 
 import rich
-from anthropic import Anthropic
+from anthropic import Anthropic, MessageStopEvent
 from anthropic.types import (
     ImageBlockParam,
     MessageParam,
     ModelParam,
+    RawMessageStartEvent,
     TextBlockParam,
     ToolParam,
     ToolResultBlockParam,
@@ -360,7 +361,7 @@ Saves provided description and file contents of all the relevant file paths or g
             with stream as stream_:
                 for chunk in stream_:
                     type_ = chunk.type
-                    if type_ == "message_start":
+                    if isinstance(chunk, RawMessageStartEvent):
                         message_start = chunk.message
                         # Update cost based on token usage from the API response
                         input_tokens = message_start.usage.input_tokens
@@ -369,7 +370,7 @@ Saves provided description and file contents of all the relevant file paths or g
                             input_tokens
                             * config.cost_file[config.model].cost_per_1m_input_tokens
                         ) / 1_000_000
-                    elif type_ == "message_stop":
+                    elif isinstance(chunk, MessageStopEvent):
                         message_stop = chunk.message
                         # Update cost based on output tokens
                         output_tokens = message_stop.usage.output_tokens

@@ -1,7 +1,9 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from wcgw.client.tools import BASH_STATE, execute_bash
+from unittest.mock import MagicMock, patch
+
+from wcgw.client.bash_state.bash_state import execute_bash
 from wcgw.types_ import BashCommand
+
 
 class TestErrorHandling(unittest.TestCase):
     @patch("wcgw.client.tools.BASH_STATE")
@@ -17,6 +19,7 @@ class TestErrorHandling(unittest.TestCase):
         command = BashCommand(command="invalid command")
         with self.assertRaises(Exception):
             execute_bash(MagicMock(), command, max_tokens=100, timeout_s=1)
+
 
 if __name__ == "__main__":
     unittest.main()

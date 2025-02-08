@@ -4,15 +4,17 @@ from unittest.mock import MagicMock, call, patch
 
 import pexpect
 
-from wcgw.client import tools
-from wcgw.client.tools import (
-    BASH_STATE,
+from wcgw.client.bash_state import bash_state
+from wcgw.client.bash_state.bash_state import (
     BashState,
     _is_int,
     execute_bash,
-    get_status,
     render_terminal_output,
     start_shell,
+)
+from wcgw.client.tools import (
+    BASH_STATE,
+    get_status,
 )
 from wcgw.types_ import BashCommand, BashInteraction
 
@@ -95,7 +97,7 @@ class TestToolsShell(unittest.TestCase):
     def test_ensure_env_bg_jobs(self):
         """Test background jobs check and environment setup"""
 
-        from wcgw.client.tools import PROMPT_CONST
+        from wcgw.client.bash_state.bash_state import PROMPT_CONST
 
         # Create mock BashState instance
         mock_bash_state = MagicMock()
@@ -476,7 +478,7 @@ class TestToolsShell(unittest.TestCase):
 
     def test_render_terminal_output(self):
         # basic
-        output = tools.render_terminal_output("Hello\nWorld")
+        output = bash_state.render_terminal_output("Hello\nWorld")
         self.assertEqual([line.rstrip() for line in output], ["Hello", "World"])
 
         # ANSI

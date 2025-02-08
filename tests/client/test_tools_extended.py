@@ -4,11 +4,15 @@ import os
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
+from wcgw.client.bash_state.bash_state import (
+    execute_bash,
+    render_terminal_output,
+    start_shell,
+)
 from wcgw.client.tools import (
     BASH_STATE,
     ImageData,
     get_incremental_output,
-    render_terminal_output,
     which_tool,
     which_tool_name,
 )
@@ -18,11 +22,11 @@ from wcgw.types_ import BashCommand, BashInteraction, WriteIfEmpty
 class TestToolsExtended(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
-        from wcgw.client.tools import BASH_STATE, INITIALIZED, TOOL_CALLS, initialize
+        from wcgw.client.tools import INITIALIZED, TOOL_CALLS, initialize
 
         global INITIALIZED, TOOL_CALLS
         INITIALIZED = False
-        TOOL_CALLS = []  
+        TOOL_CALLS = []
 
         # Properly initialize tools for testing
         initialize(
@@ -96,7 +100,7 @@ class TestToolsExtended(unittest.TestCase):
 
         # Test invalid tool name
         with self.assertRaises(ValueError):
-            which_tool_name("InvalidTool") 
+            which_tool_name("InvalidTool")
 
         # Test pending state
         BASH_STATE.set_pending("test output")
@@ -214,7 +218,7 @@ class TestToolsExtended(unittest.TestCase):
 
     @patch("pexpect.spawn")
     def test_start_shell(self, mock_spawn):
-        from wcgw.client.tools import PROMPT_CONST, start_shell
+        from wcgw.client.bash_state.bash_state import PROMPT_CONST
 
         # Setup mock shell
         mock_shell = MagicMock()
@@ -226,7 +230,9 @@ class TestToolsExtended(unittest.TestCase):
 
         # Verify shell initialization
         self.assertEqual(mock_shell.expect.call_count, 4)  # 4 setup commands
-        mock_shell.sendline.assert_any_call(f"export PROMPT_COMMAND= PS1={PROMPT_CONST}")
+        mock_shell.sendline.assert_any_call(
+            f"export PROMPT_COMMAND= PS1={PROMPT_CONST}"
+        )
         mock_shell.sendline.assert_any_call("stty -icanon -echo")
         mock_shell.sendline.assert_any_call("set +o pipefail")
         mock_shell.sendline.assert_any_call("export GIT_PAGER=cat PAGER=cat")
@@ -261,10 +267,9 @@ class TestToolsExtended(unittest.TestCase):
         with self.assertRaises(json.JSONDecodeError):
             which_tool("invalid json")
 
-
     @patch("wcgw.client.tools.BASH_STATE")
     def test_execute_bash_interaction(self, mock_bash_state):
-        from wcgw.client.tools import BashInteraction, execute_bash
+        from wcgw.client.tools import BashInteraction
 
         mock_tokenizer = MagicMock()
         mock_tokenizer.encode.return_value = MagicMock(ids=[1, 2, 3])
@@ -392,7 +397,6 @@ class TestToolsExtended(unittest.TestCase):
             100,
         )
         self.assertTrue(isinstance(result[0], str))
-
 
     @patch("wcgw.client.tools.take_help_of_ai_assistant")
     def test_get_tool_output_ai_assistant(self, mock_ai_helper):
