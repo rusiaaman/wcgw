@@ -51,6 +51,7 @@ def get_tmpdir() -> str:
         result = subprocess.check_output(
             ["getconf", "DARWIN_USER_TEMP_DIR"],
             text=True,
+            timeout=CONFIG.timeout,
         ).strip()
         return result
     except subprocess.CalledProcessError:
@@ -61,15 +62,63 @@ def get_tmpdir() -> str:
 
 def check_if_screen_command_available() -> bool:
     try:
-        subprocess.run(["screen", "-v"], capture_output=True, check=True)
+        subprocess.run(
+            ["screen", "-v"], capture_output=True, check=True, timeout=CONFIG.timeout
+        )
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 
 
+def cleanup_all_screens_with_name(name: str, console: Console) -> None:
+    """
+    There could be in worst case multiple screens with same name, clear them if any.
+    Clearing just using "screen -X -S {name} quit" doesn't work because screen complains
+    that there are several suitable screens.
+    """
+    try:
+        # Try to get the list of screens.
+        result = subprocess.run(
+            ["screen", "-ls"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=CONFIG.timeout,
+        )
+        output = result.stdout
+    except subprocess.CalledProcessError as e:
+        # When no screens exist, screen may return a non-zero exit code.
+        output = (e.stdout or "") + (e.stderr or "")
+
+    sessions_to_kill = []
+
+    # Parse each line of the output. The lines containing sessions typically start with a digit.
+    for line in output.splitlines():
+        line = line.strip()
+        if not line or not line[0].isdigit():
+            continue
+
+        # Each session is usually shown as "1234.my_screen (Detached)".
+        # We extract the first part, then split on the period to get the session name.
+        session_info = line.split()[0].strip()  # e.g., "1234.my_screen"
+        if session_info.endswith(f".{name}"):
+            sessions_to_kill.append(session_info)
+
+    # Now, for every session we found, tell screen to quit it.
+    for session in sessions_to_kill:
+        try:
+            subprocess.run(
+                ["screen", "-S", session, "-X", "quit"],
+                check=True,
+                timeout=CONFIG.timeout,
+            )
+        except subprocess.CalledProcessError:
+            console.log(f"Failed to kill screen session: {session}")
+
+
 def start_shell(
     is_restricted_mode: bool, initial_dir: str, console: Console, over_screen: bool
-) -> pexpect.spawn:  # type: ignore[type-arg]
+) -> tuple[pexpect.spawn, str]:  # type: ignore[type-arg]
     cmd = "/bin/bash"
     if is_restricted_mode:
         cmd += " -r"
@@ -112,18 +161,18 @@ def start_shell(
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
         console.log(shell.before or "")
 
+    shellid = "wcgw." + time.strftime("%H%M%S")
     if over_screen:
         if not check_if_screen_command_available():
             raise ValueError("Screen command not available")
         # shellid is just hour, minute, second number
-        shellid = time.strftime("%H%M%S")
-        shell.sendline(f"trap 'screen -X -S wcgw.{shellid} quit' EXIT")
+        shell.sendline(f"trap 'screen -X -S {shellid} quit' EXIT")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
         console.log(shell.before or "")
-        shell.sendline(f"screen -q -s /bin/bash -S wcgw.{shellid}")
+        shell.sendline(f"screen -q -s /bin/bash -S {shellid}")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
         console.log(shell.before or "")
-        console.log(f"Entering screen session, name: wcgw.{shellid}")
+        console.log(f"Entering screen session, name: {shellid}")
 
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
     console.log(shell.before or "")
@@ -136,7 +185,7 @@ def start_shell(
     shell.sendline("export GIT_PAGER=cat PAGER=cat")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
     console.log(shell.before or "")
-    return shell
+    return shell, shellid
 
 
 def _is_int(mystr: str) -> bool:
@@ -235,6 +284,7 @@ class BashState:
     def cleanup(self) -> None:
         self.close_bg_expect_thread()
         self.shell.close(True)
+        cleanup_all_screens_with_name(self._shell_id, self.console)
 
     def __enter__(self) -> "BashState":
         return self
@@ -306,7 +356,7 @@ class BashState:
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
         try:
-            self._shell = start_shell(
+            self._shell, self._shell_id = start_shell(
                 self._bash_command_mode.bash_mode == "restricted_mode",
                 self._cwd,
                 self.console,
@@ -318,7 +368,7 @@ class BashState:
                 self.console.log(traceback.format_exc())
             self.console.log("Retrying without using screen")
             # Try without over_screen
-            self._shell = start_shell(
+            self._shell, self._shell_id = start_shell(
                 self._bash_command_mode.bash_mode == "restricted_mode",
                 self._cwd,
                 self.console,
