@@ -149,6 +149,39 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     assert test_file in outputs[0]  # Should show the file in tree structure
     assert "Following is the retrieved" in outputs[0]  # Verify context was retrieved
 
+    # Test mode override when resuming context
+    # First save context in wcgw mode
+    new_test_file = os.path.join(temp_dir, "test2.txt")
+    with open(new_test_file, "w") as f:
+        f.write("test content 2")
+
+    save_args = ContextSave(
+        id="test_task_mode_switch",
+        project_root_path=temp_dir,
+        description="Test context with mode switch",
+        relevant_file_globs=["*.txt"],
+    )
+    get_tool_output(context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    # Now try to resume the saved context but in architect mode
+    init_args = Initialize(
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[new_test_file],
+        task_id_to_resume="test_task_mode_switch",
+        mode_name="architect",  # Different mode than what was used in saving
+        code_writer_config=None,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert new_test_file in outputs[0]  # Should show the file in tree structure
+    assert "Following is the retrieved" in outputs[0]  # Verify context was retrieved
+    assert "running in \"architect\" mode" in outputs[0].lower()  # Verify mode was overridden to architect
+
     # Test with empty workspace path
     init_args = Initialize(
         any_workspace_path="",
@@ -164,6 +197,45 @@ def test_initialize(context: Context, temp_dir: str) -> None:
 
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
+
+    # Test with non-existent workspace path
+    nonexistent_path = os.path.join(temp_dir, "does_not_exist")
+    init_args = Initialize(
+        any_workspace_path=nonexistent_path,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert "does_not_exist" in outputs[0]  # Should mention the path in output
+
+    # Test with a file as workspace path
+    file_as_workspace = os.path.join(temp_dir, "workspace.txt")
+    with open(file_as_workspace, "w") as f:
+        f.write("test content")
+
+    init_args = Initialize(
+        any_workspace_path=file_as_workspace,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert file_as_workspace in outputs[0]  # Should show the file path
 
 
 def test_bash_command(context: Context, temp_dir: str) -> None:

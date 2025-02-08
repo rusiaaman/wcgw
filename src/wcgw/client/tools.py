@@ -21,11 +21,10 @@ from typing import (
 from openai.types.chat import (
     ChatCompletionMessageParam,
 )
-from .encoder import get_default_encoder, EncoderDecoder
 from pydantic import BaseModel, TypeAdapter
 from syntax_checker import check_syntax
 
-from wcgw.client.bash_state.bash_state import WAITING_INPUT_MESSAGE, get_status
+from wcgw.client.bash_state.bash_state import get_status
 
 from ..types_ import (
     BashCommand,
@@ -46,6 +45,7 @@ from .bash_state.bash_state import (
     BashState,
     execute_bash,
 )
+from .encoder import EncoderDecoder, get_default_encoder
 from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
 from .modes import (
@@ -243,21 +243,6 @@ class ImageData(BaseModel):
 
 
 Param = ParamSpec("Param")
-
-
-def ensure_no_previous_output(
-    context: Context,
-) -> Callable[[Callable[Param, T]], Callable[Param, T]]:
-    def decorator(func: Callable[Param, T]) -> Callable[Param, T]:
-        def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
-            if context.bash_state.state == "pending":
-                raise ValueError(WAITING_INPUT_MESSAGE)
-
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
