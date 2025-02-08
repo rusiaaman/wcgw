@@ -58,8 +58,9 @@ dev-dependencies = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "line-profiler>=4.2.0",
+    "pytest-asyncio>=0.25.3",
 ]
 
 [tool.pytest.ini_options]
-addopts = "--cov=wcgw --cov-report=term-missing:skip-covered --cov-report=html"
+addopts = "--cov=wcgw --cov-report=term-missing --cov-report=html"
 testpaths = ["tests"]
