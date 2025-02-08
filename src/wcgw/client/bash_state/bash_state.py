@@ -4,6 +4,7 @@ import platform
 import re
 import subprocess
 import threading
+import time
 import traceback
 from dataclasses import dataclass
 from typing import Any, Literal, Optional
@@ -58,8 +59,16 @@ def get_tmpdir() -> str:
         return ""
 
 
+def check_if_screen_command_available() -> bool:
+    try:
+        subprocess.run(["screen", "-v"], capture_output=True, check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
 def start_shell(
-    is_restricted_mode: bool, initial_dir: str, console: Console
+    is_restricted_mode: bool, initial_dir: str, console: Console, over_screen: bool
 ) -> pexpect.spawn:  # type: ignore[type-arg]
     cmd = "/bin/bash"
     if is_restricted_mode:
@@ -86,6 +95,7 @@ def start_shell(
             f"export PROMPT_COMMAND= PS1={PROMPT_CONST}"
         )  # Unset prompt command to avoid interfering
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+        console.log(shell.before or "")
     except Exception as e:
         console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
@@ -99,13 +109,33 @@ def start_shell(
             codec_errors="backslashreplace",
         )
         shell.sendline(f"export PS1={PROMPT_CONST}")
+        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+        console.log(shell.before or "")
+
+    if over_screen:
+        if not check_if_screen_command_available():
+            raise ValueError("Screen command not available")
+        # shellid is just hour, minute, second number
+        shellid = time.strftime("%H%M%S")
+        shell.sendline(f"trap 'screen -X -S wcgw.{shellid} quit' EXIT")
+        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+        console.log(shell.before or "")
+        shell.sendline(f"screen -q -s /bin/bash -S wcgw.{shellid}")
+        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+        console.log(shell.before or "")
+        console.log(f"Entering screen session, name: wcgw.{shellid}")
+
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+    console.log(shell.before or "")
     shell.sendline("stty -icanon -echo")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+    console.log(shell.before or "")
     shell.sendline("set +o pipefail")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+    console.log(shell.before or "")
     shell.sendline("export GIT_PAGER=cat PAGER=cat")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+    console.log(shell.before or "")
     return shell
 
 
@@ -204,6 +234,7 @@ class BashState:
 
     def cleanup(self) -> None:
         self.close_bg_expect_thread()
+        self.shell.close(True)
 
     def __enter__(self) -> "BashState":
         return self
@@ -230,22 +261,23 @@ class BashState:
     def ensure_env_and_bg_jobs(self) -> Optional[int]:
         if self._prompt != PROMPT_CONST:
             return None
+        quick_timeout = 0.2 if not self.over_screen else 1
         # First reset the prompt in case venv was sourced or other reasons.
         self.sendline(f"export PS1={self._prompt}")
-        self.expect(self._prompt, timeout=0.2)
+        self.expect(self._prompt, timeout=quick_timeout)
         # Reset echo also if it was enabled
         self.sendline("stty -icanon -echo")
-        self.expect(self._prompt, timeout=0.2)
+        self.expect(self._prompt, timeout=quick_timeout)
         self.sendline("set +o pipefail")
-        self.expect(self._prompt, timeout=0.2)
+        self.expect(self._prompt, timeout=quick_timeout)
         self.sendline("export GIT_PAGER=cat PAGER=cat")
-        self.expect(self._prompt, timeout=0.2)
+        self.expect(self._prompt, timeout=quick_timeout)
         self.sendline("jobs | wc -l")
         before = ""
         counts = 0
         while not _is_int(before):  # Consume all previous output
             try:
-                self.expect(self._prompt, timeout=0.2)
+                self.expect(self._prompt, timeout=quick_timeout)
             except pexpect.TIMEOUT:
                 self.console.print(f"Couldn't get exit code, before: {before}")
                 raise
@@ -273,11 +305,26 @@ class BashState:
         self._is_in_docker: Optional[str] = ""
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
-        self._shell = start_shell(
-            self._bash_command_mode.bash_mode == "restricted_mode",
-            self._cwd,
-            self.console,
-        )
+        try:
+            self._shell = start_shell(
+                self._bash_command_mode.bash_mode == "restricted_mode",
+                self._cwd,
+                self.console,
+                over_screen=True,
+            )
+            self.over_screen = True
+        except Exception as e:
+            if not isinstance(e, ValueError):
+                self.console.log(traceback.format_exc())
+            self.console.log("Retrying without using screen")
+            # Try without over_screen
+            self._shell = start_shell(
+                self._bash_command_mode.bash_mode == "restricted_mode",
+                self._cwd,
+                self.console,
+                over_screen=False,
+            )
+            self.over_screen = False
 
         self._pending_output = ""
 
