@@ -535,7 +535,7 @@ def get_tool_output(
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
-) -> tuple[list[str | ImageData], float, BashState]:
+) -> tuple[list[str | ImageData], float]:
     global TOOL_CALLS, INITIALIZED
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
@@ -610,7 +610,7 @@ def get_tool_output(
         context.console.print(str(output[0]))
     else:
         context.console.print(f"Received {type(output[0])} from tool")
-    return [output[0]], output[1], context.bash_state
+    return [output[0]], output[1]
 
 
 History = list[ChatCompletionMessageParam]
@@ -661,7 +661,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                 if isinstance(mdata.data, str):
                     raise Exception(mdata)
                 try:
-                    outputs, cost, bash_state = get_tool_output(
+                    outputs, cost = get_tool_output(
                         context,
                         mdata.data,
                         default_enc,
@@ -669,7 +669,6 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                         lambda x, y: ("", 0),
                         8000,
                     )
-                    context.bash_state = bash_state
                     output = outputs[0]
                     curr_cost += cost
                     print(f"{curr_cost=}")

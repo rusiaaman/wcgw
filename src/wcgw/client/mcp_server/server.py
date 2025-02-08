@@ -222,7 +222,7 @@ async def handle_call_tool(
 
     try:
         assert BASH_STATE
-        output_or_dones, _, BASH_STATE = get_tool_output(
+        output_or_dones, _ = get_tool_output(
             Context(BASH_STATE, BASH_STATE.console),
             tool_call,
             default_enc,
