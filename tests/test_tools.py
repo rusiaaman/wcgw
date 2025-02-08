@@ -303,7 +303,9 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert len(outputs) == 1
-    assert "Error: can't write to existing file" in outputs[0]  # Should fail with exception
+    assert (
+        "Error: can't write to existing file" in outputs[0]
+    )  # Should fail with exception
 
     # Test writing after reading the file (should succeed with warning)
     read_args = ReadFiles(file_paths=[test_file2])
@@ -471,6 +473,75 @@ def test_bash_interaction(context: Context, temp_dir: str) -> None:
     assert any(
         str(i) in str(outputs) for i in range(1, 6)
     )  # Should see some numbers from 1-5
+
+    # Test Ctrl-C handling using yes command
+    cmd = BashCommand(command="yes 'testing' > /dev/null")  # Continuous output command
+    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    interrupt_cmd = BashInteraction(send_specials=["Ctrl-c"])
+    outputs, _ = get_tool_output(
+        context, interrupt_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "status = process exited" in str(outputs[0])
+
+    # Test Ctrl-D handling with cat
+    cmd = BashCommand(command="cat > /dev/null")  # Wait for EOF
+    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    # Give it a moment to start
+    check_cmd = BashInteraction(send_specials=["Enter"])
+    get_tool_output(context, check_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    eof_cmd = BashInteraction(send_specials=["Ctrl-d"])
+    get_tool_output(context, eof_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    assert "status = process exited" in str(outputs[0])
+
+    # Test Ctrl-Z handling
+    cmd = BashCommand(command="sleep 6")  # Long running command
+    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    suspend_cmd = BashInteraction(send_specials=["Ctrl-z"])
+    outputs, _ = get_tool_output(
+        context, suspend_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+
+    # Test ASCII sequence sending
+    cmd = BashCommand(command="cat")  # Command that reads input
+    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    # Send ASCII sequence (Ctrl-C = ASCII 3)
+    send_text = BashInteraction(send_text="hello")
+    outputs, _ = get_tool_output(
+        context, send_text, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "hello" in str(outputs[0])
+
+    # Send ASCII sequence (Ctrl-C = ASCII 3)
+    ascii_cmd = BashInteraction(send_ascii=[3])
+    outputs, _ = get_tool_output(
+        context, ascii_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "process exited" in str(outputs[0])
+
+    # Test empty send arguments
+    outputs, _ = get_tool_output(
+        context,
+        BashInteraction(),
+        default_enc,
+        1.0,
+        lambda x, y: ("", 0.0),
+        None,
+    )
+    assert len(outputs) == 1
+    assert (
+        "exactly one of send_text, send_specials or send_ascii should be provided"
+        in outputs[0]
+    )
 
 
 def test_read_image(context: Context, temp_dir: str) -> None:
