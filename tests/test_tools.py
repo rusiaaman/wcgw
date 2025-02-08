@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch
 
 from wcgw.client.bash_state.bash_state import render_terminal_output
-from wcgw.client.tools import Confirmation, ask_confirmation
 from wcgw.types_ import WriteIfEmpty
 
 
@@ -17,18 +16,6 @@ class TestTools(unittest.TestCase):
         result = render_terminal_output(terminal_output)
         # Stripping extra whitespace and ensuring content matches
         self.assertEqual("\n".join(line.strip() for line in result), expected_result)
-
-    @patch("builtins.input", return_value="y")
-    def test_ask_confirmation_yes(self, mock_input):
-        prompt = "Are you sure?"
-        result = ask_confirmation(Confirmation(prompt=prompt))
-        self.assertEqual(result, "Yes")
-
-    @patch("builtins.input", return_value="n")
-    def test_ask_confirmation_no(self, mock_input):
-        prompt = "Are you sure?"
-        result = ask_confirmation(Confirmation(prompt=prompt))
-        self.assertEqual(result, "No")
 
     def test_writefile_model(self):
         # Test the Writefile Pydantic model

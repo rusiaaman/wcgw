@@ -25,7 +25,7 @@ from ...types_ import (
     WriteIfEmpty,
 )
 from ..bash_state.bash_state import CONFIG, BashState
-from ..tools import DoneFlag, default_enc, get_tool_output, which_tool_name
+from ..tools import default_enc, get_tool_output, which_tool_name
 
 server = Server("wcgw")
 
@@ -231,7 +231,6 @@ async def handle_call_tool(
 
     content: list[types.TextContent | types.ImageContent | types.EmbeddedResource] = []
     for output_or_done in output_or_dones:
-        assert not isinstance(output_or_done, DoneFlag)
         if isinstance(output_or_done, str):
             if issubclass(tool_type, Initialize):
                 output_or_done += """

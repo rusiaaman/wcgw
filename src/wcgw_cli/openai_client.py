@@ -26,7 +26,6 @@ from typer import Typer
 from wcgw.client.common import CostData, History, Models, discard_input
 from wcgw.client.memory import load_memory
 from wcgw.client.tools import (
-    DoneFlag,
     ImageData,
     default_enc,
     get_tool_output,
@@ -356,15 +355,6 @@ Saves provided description and file contents of all the relevant file paths or g
                             system_console.print(
                                 f"\nTotal cost: {config.cost_unit}{cost:.3f}"
                             )
-
-                            if isinstance(output_or_done, DoneFlag):
-                                system_console.print(
-                                    f"\n# Task marked done, with output {output_or_done.task_output}",
-                                )
-                                system_console.print(
-                                    f"\nTotal cost: {config.cost_unit}{cost:.3f}"
-                                )
-                                return output_or_done.task_output, cost
 
                             output = output_or_done
 

@@ -41,7 +41,6 @@ from ..types_ import (
     Console,
     ContextSave,
     FileEdit,
-    FileEditFindReplace,
     Initialize,
     Modes,
     ModesConfig,
@@ -65,15 +64,6 @@ from .modes import (
 from .repo_ops.repo_context import get_repo_context
 
 console: Console = rich.console.Console(style="magenta", highlight=False, markup=False)
-
-
-class Confirmation(BaseModel):
-    prompt: str
-
-
-def ask_confirmation(prompt: Confirmation) -> str:
-    response = input(prompt.prompt + " [y/n] ")
-    return "Yes" if response.lower() == "y" else "No"
 
 
 INITIALIZED = False
@@ -489,38 +479,12 @@ Syntax errors:
     return comments
 
 
-class DoneFlag(BaseModel):
-    task_output: str
-
-
-def mark_finish(done: DoneFlag) -> DoneFlag:
-    return done
-
-
-class AIAssistant(BaseModel):
-    instruction: str
-    desired_output: str
-
-
-def take_help_of_ai_assistant(
-    aiassistant: AIAssistant,
-    limit: float,
-    loop_call: Callable[[str, float], tuple[str, float]],
-) -> tuple[str, float]:
-    output, cost = loop_call(aiassistant.instruction, limit)
-    return output, cost
-
-
 TOOLS = (
-    Confirmation
-    | BashCommand
+    BashCommand
     | BashInteraction
     | ResetShell
     | WriteIfEmpty
-    | FileEditFindReplace
     | FileEdit
-    | AIAssistant
-    | DoneFlag
     | ReadImage
     | ReadFiles
     | Initialize
@@ -534,9 +498,7 @@ def which_tool(args: str) -> TOOLS:
 
 
 def which_tool_name(name: str) -> Type[TOOLS]:
-    if name == "Confirmation":
-        return Confirmation
-    elif name == "BashCommand":
+    if name == "BashCommand":
         return BashCommand
     elif name == "BashInteraction":
         return BashInteraction
@@ -544,14 +506,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return ResetShell
     elif name == "WriteIfEmpty":
         return WriteIfEmpty
-    elif name == "FileEditFindReplace":
-        return FileEditFindReplace
     elif name == "FileEdit":
         return FileEdit
-    elif name == "AIAssistant":
-        return AIAssistant
-    elif name == "DoneFlag":
-        return DoneFlag
     elif name == "ReadImage":
         return ReadImage
     elif name == "ReadFiles":
@@ -574,20 +530,17 @@ def get_tool_output(
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
-) -> tuple[list[str | ImageData | DoneFlag], float, BashState]:
+) -> tuple[list[str | ImageData], float, BashState]:
     global TOOL_CALLS, INITIALIZED
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
         arg = adapter.validate_python(args)
     else:
         arg = args
-    output: tuple[str | DoneFlag | ImageData, float]
+    output: tuple[str | ImageData, float]
     TOOL_CALLS.append(arg)
 
-    if isinstance(arg, Confirmation):
-        console.print("Calling ask confirmation tool")
-        output = ask_confirmation(arg), 0.0
-    elif isinstance(arg, (BashCommand | BashInteraction)):
+    if isinstance(arg, (BashCommand | BashInteraction)):
         console.print("Calling execute bash tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
@@ -605,12 +558,6 @@ def get_tool_output(
             raise Exception("Initialize tool not called yet.")
 
         output = do_diff_edit(arg, max_tokens, bash_state), 0.0
-    elif isinstance(arg, DoneFlag):
-        console.print("Calling mark finish tool")
-        output = mark_finish(arg), 0.0
-    elif isinstance(arg, AIAssistant):
-        console.print("Calling AI assistant tool")
-        output = take_help_of_ai_assistant(arg, limit, loop_call)
     elif isinstance(arg, ReadImage):
         console.print("Calling read image tool")
         output = read_image_from_shell(arg.file_path, bash_state), 0.0
@@ -673,7 +620,6 @@ class Mdata(BaseModel):
         | BashInteraction
         | WriteIfEmpty
         | ResetShell
-        | FileEditFindReplace
         | FileEdit
         | str
         | ReadFiles

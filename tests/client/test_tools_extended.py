@@ -398,29 +398,6 @@ class TestToolsExtended(unittest.TestCase):
         )
         self.assertTrue(isinstance(result[0], str))
 
-    @patch("wcgw.client.tools.take_help_of_ai_assistant")
-    def test_get_tool_output_ai_assistant(self, mock_ai_helper):
-        """Test get_tool_output function with AI Assistant tool"""
-        from wcgw.client.tools import get_tool_output
-
-        mock_enc = MagicMock()
-        mock_loop_call = MagicMock()
-        mock_ai_helper.return_value = ("AI response", 0.1)
-
-        # Test AIAssistant tool
-        result, cost = get_tool_output(
-            {
-                "instruction": "test instruction",
-                "desired_output": "test output",
-            },
-            mock_enc,
-            1.0,
-            mock_loop_call,
-            100,
-        )
-        self.assertEqual(result[0], "AI response")
-        self.assertEqual(cost, 0.1)
-
     def test_get_tool_output_invalid_tool(self):
         """Test get_tool_output function with invalid tool"""
         from wcgw.client.tools import get_tool_output

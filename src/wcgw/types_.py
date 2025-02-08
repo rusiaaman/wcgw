@@ -91,12 +91,6 @@ class ReadFiles(BaseModel):
     file_paths: list[str]
 
 
-class FileEditFindReplace(BaseModel):
-    file_path: str
-    find_lines: str
-    replace_with_lines: str
-
-
 class ResetShell(BaseModel):
     should_reset: Literal[True]
 

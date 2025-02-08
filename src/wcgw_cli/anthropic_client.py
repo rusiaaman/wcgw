@@ -28,7 +28,6 @@ from typer import Typer
 from wcgw.client.common import CostData, discard_input
 from wcgw.client.memory import load_memory
 from wcgw.client.tools import (
-    DoneFlag,
     ImageData,
     default_enc,
     get_tool_output,
@@ -474,14 +473,10 @@ Saves provided description and file contents of all the relevant file paths or g
                                 tb = traceback.format_exc()
                                 error_console.print(str(output_or_dones) + "\n" + tb)
 
-                            if any(isinstance(x, DoneFlag) for x in output_or_dones):
-                                return "", cost
-
                             tool_results_content: list[
                                 TextBlockParam | ImageBlockParam
                             ] = []
                             for output in output_or_dones:
-                                assert not isinstance(output, DoneFlag)
                                 if isinstance(output, ImageData):
                                     tool_results_content.append(
                                         {

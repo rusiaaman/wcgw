@@ -9,10 +9,6 @@ from wcgw.client.bash_state.bash_state import (
     get_incremental_output,
     render_terminal_output,
 )
-from wcgw.client.tools import (
-    Confirmation,
-    ask_confirmation,
-)
 
 
 class TestTerminalOutputFull(unittest.TestCase):
@@ -61,21 +57,6 @@ class TestTerminalOutputFull(unittest.TestCase):
             "some existing text\nnew text", "some existing text\n"
         )
         self.assertEqual(result.rstrip(), "new text")
-
-    def test_ask_confirmation(self):
-        """Test ask_confirmation function"""
-        with patch("builtins.input", return_value="y"):
-            result = ask_confirmation(Confirmation(prompt="Test prompt"))
-            self.assertEqual(result, "Yes")
-
-        with patch("builtins.input", return_value="n"):
-            result = ask_confirmation(Confirmation(prompt="Test prompt"))
-            self.assertEqual(result, "No")
-
-        # Test with other input that should be treated as no
-        with patch("builtins.input", return_value="anything"):
-            result = ask_confirmation(Confirmation(prompt="Test prompt"))
-            self.assertEqual(result, "No")
 
     def test_terminal_empty_output(self):
         """Test render_terminal_output with empty lines and whitespace"""
