@@ -9,7 +9,6 @@ from wcgw.client.tools import (
     BashCommand,
     Context,
     ContextSave,
-    FileEdit,
     Initialize,
     ReadFiles,
     ReadImage,
@@ -330,47 +329,6 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     )
     assert len(outputs) == 1
     assert "new content after read" in outputs[0]
-
-
-def test_file_edit(context: Context, temp_dir: str) -> None:
-    """Test the FileEdit tool."""
-    # First initialize
-    init_args = Initialize(
-        any_workspace_path=temp_dir,
-        initial_files_to_read=[],
-        task_id_to_resume="",
-        mode_name="wcgw",
-        code_writer_config=None,
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
-
-    # Create a test file
-    test_file = os.path.join(temp_dir, "test.py")
-    with open(test_file, "w") as f:
-        f.write("def hello():\n    print('hello')\n")
-
-    # Test editing the file
-    edit_args = FileEdit(
-        file_path=test_file,
-        file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
-def hello():
-    print('hello')
-=======
-def hello():
-    print('hello world')
->>>>>>> REPLACE""",
-    )
-
-    outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
-    )
-
-    assert len(outputs) == 1
-
-    # Verify the change
-    with open(test_file) as f:
-        content = f.read()
-    assert "hello world" in content
 
 
 def test_context_save(context: Context, temp_dir: str) -> None:

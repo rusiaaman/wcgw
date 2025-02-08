@@ -428,7 +428,7 @@ class BashState:
         return current_dir
 
     def reset_shell(self) -> None:
-        self.shell.close(True)
+        self.cleanup()
         self._init_shell()
 
     def serialize(self) -> dict[str, Any]:
