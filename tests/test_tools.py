@@ -62,7 +62,8 @@ def context(temp_dir: str) -> Generator[Context, None, None]:
 
 
 def test_initialize(context: Context, temp_dir: str) -> None:
-    """Test the Initialize tool."""
+    """Test the Initialize tool with various configurations."""
+    # Test default wcgw mode
     init_args = Initialize(
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
@@ -79,6 +80,90 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     assert isinstance(outputs[0], str)
     assert temp_dir in outputs[0]
     assert "System:" in outputs[0]
+
+    # Test architect mode
+    init_args = Initialize(
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="architect",
+        code_writer_config=None,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+
+    # Test code_writer mode with specific configuration
+    code_writer_config = {
+        "allowed_commands": ["ls", "pwd", "cat"],
+        "allowed_globs": ["*.py", "*.txt"]
+    }
+    init_args = Initialize(
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="code_writer",
+        code_writer_config=code_writer_config,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+
+    # Test with initial files to read and task resumption
+    test_file = os.path.join(temp_dir, "test.txt")
+    with open(test_file, "w") as f:
+        f.write("test content")
+
+    # First save context
+    save_args = ContextSave(
+        id="test_task_123",
+        project_root_path=temp_dir,
+        description="Test context",
+        relevant_file_globs=["*.txt"],
+    )
+    get_tool_output(context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    # Now try to resume the saved context
+    init_args = Initialize(
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[test_file],
+        task_id_to_resume="test_task_123",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert test_file in outputs[0]  # Should show the file in tree structure
+    assert "Following is the retrieved" in outputs[0]  # Verify context was retrieved
+
+    # Test with empty workspace path
+    init_args = Initialize(
+        any_workspace_path="",
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
 
 
 def test_bash_command(context: Context, temp_dir: str) -> None:
