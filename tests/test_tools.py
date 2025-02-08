@@ -100,7 +100,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     # Test code_writer mode with specific configuration
     code_writer_config = {
         "allowed_commands": ["ls", "pwd", "cat"],
-        "allowed_globs": ["*.py", "*.txt"]
+        "allowed_globs": ["*.py", "*.txt"],
     }
     init_args = Initialize(
         any_workspace_path=temp_dir,
@@ -180,7 +180,9 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     assert isinstance(outputs[0], str)
     assert new_test_file in outputs[0]  # Should show the file in tree structure
     assert "Following is the retrieved" in outputs[0]  # Verify context was retrieved
-    assert "running in \"architect\" mode" in outputs[0].lower()  # Verify mode was overridden to architect
+    assert (
+        'running in "architect" mode' in outputs[0].lower()
+    )  # Verify mode was overridden to architect
 
     # Test with empty workspace path
     init_args = Initialize(
@@ -291,6 +293,41 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
 
     assert len(outputs) == 1
     assert "test content" in outputs[0]
+
+    test_file2 = os.path.join(temp_dir, "test2.txt")
+    with open(test_file2, "w") as f:
+        f.write("existing content\n")
+    # Test writing to an existing file without reading it first (should warn)
+    write_args = WriteIfEmpty(file_path=test_file2, file_content="new content\n")
+    outputs, _ = get_tool_output(
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "Error: can't write to existing file" in outputs[0]  # Should fail with exception
+
+    # Test writing after reading the file (should succeed with warning)
+    read_args = ReadFiles(file_paths=[test_file2])
+    outputs, _ = get_tool_output(
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    write_args = WriteIfEmpty(
+        file_path=test_file2, file_content="new content after read\n"
+    )
+    outputs, _ = get_tool_output(
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "Warning: a file already existed" in outputs[0]
+    assert "Success" in outputs[0]
+
+    # Verify the new content was written
+    read_args = ReadFiles(file_paths=[test_file2])
+    outputs, _ = get_tool_output(
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "new content after read" in outputs[0]
 
 
 def test_file_edit(context: Context, temp_dir: str) -> None:
@@ -424,14 +461,16 @@ def test_bash_interaction(context: Context, temp_dir: str) -> None:
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert len(outputs) == 1
-    
+
     # Check command output by sending Enter
     check_cmd = BashInteraction(send_specials=["Enter"])
     outputs, _ = get_tool_output(
         context, check_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert len(outputs) >= 1
-    assert any(str(i) in str(outputs) for i in range(1, 6))  # Should see some numbers from 1-5
+    assert any(
+        str(i) in str(outputs) for i in range(1, 6)
+    )  # Should see some numbers from 1-5
 
 
 def test_read_image(context: Context, temp_dir: str) -> None:
