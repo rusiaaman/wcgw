@@ -586,8 +586,8 @@ def execute_bash(
                 )
 
             for i in range(0, len(command), 128):
-                bash_state.shell.send(command[i : i + 128])
-            bash_state.shell.send(bash_state.shell.linesep)
+                bash_state.send(command[i : i + 128])
+            bash_state.send(bash_state.shell.linesep)
 
         else:
             if (
@@ -610,15 +610,15 @@ def execute_bash(
                 )
                 for char in bash_arg.send_specials:
                     if char == "Key-up":
-                        bash_state.shell.send("\033[A")
+                        bash_state.send("\033[A")
                     elif char == "Key-down":
-                        bash_state.shell.send("\033[B")
+                        bash_state.send("\033[B")
                     elif char == "Key-left":
-                        bash_state.shell.send("\033[D")
+                        bash_state.send("\033[D")
                     elif char == "Key-right":
-                        bash_state.shell.send("\033[C")
+                        bash_state.send("\033[C")
                     elif char == "Enter":
-                        bash_state.shell.send("\n")
+                        bash_state.send("\n")
                     elif char == "Ctrl-c":
                         bash_state.shell.sendintr()
                         is_interrupt = True
@@ -626,7 +626,7 @@ def execute_bash(
                         bash_state.shell.sendintr()
                         is_interrupt = True
                     elif char == "Ctrl-z":
-                        bash_state.shell.send("\x1a")
+                        bash_state.send("\x1a")
                     else:
                         raise Exception(f"Unknown special character: {char}")
             elif bash_arg.send_ascii:
@@ -634,7 +634,7 @@ def execute_bash(
                     f"Sending ASCII sequence: {bash_arg.send_ascii}"
                 )
                 for ascii_char in bash_arg.send_ascii:
-                    bash_state.shell.send(chr(ascii_char))
+                    bash_state.send(chr(ascii_char))
                     if ascii_char == 3:
                         is_interrupt = True
             else:
@@ -655,16 +655,16 @@ def execute_bash(
                     )
                 bash_state.console.print(f"Interact text: {bash_arg.send_text}")
                 for i in range(0, len(bash_arg.send_text), 128):
-                    bash_state.shell.send(bash_arg.send_text[i : i + 128])
-                bash_state.shell.send(bash_state.shell.linesep)
+                    bash_state.send(bash_arg.send_text[i : i + 128])
+                bash_state.send(bash_state.shell.linesep)
 
     except KeyboardInterrupt:
         bash_state.shell.sendintr()
-        bash_state.shell.expect(bash_state.prompt)
+        bash_state.expect(bash_state.prompt)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
     wait = min(timeout_s or CONFIG.timeout, CONFIG.timeout_while_output)
-    index = bash_state.shell.expect([bash_state.prompt, pexpect.TIMEOUT], timeout=wait)
+    index = bash_state.expect([bash_state.prompt, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
         text = bash_state.shell.before or ""
         incremental_text = _incremental_text(text, bash_state.pending_output)
@@ -678,7 +678,7 @@ def execute_bash(
                 patience -= 1
             itext = incremental_text
             while remaining > 0 and patience > 0:
-                index = bash_state.shell.expect(
+                index = bash_state.expect(
                     [bash_state.prompt, pexpect.TIMEOUT], timeout=wait
                 )
                 if index == 0:
