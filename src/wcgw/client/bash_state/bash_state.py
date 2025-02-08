@@ -173,8 +173,6 @@ def start_shell(
         console.log(shell.before or "")
         console.log(f"Entering screen session, name: {shellid}")
 
-    shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-    console.log(shell.before or "")
     shell.sendline("stty -icanon -echo")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
     console.log(shell.before or "")
