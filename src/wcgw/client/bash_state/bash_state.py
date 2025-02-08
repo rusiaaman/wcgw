@@ -732,9 +732,9 @@ def execute_bash(
     output = _incremental_text(bash_state.shell.before, bash_state.pending_output)
     bash_state.set_repl()
 
-    tokens = enc.encode(output)
+    tokens = enc.encoder(output)
     if max_tokens and len(tokens) >= max_tokens:
-        output = "(...truncated)\n" + enc.decode(tokens.ids[-(max_tokens - 1) :])
+        output = "(...truncated)\n" + enc.decoder(tokens[-(max_tokens - 1) :])
 
     try:
         exit_status = get_status(bash_state)
