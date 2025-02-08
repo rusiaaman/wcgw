@@ -15,8 +15,8 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+from wcgw.client.bash_state.bash_state import _incremental_text
 from wcgw.client.tools import (
-    _incremental_text,
     get_incremental_output,
 )
 

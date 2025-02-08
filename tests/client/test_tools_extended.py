@@ -198,7 +198,7 @@ class TestToolsExtended(unittest.TestCase):
         self.assertIn("Failure: file_path should be absolute path", result)
 
     def test_is_status_check(self):
-        from wcgw.client.tools import is_status_check
+        from wcgw.client.bash_state.bash_state import is_status_check
 
         # Test with Enter special key
         interaction = BashInteraction(send_specials=["Enter"])

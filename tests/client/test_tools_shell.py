@@ -9,12 +9,12 @@ from wcgw.client.bash_state.bash_state import (
     BashState,
     _is_int,
     execute_bash,
+    get_status,
     render_terminal_output,
     start_shell,
 )
 from wcgw.client.tools import (
     BASH_STATE,
-    get_status,
 )
 from wcgw.types_ import BashCommand, BashInteraction
 

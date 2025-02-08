@@ -10,18 +10,13 @@ from typing import Any, Literal, Optional
 
 import pexpect
 import pyte
-import tokenizers  # type: ignore
+import tokenizers
+
+from wcgw.client.tools import get_incremental_output, rstrip
+from wcgw.types_ import BashCommand, BashInteraction  # type: ignore
 
 from ...types_ import BashCommand, BashInteraction, Console, Modes
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
-from ..tools import (
-    BASH_STATE,
-    WAITING_INPUT_MESSAGE,
-    _incremental_text,
-    console,
-    get_status,
-    is_status_check,
-)
 
 PROMPT_CONST = "#" + "@wcgw@#"
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
@@ -427,7 +422,62 @@ class BashState:
         return False
 
 
+WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
+1. Get its output using `send_ascii: [10] or send_specials: ["Enter"]`
+2. Use `send_ascii` or `send_specials` to give inputs to the running program, don't use `BashCommand` OR
+3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`
+4. Send the process in background using `send_specials: ["Ctrl-z"]` followed by BashCommand: `bg`
+"""
+
+
+def _incremental_text(text: str, last_pending_output: str) -> str:
+    # text = render_terminal_output(text[-100_000:])
+    text = text[-100_000:]
+
+    last_pending_output_rendered_lines = render_terminal_output(last_pending_output)
+    last_pending_output_rendered = "\n".join(last_pending_output_rendered_lines)
+    last_rendered_lines = last_pending_output_rendered.split("\n")
+    if not last_rendered_lines:
+        return rstrip(render_terminal_output(text))
+
+    text = text[len(last_pending_output) :]
+    old_rendered_applied = render_terminal_output(last_pending_output_rendered + text)
+    # True incremental is then
+    rendered = get_incremental_output(last_rendered_lines[:-1], old_rendered_applied)
+
+    if not rendered:
+        return ""
+
+    if rendered[0] == last_rendered_lines[-1]:
+        rendered = rendered[1:]
+    return rstrip(rendered)
+
+
+def get_status(bash_state: BashState) -> str:
+    status = "\n\n---\n\n"
+    if bash_state.state == "pending":
+        status += "status = still running\n"
+        status += "running for = " + bash_state.get_pending_for() + "\n"
+        status += "cwd = " + bash_state.cwd + "\n"
+    else:
+        bg_jobs = bash_state.ensure_env_and_bg_jobs()
+        bg_desc = ""
+        if bg_jobs and bg_jobs > 0:
+            bg_desc = f"; {bg_jobs} background jobs running"
+        status += "status = process exited" + bg_desc + "\n"
+        status += "cwd = " + bash_state.update_cwd() + "\n"
+
+    return status.rstrip()
+
+
+def is_status_check(arg: BashInteraction | BashCommand) -> bool:
+    return isinstance(arg, BashInteraction) and (
+        arg.send_specials == ["Enter"] or arg.send_ascii == [10]
+    )
+
+
 def execute_bash(
+    bash_state: BashState,
     enc: tokenizers.Tokenizer,
     bash_arg: BashCommand | BashInteraction,
     max_tokens: Optional[int],
@@ -436,22 +486,22 @@ def execute_bash(
     try:
         is_interrupt = False
         if isinstance(bash_arg, BashCommand):
-            if BASH_STATE.bash_command_mode.allowed_commands == "none":
+            if bash_state.bash_command_mode.allowed_commands == "none":
                 return "Error: BashCommand not allowed in current mode", 0.0
-            updated_repl_mode = BASH_STATE.update_repl_prompt(bash_arg.command)
+            updated_repl_mode = bash_state.update_repl_prompt(bash_arg.command)
             if updated_repl_mode:
-                BASH_STATE.set_repl()
+                bash_state.set_repl()
                 response = (
                     "Prompt updated, you can execute REPL lines using BashCommand now"
                 )
-                console.print(response)
+                bash_state.console.print(response)
                 return (
                     response,
                     0,
                 )
 
-            console.print(f"$ {bash_arg.command}")
-            if BASH_STATE.state == "pending":
+            bash_state.console.print(f"$ {bash_arg.command}")
+            if bash_state.state == "pending":
                 raise ValueError(WAITING_INPUT_MESSAGE)
             command = bash_arg.command.strip()
 
@@ -461,8 +511,8 @@ def execute_bash(
                 )
 
             for i in range(0, len(command), 128):
-                BASH_STATE.shell.send(command[i : i + 128])
-            BASH_STATE.shell.send(BASH_STATE.shell.linesep)
+                bash_state.shell.send(command[i : i + 128])
+            bash_state.shell.send(bash_state.shell.linesep)
 
         else:
             if (
@@ -480,32 +530,36 @@ def execute_bash(
                     0.0,
                 )
             if bash_arg.send_specials:
-                console.print(f"Sending special sequence: {bash_arg.send_specials}")
+                bash_state.console.print(
+                    f"Sending special sequence: {bash_arg.send_specials}"
+                )
                 for char in bash_arg.send_specials:
                     if char == "Key-up":
-                        BASH_STATE.shell.send("\033[A")
+                        bash_state.shell.send("\033[A")
                     elif char == "Key-down":
-                        BASH_STATE.shell.send("\033[B")
+                        bash_state.shell.send("\033[B")
                     elif char == "Key-left":
-                        BASH_STATE.shell.send("\033[D")
+                        bash_state.shell.send("\033[D")
                     elif char == "Key-right":
-                        BASH_STATE.shell.send("\033[C")
+                        bash_state.shell.send("\033[C")
                     elif char == "Enter":
-                        BASH_STATE.shell.send("\n")
+                        bash_state.shell.send("\n")
                     elif char == "Ctrl-c":
-                        BASH_STATE.shell.sendintr()
+                        bash_state.shell.sendintr()
                         is_interrupt = True
                     elif char == "Ctrl-d":
-                        BASH_STATE.shell.sendintr()
+                        bash_state.shell.sendintr()
                         is_interrupt = True
                     elif char == "Ctrl-z":
-                        BASH_STATE.shell.send("\x1a")
+                        bash_state.shell.send("\x1a")
                     else:
                         raise Exception(f"Unknown special character: {char}")
             elif bash_arg.send_ascii:
-                console.print(f"Sending ASCII sequence: {bash_arg.send_ascii}")
+                bash_state.console.print(
+                    f"Sending ASCII sequence: {bash_arg.send_ascii}"
+                )
                 for ascii_char in bash_arg.send_ascii:
-                    BASH_STATE.shell.send(chr(ascii_char))
+                    bash_state.shell.send(chr(ascii_char))
                     if ascii_char == 3:
                         is_interrupt = True
             else:
@@ -515,49 +569,49 @@ def execute_bash(
                         0.0,
                     )
 
-                updated_repl_mode = BASH_STATE.update_repl_prompt(bash_arg.send_text)
+                updated_repl_mode = bash_state.update_repl_prompt(bash_arg.send_text)
                 if updated_repl_mode:
-                    BASH_STATE.set_repl()
+                    bash_state.set_repl()
                     response = "Prompt updated, you can execute REPL lines using BashCommand now"
-                    console.print(response)
+                    bash_state.console.print(response)
                     return (
                         response,
                         0,
                     )
-                console.print(f"Interact text: {bash_arg.send_text}")
+                bash_state.console.print(f"Interact text: {bash_arg.send_text}")
                 for i in range(0, len(bash_arg.send_text), 128):
-                    BASH_STATE.shell.send(bash_arg.send_text[i : i + 128])
-                BASH_STATE.shell.send(BASH_STATE.shell.linesep)
+                    bash_state.shell.send(bash_arg.send_text[i : i + 128])
+                bash_state.shell.send(bash_state.shell.linesep)
 
     except KeyboardInterrupt:
-        BASH_STATE.shell.sendintr()
-        BASH_STATE.shell.expect(BASH_STATE.prompt)
+        bash_state.shell.sendintr()
+        bash_state.shell.expect(bash_state.prompt)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
     wait = min(timeout_s or CONFIG.timeout, CONFIG.timeout_while_output)
-    index = BASH_STATE.shell.expect([BASH_STATE.prompt, pexpect.TIMEOUT], timeout=wait)
+    index = bash_state.shell.expect([bash_state.prompt, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
-        text = BASH_STATE.shell.before or ""
-        incremental_text = _incremental_text(text, BASH_STATE.pending_output)
+        text = bash_state.shell.before or ""
+        incremental_text = _incremental_text(text, bash_state.pending_output)
 
         second_wait_success = False
         if is_status_check(bash_arg):
             # There's some text in BashInteraction mode wait for TIMEOUT_WHILE_OUTPUT
-            remaining = TIMEOUT_WHILE_OUTPUT - wait
+            remaining = CONFIG.timeout_while_output - wait
             patience = CONFIG.output_wait_patience
             if not incremental_text:
                 patience -= 1
             itext = incremental_text
             while remaining > 0 and patience > 0:
-                index = BASH_STATE.shell.expect(
-                    [BASH_STATE.prompt, pexpect.TIMEOUT], timeout=wait
+                index = bash_state.shell.expect(
+                    [bash_state.prompt, pexpect.TIMEOUT], timeout=wait
                 )
                 if index == 0:
                     second_wait_success = True
                     break
                 else:
-                    _itext = BASH_STATE.shell.before or ""
-                    _itext = _incremental_text(_itext, BASH_STATE.pending_output)
+                    _itext = bash_state.shell.before or ""
+                    _itext = _incremental_text(_itext, bash_state.pending_output)
                     if _itext != itext:
                         patience = 3
                     else:
@@ -567,11 +621,11 @@ def execute_bash(
                 remaining = remaining - wait
 
             if not second_wait_success:
-                text = BASH_STATE.shell.before or ""
-                incremental_text = _incremental_text(text, BASH_STATE.pending_output)
+                text = bash_state.shell.before or ""
+                incremental_text = _incremental_text(text, bash_state.pending_output)
 
         if not second_wait_success:
-            BASH_STATE.set_pending(text)
+            bash_state.set_pending(text)
 
             tokens = enc.encode(incremental_text)
 
@@ -597,11 +651,11 @@ def execute_bash(
 
             return incremental_text, 0
 
-    if not isinstance(BASH_STATE.shell.before, str):
-        BASH_STATE.shell.before = str(BASH_STATE.shell.before)
+    if not isinstance(bash_state.shell.before, str):
+        bash_state.shell.before = str(bash_state.shell.before)
 
-    output = _incremental_text(BASH_STATE.shell.before, BASH_STATE.pending_output)
-    BASH_STATE.set_repl()
+    output = _incremental_text(bash_state.shell.before, bash_state.pending_output)
+    bash_state.set_repl()
 
     tokens = enc.encode(output)
     if max_tokens and len(tokens) >= max_tokens:
@@ -611,10 +665,10 @@ def execute_bash(
         exit_status = get_status()
         output += exit_status
     except ValueError:
-        console.print(output)
-        console.print(traceback.format_exc())
-        console.print("Malformed output, restarting shell", style="red")
+        bash_state.console.print(output)
+        bash_state.console.print(traceback.format_exc())
+        bash_state.console.print("Malformed output, restarting shell", style="red")
         # Malformed output, restart shell
-        BASH_STATE.reset_shell()
+        bash_state.reset_shell()
         output = "(exit shell has restarted)"
     return output, 0

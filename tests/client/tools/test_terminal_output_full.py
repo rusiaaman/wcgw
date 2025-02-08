@@ -3,10 +3,13 @@
 import unittest
 from unittest.mock import patch
 
-from wcgw.client.bash_state.bash_state import _is_int, render_terminal_output
+from wcgw.client.bash_state.bash_state import (
+    _incremental_text,
+    _is_int,
+    render_terminal_output,
+)
 from wcgw.client.tools import (
     Confirmation,
-    _incremental_text,
     ask_confirmation,
     get_incremental_output,
 )

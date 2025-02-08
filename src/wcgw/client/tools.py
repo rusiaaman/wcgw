@@ -32,6 +32,8 @@ from syntax_checker import check_syntax
 from typer import Typer
 from websockets.sync.client import connect as syncconnect
 
+from wcgw.client.bash_state.bash_state import WAITING_INPUT_MESSAGE, get_status
+
 from ..types_ import (
     BashCommand,
     BashInteraction,
@@ -51,7 +53,6 @@ from ..types_ import (
 from .bash_state.bash_state import (
     BashState,
     execute_bash,
-    render_terminal_output,
 )
 from .file_ops.search_replace import search_replace_edit
 from .memory import load_memory, save_memory
@@ -93,28 +94,26 @@ def ask_confirmation(prompt: Confirmation) -> str:
     return "Yes" if response.lower() == "y" else "No"
 
 
-BASH_STATE = BashState(console, os.getcwd(), None, None, None, None)
 INITIALIZED = False
 
 
 def initialize(
+    bash_state: BashState,
     any_workspace_path: str,
     read_files_: list[str],
     task_id_to_resume: str,
     max_tokens: Optional[int],
     mode: ModesConfig,
-) -> str:
-    global BASH_STATE
-
+) -> tuple[str, BashState]:
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
     repo_context = ""
 
     memory = ""
-    bash_state = None
+    loaded_state = None
     if task_id_to_resume:
         try:
-            project_root_path, task_mem, bash_state = load_memory(
+            project_root_path, task_mem, loaded_state = load_memory(
                 task_id_to_resume,
                 max_tokens,
                 lambda x: default_enc.encode(x).ids,
@@ -155,26 +154,26 @@ def initialize(
                     f"\nInfo: Workspace path {any_workspace_path} does not exist."
                 )
     # Restore bash state if available
-    if bash_state is not None:
+    if loaded_state is not None:
         try:
-            parsed_state = BashState.parse_state(bash_state)
+            parsed_state = BashState.parse_state(loaded_state)
             if mode == "wcgw":
-                BASH_STATE.load_state(
+                bash_state.load_state(
                     parsed_state[0],
                     parsed_state[1],
                     parsed_state[2],
                     parsed_state[3],
-                    parsed_state[4] + list(BASH_STATE.whitelist_for_overwrite),
+                    parsed_state[4] + list(bash_state.whitelist_for_overwrite),
                     str(folder_to_start) if folder_to_start else "",
                 )
             else:
                 state = modes_to_state(mode)
-                BASH_STATE.load_state(
+                bash_state.load_state(
                     state[0],
                     state[1],
                     state[2],
                     state[3],
-                    parsed_state[4] + list(BASH_STATE.whitelist_for_overwrite),
+                    parsed_state[4] + list(bash_state.whitelist_for_overwrite),
                     str(folder_to_start) if folder_to_start else "",
                 )
         except ValueError:
@@ -183,12 +182,12 @@ def initialize(
             pass
     else:
         state = modes_to_state(mode)
-        BASH_STATE.load_state(
+        bash_state.load_state(
             state[0],
             state[1],
             state[2],
             state[3],
-            list(BASH_STATE.whitelist_for_overwrite),
+            list(bash_state.whitelist_for_overwrite),
             str(folder_to_start) if folder_to_start else "",
         )
     del mode
@@ -207,13 +206,13 @@ def initialize(
     uname_machine = os.uname().machine
 
     mode_prompt = ""
-    if BASH_STATE.mode == Modes.code_writer:
+    if bash_state.mode == Modes.code_writer:
         mode_prompt = code_writer_prompt(
-            BASH_STATE.file_edit_mode.allowed_globs,
-            BASH_STATE.write_if_empty_mode.allowed_globs,
-            "all" if BASH_STATE.bash_command_mode.allowed_commands else [],
+            bash_state.file_edit_mode.allowed_globs,
+            bash_state.write_if_empty_mode.allowed_globs,
+            "all" if bash_state.bash_command_mode.allowed_commands else [],
         )
-    elif BASH_STATE.mode == Modes.architect:
+    elif bash_state.mode == Modes.architect:
         mode_prompt = ARCHITECT_PROMPT
     else:
         mode_prompt = WCGW_PROMPT
@@ -224,7 +223,7 @@ def initialize(
 # Environment
 System: {uname_sysname}
 Machine: {uname_machine}
-Initialized in directory (also cwd): {BASH_STATE.cwd}
+Initialized in directory (also cwd): {bash_state.cwd}
 
 {repo_context}
 
@@ -238,37 +237,12 @@ Initialized in directory (also cwd): {BASH_STATE.cwd}
     global INITIALIZED
     INITIALIZED = True
 
-    return output
+    return output, bash_state
 
 
-def reset_shell() -> str:
-    BASH_STATE.reset_shell()
-    return "Reset successful" + get_status()
-
-
-WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
-1. Get its output using `send_ascii: [10] or send_specials: ["Enter"]`
-2. Use `send_ascii` or `send_specials` to give inputs to the running program, don't use `BashCommand` OR
-3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`
-4. Send the process in background using `send_specials: ["Ctrl-z"]` followed by BashCommand: `bg`
-"""
-
-
-def get_status() -> str:
-    status = "\n\n---\n\n"
-    if BASH_STATE.state == "pending":
-        status += "status = still running\n"
-        status += "running for = " + BASH_STATE.get_pending_for() + "\n"
-        status += "cwd = " + BASH_STATE.cwd + "\n"
-    else:
-        bg_jobs = BASH_STATE.ensure_env_and_bg_jobs()
-        bg_desc = ""
-        if bg_jobs and bg_jobs > 0:
-            bg_desc = f"; {bg_jobs} background jobs running"
-        status += "status = process exited" + bg_desc + "\n"
-        status += "cwd = " + BASH_STATE.update_cwd() + "\n"
-
-    return status.rstrip()
+def reset_shell(bash_state: BashState) -> str:
+    bash_state.reset_shell()
+    return "Reset successful" + get_status(bash_state)
 
 
 T = TypeVar("T")
@@ -291,35 +265,6 @@ def expand_user(path: str) -> str:
     return expanduser(path)
 
 
-def _incremental_text(text: str, last_pending_output: str) -> str:
-    # text = render_terminal_output(text[-100_000:])
-    text = text[-100_000:]
-
-    last_pending_output_rendered_lines = render_terminal_output(last_pending_output)
-    last_pending_output_rendered = "\n".join(last_pending_output_rendered_lines)
-    last_rendered_lines = last_pending_output_rendered.split("\n")
-    if not last_rendered_lines:
-        return rstrip(render_terminal_output(text))
-
-    text = text[len(last_pending_output) :]
-    old_rendered_applied = render_terminal_output(last_pending_output_rendered + text)
-    # True incremental is then
-    rendered = get_incremental_output(last_rendered_lines[:-1], old_rendered_applied)
-
-    if not rendered:
-        return ""
-
-    if rendered[0] == last_rendered_lines[-1]:
-        rendered = rendered[1:]
-    return rstrip(rendered)
-
-
-def is_status_check(arg: BashInteraction | BashCommand) -> bool:
-    return isinstance(arg, BashInteraction) and (
-        arg.send_specials == ["Enter"] or arg.send_ascii == [10]
-    )
-
-
 MEDIA_TYPES = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
 
 
@@ -335,14 +280,19 @@ class ImageData(BaseModel):
 Param = ParamSpec("Param")
 
 
-def ensure_no_previous_output(func: Callable[Param, T]) -> Callable[Param, T]:
-    def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
-        if BASH_STATE.state == "pending":
-            raise ValueError(WAITING_INPUT_MESSAGE)
+def ensure_no_previous_output(
+    bash_state: BashState,
+) -> Callable[[Callable[Param, T]], Callable[Param, T]]:
+    def decorator(func: Callable[Param, T]) -> Callable[Param, T]:
+        def wrapper(*args: Param.args, **kwargs: Param.kwargs) -> T:
+            if bash_state.state == "pending":
+                raise ValueError(WAITING_INPUT_MESSAGE)
 
-        return func(*args, **kwargs)
+            return func(*args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    return decorator
 
 
 def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
@@ -358,12 +308,12 @@ def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
     return content
 
 
-def read_image_from_shell(file_path: str) -> ImageData:
+def read_image_from_shell(file_path: str, bash_state: BashState) -> ImageData:
     # Expand the path
     file_path = expand_user(file_path)
 
     if not os.path.isabs(file_path):
-        file_path = os.path.join(BASH_STATE.cwd, file_path)
+        file_path = os.path.join(bash_state.cwd, file_path)
 
     if not os.path.exists(file_path):
         raise ValueError(f"File {file_path} does not exist")
@@ -392,17 +342,20 @@ def get_context_for_errors(
 
 
 def write_file(
-    writefile: WriteIfEmpty, error_on_exist: bool, max_tokens: Optional[int]
+    writefile: WriteIfEmpty,
+    error_on_exist: bool,
+    max_tokens: Optional[int],
+    bash_state: BashState,
 ) -> str:
     if not os.path.isabs(writefile.file_path):
-        return f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
+        return f"Failure: file_path should be absolute path, current working directory is {bash_state.cwd}"
     else:
         path_ = expand_user(writefile.file_path)
 
-    error_on_exist_ = error_on_exist and path_ not in BASH_STATE.whitelist_for_overwrite
+    error_on_exist_ = error_on_exist and path_ not in bash_state.whitelist_for_overwrite
 
     # Validate using write_if_empty_mode after checking whitelist
-    allowed_globs = BASH_STATE.write_if_empty_mode.allowed_globs
+    allowed_globs = bash_state.write_if_empty_mode.allowed_globs
     if allowed_globs != "all" and not any(
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
@@ -423,7 +376,7 @@ def write_file(
                 add_overwrite_warning = content
 
     # Since we've already errored once, add this to whitelist
-    BASH_STATE.add_to_whitelist_for_overwrite(path_)
+    bash_state.add_to_whitelist_for_overwrite(path_)
 
     path = Path(path_)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -473,9 +426,11 @@ Syntax errors:
     return "Success" + "".join(warnings)
 
 
-def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
+def do_diff_edit(
+    fedit: FileEdit, max_tokens: Optional[int], bash_state: BashState
+) -> str:
     try:
-        return _do_diff_edit(fedit, max_tokens)
+        return _do_diff_edit(fedit, max_tokens, bash_state)
     except Exception as e:
         # Try replacing \"
         try:
@@ -485,24 +440,26 @@ def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
                     '\\"', '"'
                 ),
             )
-            return _do_diff_edit(fedit, max_tokens)
+            return _do_diff_edit(fedit, max_tokens, bash_state)
         except Exception:
             pass
         raise e
 
 
-def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
+def _do_diff_edit(
+    fedit: FileEdit, max_tokens: Optional[int], bash_state: BashState
+) -> str:
     console.log(f"Editing file: {fedit.file_path}")
 
     if not os.path.isabs(fedit.file_path):
         raise Exception(
-            f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
+            f"Failure: file_path should be absolute path, current working directory is {bash_state.cwd}"
         )
     else:
         path_ = expand_user(fedit.file_path)
 
     # Validate using file_edit_mode
-    allowed_globs = BASH_STATE.file_edit_mode.allowed_globs
+    allowed_globs = bash_state.file_edit_mode.allowed_globs
     if allowed_globs != "all" and not any(
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
@@ -511,7 +468,7 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int]) -> str:
         )
 
     # The LLM is now aware that the file exists
-    BASH_STATE.add_to_whitelist_for_overwrite(path_)
+    bash_state.add_to_whitelist_for_overwrite(path_)
 
     if not os.path.exists(path_):
         raise Exception(f"Error: file {path_} does not exist")
@@ -633,12 +590,13 @@ TOOL_CALLS: list[TOOLS] = []
 
 
 def get_tool_output(
+    bash_state: BashState,
     args: dict[object, object] | TOOLS,
     enc: tokenizers.Tokenizer,
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
-) -> tuple[list[str | ImageData | DoneFlag], float]:
+) -> tuple[list[str | ImageData | DoneFlag | tuple[str, BashState]], float, BashState]:
     global TOOL_CALLS, INITIALIZED
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
@@ -656,19 +614,21 @@ def get_tool_output(
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = execute_bash(enc, arg, max_tokens, arg.wait_for_seconds)
+        output = execute_bash(
+            bash_state, enc, arg, max_tokens, arg.wait_for_seconds, bash_state
+        )
     elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = write_file(arg, True, max_tokens), 0
+        output = write_file(arg, True, max_tokens, bash_state), 0
     elif isinstance(arg, FileEdit):
         console.print("Calling full file edit tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = do_diff_edit(arg, max_tokens), 0.0
+        output = do_diff_edit(arg, max_tokens, bash_state), 0.0
     elif isinstance(arg, DoneFlag):
         console.print("Calling mark finish tool")
         output = mark_finish(arg), 0.0
@@ -677,24 +637,21 @@ def get_tool_output(
         output = take_help_of_ai_assistant(arg, limit, loop_call)
     elif isinstance(arg, ReadImage):
         console.print("Calling read image tool")
-        output = read_image_from_shell(arg.file_path), 0.0
+        output = read_image_from_shell(arg.file_path, bash_state), 0.0
     elif isinstance(arg, ReadFiles):
         console.print("Calling read file tool")
-        output = read_files(arg.file_paths, max_tokens), 0.0
+        output = read_files(arg.file_paths, max_tokens, bash_state), 0.0
     elif isinstance(arg, ResetShell):
         console.print("Calling reset shell tool")
-        output = reset_shell(), 0.0
+        output = reset_shell(bash_state), 0.0
     elif isinstance(arg, Initialize):
         console.print("Calling initial info tool")
-        output = (
-            initialize(
-                arg.any_workspace_path,
-                arg.initial_files_to_read,
-                arg.task_id_to_resume,
-                max_tokens,
-                arg.mode,
-            ),
-            0.0,
+        output, bash_state = initialize(
+            arg.any_workspace_path,
+            arg.initial_files_to_read,
+            arg.task_id_to_resume,
+            max_tokens,
+            arg.mode,
         )
     elif isinstance(arg, ContextSave):
         console.print("Calling task memory tool")
@@ -708,8 +665,8 @@ def get_tool_output(
             relevant_files.extend(globs[:1000])
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
-        relevant_files_data = read_files(relevant_files[:10_000], None)
-        output_ = save_memory(arg, relevant_files_data, BASH_STATE.serialize())
+        relevant_files_data = read_files(relevant_files[:10_000], None, bash_state)
+        output_ = save_memory(arg, relevant_files_data, bash_state.serialize())
         if not relevant_files and arg.relevant_file_globs:
             output_ = f'Error: No files found for the given globs. Context file successfully saved at "{output_}", but please fix the error.'
         elif warnings:
@@ -721,7 +678,7 @@ def get_tool_output(
         console.print(str(output[0]))
     else:
         console.print(f"Received {type(output[0])} from tool")
-    return [output[0]], output[1]
+    return [output[0]], output[1], bash_state
 
 
 History = list[ChatCompletionMessageParam]
@@ -754,6 +711,7 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
         client_uuid = str(uuid.uuid4())
 
     # Create the WebSocket connection
+    bash_state = BashState(console, os.getcwd(), None, None, None, None)
     try:
         with syncconnect(f"{server_url}/{client_uuid}") as websocket:
             server_version = str(websocket.recv())
@@ -769,8 +727,13 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
                 if isinstance(mdata.data, str):
                     raise Exception(mdata)
                 try:
-                    outputs, cost = get_tool_output(
-                        mdata.data, default_enc, 0.0, lambda x, y: ("", 0), 8000
+                    outputs, cost, bash_state = get_tool_output(
+                        bash_state,
+                        mdata.data,
+                        default_enc,
+                        0.0,
+                        lambda x, y: ("", 0),
+                        8000,
                     )
                     output = outputs[0]
                     curr_cost += cost
@@ -815,11 +778,13 @@ def app(
     register_client(server_url, client_uuid or "")
 
 
-def read_files(file_paths: list[str], max_tokens: Optional[int]) -> str:
+def read_files(
+    file_paths: list[str], max_tokens: Optional[int], bash_state: BashState
+) -> str:
     message = ""
     for i, file in enumerate(file_paths):
         try:
-            content, truncated, tokens = read_file(file, max_tokens)
+            content, truncated, tokens = read_file(file, max_tokens, bash_state)
         except Exception as e:
             message += f"\n{file}: {str(e)}\n"
             continue
@@ -840,7 +805,9 @@ def read_files(file_paths: list[str], max_tokens: Optional[int]) -> str:
     return message
 
 
-def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int]:
+def read_file(
+    file_path: str, max_tokens: Optional[int], bash_state: BashState
+) -> tuple[str, bool, int]:
     console.print(f"Reading file: {file_path}")
 
     # Expand the path before checking if it's absolute
@@ -848,10 +815,10 @@ def read_file(file_path: str, max_tokens: Optional[int]) -> tuple[str, bool, int
 
     if not os.path.isabs(file_path):
         raise ValueError(
-            f"Failure: file_path should be absolute path, current working directory is {BASH_STATE.cwd}"
+            f"Failure: file_path should be absolute path, current working directory is {bash_state.cwd}"
         )
 
-    BASH_STATE.add_to_whitelist_for_overwrite(file_path)
+    bash_state.add_to_whitelist_for_overwrite(file_path)
 
     path = Path(file_path)
     if not path.exists():

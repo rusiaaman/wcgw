@@ -4,10 +4,9 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
+from wcgw.client.bash_state.bash_state import get_status, is_status_check
 from wcgw.client.tools import (
     BASH_STATE,
-    get_status,
-    is_status_check,
     which_tool,
     which_tool_name,
 )
@@ -78,7 +77,9 @@ class TestCommandValidation(unittest.TestCase):
             mock_state.shell = MagicMock()
             mock_state.shell.before = "new_prompt"
             mock_state.shell.expect.return_value = 1
-            mock_state.update_repl_prompt.side_effect = lambda cmd: "wcgw_update_prompt()" in cmd
+            mock_state.update_repl_prompt.side_effect = (
+                lambda cmd: "wcgw_update_prompt()" in cmd
+            )
 
             # Test valid prompt update command
             result = mock_state.update_repl_prompt("wcgw_update_prompt()")
@@ -107,9 +108,7 @@ class TestCommandValidation(unittest.TestCase):
             mock_state.ensure_env_and_bg_jobs.return_value = 2
 
             status = get_status()
-            self.assertIn(
-                "status = process exited; 2 background jobs running", status
-            )
+            self.assertIn("status = process exited; 2 background jobs running", status)
             self.assertIn("cwd = /test/dir2", status)
 
             # Test completed state without background jobs
