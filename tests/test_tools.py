@@ -16,8 +16,9 @@ from wcgw.client.tools import (
     WriteIfEmpty,
     default_enc,
     get_tool_output,
+    which_tool_name,
 )
-from wcgw.types_ import BashInteraction, Console
+from wcgw.types_ import BashInteraction, Console, FileEdit
 
 
 class TestConsole(Console):
@@ -534,6 +535,25 @@ def test_read_image(context: Context, temp_dir: str) -> None:
     assert hasattr(outputs[0], "media_type")
     assert outputs[0].media_type == "image/png"
     assert hasattr(outputs[0], "data")
+
+
+def test_which_tool_name() -> None:
+    """Test the which_tool_name function."""
+    # Test each tool type
+    assert which_tool_name("BashCommand") == BashCommand
+    assert which_tool_name("BashInteraction") == BashInteraction
+    assert which_tool_name("ResetShell") == ResetShell
+    assert which_tool_name("WriteIfEmpty") == WriteIfEmpty
+    assert which_tool_name("FileEdit") == FileEdit
+    assert which_tool_name("ReadImage") == ReadImage
+    assert which_tool_name("ReadFiles") == ReadFiles
+    assert which_tool_name("Initialize") == Initialize
+    assert which_tool_name("ContextSave") == ContextSave
+
+    # Test error case with unknown tool
+    with pytest.raises(ValueError) as exc_info:
+        which_tool_name("UnknownTool")
+    assert "Unknown tool name: UnknownTool" in str(exc_info.value)
 
 
 def test_error_cases(context: Context, temp_dir: str) -> None:
