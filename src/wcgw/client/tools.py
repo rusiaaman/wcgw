@@ -18,10 +18,10 @@ from typing import (
     TypeVar,
 )
 
-import tokenizers  # type: ignore
 from openai.types.chat import (
     ChatCompletionMessageParam,
 )
+from .encoder import get_default_encoder, EncoderDecoder
 from pydantic import BaseModel, TypeAdapter
 from syntax_checker import check_syntax
 
@@ -85,8 +85,8 @@ def initialize(
             project_root_path, task_mem, loaded_state = load_memory(
                 task_id_to_resume,
                 max_tokens,
-                lambda x: default_enc.encode(x).ids,
-                lambda x: default_enc.decode(x),
+                lambda x: default_enc.encoder(x),
+                lambda x: default_enc.decoder(x),
             )
             memory = "Following is the retrieved task:\n" + task_mem
             if os.path.exists(project_root_path):
@@ -262,11 +262,11 @@ def ensure_no_previous_output(
 
 def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
     if max_tokens and max_tokens > 0:
-        tokens = default_enc.encode(content)
+        tokens = default_enc.encoder(content)
         n_tokens = len(tokens)
         if n_tokens > max_tokens:
             content = (
-                default_enc.decode(tokens.ids[: max(0, max_tokens - 100)])
+                default_enc.decoder(tokens[: max(0, max_tokens - 100)])
                 + "\n(...truncated)"
             )
 
@@ -300,7 +300,7 @@ def get_context_for_errors(
     context = "\n".join(context_lines)
 
     if max_tokens is not None and max_tokens > 0:
-        ntokens = len(default_enc.encode(context))
+        ntokens = len(default_enc.encoder(context))
         if ntokens > max_tokens:
             return "Please re-read the file to understand the context"
     return f"Here's relevant snippet from the file where the syntax errors occured:\n```\n{context}\n```"
@@ -523,7 +523,7 @@ TOOL_CALLS: list[TOOLS] = []
 def get_tool_output(
     context: Context,
     args: dict[object, object] | TOOLS,
-    enc: tokenizers.Tokenizer,
+    enc: EncoderDecoder[int],
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
@@ -607,9 +607,7 @@ def get_tool_output(
 
 History = list[ChatCompletionMessageParam]
 
-default_enc: tokenizers.Tokenizer = tokenizers.Tokenizer.from_pretrained(
-    "Xenova/claude-tokenizer"
-)
+default_enc = get_default_encoder()
 curr_cost = 0.0
 
 
@@ -665,12 +663,12 @@ def read_file(
     truncated = False
     tokens_counts = 0
     if max_tokens is not None:
-        tokens = default_enc.encode(content)
+        tokens = default_enc.encoder(content)
         tokens_counts = len(tokens)
         if len(tokens) > max_tokens:
-            content = default_enc.decode(tokens.ids[:max_tokens])
+            content = default_enc.decoder(tokens[:max_tokens])
             rest = save_out_of_context(
-                default_enc.decode(tokens.ids[max_tokens:]), Path(file_path).suffix
+                default_enc.decoder(tokens[max_tokens:]), Path(file_path).suffix
             )
             content += f"\n(...truncated)\n---\nI've saved the continuation in a new file. Please read: `{rest}`"
             truncated = True

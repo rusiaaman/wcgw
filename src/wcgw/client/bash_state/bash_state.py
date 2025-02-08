@@ -11,9 +11,9 @@ from typing import Any, Literal, Optional
 
 import pexpect
 import pyte
-import tokenizers  # type: ignore
 
 from ...types_ import BashCommand, BashInteraction, Console, Modes
+from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 
 PROMPT_CONST = "#" + "@wcgw@#"
@@ -553,7 +553,7 @@ def is_status_check(arg: BashInteraction | BashCommand) -> bool:
 
 def execute_bash(
     bash_state: BashState,
-    enc: tokenizers.Tokenizer,
+    enc: EncoderDecoder[int],
     bash_arg: BashCommand | BashInteraction,
     max_tokens: Optional[int],
     timeout_s: Optional[float],
@@ -702,11 +702,11 @@ def execute_bash(
         if not second_wait_success:
             bash_state.set_pending(text)
 
-            tokens = enc.encode(incremental_text)
+            tokens = enc.encoder(incremental_text)
 
             if max_tokens and len(tokens) >= max_tokens:
-                incremental_text = "(...truncated)\n" + enc.decode(
-                    tokens.ids[-(max_tokens - 1) :]
+                incremental_text = "(...truncated)\n" + enc.decoder(
+                    tokens[-(max_tokens - 1) :]
                 )
 
             if is_interrupt:
