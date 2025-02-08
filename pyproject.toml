@@ -4,7 +4,7 @@ name = "wcgw"
 version = "2.8.11"
 description = "Shell and coding agent on claude and chatgpt"
 readme = "README.md"
-requires-python = ">=3.11, <3.13"
+requires-python = ">=3.11"
 dependencies = [
     "openai>=1.46.0",
     "typer>=0.12.5",
@@ -12,7 +12,6 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "pexpect>=4.9.0",
     "shell>=1.0.1",
-    "types-pexpect>=4.9.0.20240806",
     "toml>=0.10.2",
     "petname>=2.6",
     "pyte>=0.8.2",
@@ -59,6 +58,7 @@ dev-dependencies = [
     "pytest-cov>=4.1.0",
     "line-profiler>=4.2.0",
     "pytest-asyncio>=0.25.3",
+    "types-pexpect>=4.9.0.20241208",
 ]
 
 [tool.pytest.ini_options]
