@@ -18,7 +18,7 @@ from wcgw.client.tools import (
     default_enc,
     get_tool_output,
 )
-from wcgw.types_ import Console
+from wcgw.types_ import BashInteraction, Console
 
 
 class TestConsole(Console):
@@ -406,19 +406,32 @@ def test_bash_interaction(context: Context, temp_dir: str) -> None:
     )
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
-    # Create a test file with content
+    # Test basic command
     test_file = os.path.join(temp_dir, "input.txt")
     with open(test_file, "w") as f:
         f.write("hello world")
-
-    # Use cat with file instead of interactive input
     cmd = BashCommand(command=f"cat {test_file}")
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
-
     assert len(outputs) == 1
     assert "hello world" in outputs[0]
+
+    # Test long-running command with BashInteraction
+    # Start a sleep command in the background that prints numbers
+    cmd = BashCommand(command="for i in $(seq 1 5); do echo $i; sleep 1; done")
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    
+    # Check command output by sending Enter
+    check_cmd = BashInteraction(send_specials=["Enter"])
+    outputs, _ = get_tool_output(
+        context, check_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) >= 1
+    assert any(str(i) in str(outputs) for i in range(1, 6))  # Should see some numbers from 1-5
 
 
 def test_read_image(context: Context, temp_dir: str) -> None:
