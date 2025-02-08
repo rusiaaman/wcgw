@@ -67,24 +67,6 @@ from .repo_ops.repo_context import get_repo_context
 console: Console = rich.console.Console(style="magenta", highlight=False, markup=False)
 
 
-def get_incremental_output(old_output: list[str], new_output: list[str]) -> list[str]:
-    nold = len(old_output)
-    nnew = len(new_output)
-    if not old_output:
-        return new_output
-    for i in range(nnew - 1, -1, -1):
-        if new_output[i] != old_output[-1]:
-            continue
-        for j in range(i - 1, -1, -1):
-            if (nold - 1 + j - i) < 0:
-                break
-            if new_output[j] != old_output[-1 + j - i]:
-                break
-        else:
-            return new_output[i + 1 :]
-    return new_output
-
-
 class Confirmation(BaseModel):
     prompt: str
 
@@ -199,7 +181,7 @@ def initialize(
                 os.path.join(folder_to_start, f) if not os.path.isabs(f) else f
                 for f in read_files_
             ]
-        initial_files = read_files(read_files_, max_tokens)
+        initial_files = read_files(read_files_, max_tokens, bash_state)
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
     uname_sysname = os.uname().sysname
@@ -253,10 +235,6 @@ def save_out_of_context(content: str, suffix: str) -> str:
     with open(file_path, "w") as f:
         f.write(content)
     return file_path
-
-
-def rstrip(lines: list[str]) -> str:
-    return "\n".join([line.rstrip() for line in lines])
 
 
 def expand_user(path: str) -> str:
@@ -596,7 +574,7 @@ def get_tool_output(
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
-) -> tuple[list[str | ImageData | DoneFlag | tuple[str, BashState]], float, BashState]:
+) -> tuple[list[str | ImageData | DoneFlag], float, BashState]:
     global TOOL_CALLS, INITIALIZED
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
@@ -614,9 +592,7 @@ def get_tool_output(
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = execute_bash(
-            bash_state, enc, arg, max_tokens, arg.wait_for_seconds, bash_state
-        )
+        output = execute_bash(bash_state, enc, arg, max_tokens, arg.wait_for_seconds)
     elif isinstance(arg, WriteIfEmpty):
         console.print("Calling write file tool")
         if not INITIALIZED:
@@ -646,13 +622,15 @@ def get_tool_output(
         output = reset_shell(bash_state), 0.0
     elif isinstance(arg, Initialize):
         console.print("Calling initial info tool")
-        output, bash_state = initialize(
+        output_, bash_state = initialize(
+            bash_state,
             arg.any_workspace_path,
             arg.initial_files_to_read,
             arg.task_id_to_resume,
             max_tokens,
             arg.mode,
         )
+        output = output_, 0.0
     elif isinstance(arg, ContextSave):
         console.print("Calling task memory tool")
         relevant_files = []

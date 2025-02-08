@@ -11,6 +11,8 @@ from mcp_wcgw.server.models import InitializationOptions
 from mcp_wcgw.types import Tool as ToolParam
 from pydantic import AnyUrl, ValidationError
 
+from wcgw.client.modes import KTS
+
 from ...types_ import (
     BashCommand,
     BashInteraction,
@@ -22,8 +24,7 @@ from ...types_ import (
     ResetShell,
     WriteIfEmpty,
 )
-from .. import tools
-from ..modes import get_kt_prompt
+from ..bash_state.bash_state import CONFIG, BashState
 from ..tools import DoneFlag, default_enc, get_tool_output, which_tool_name
 
 server = Server("wcgw")
@@ -57,7 +58,7 @@ PROMPTS = {
             name="KnowledgeTransfer",
             description="Prompt for invoking ContextSave tool in order to do a comprehensive knowledge transfer of a coding task. Prompts to save detailed error log and instructions.",
         ),
-        get_kt_prompt,
+        KTS,
     )
 }
 
@@ -71,12 +72,12 @@ async def handle_list_prompts() -> list[types.Prompt]:
 async def handle_get_prompt(
     name: str, arguments: dict[str, str] | None
 ) -> types.GetPromptResult:
+    assert BASH_STATE
     messages = [
         types.PromptMessage(
             role="user",
             content=types.TextContent(
-                type="text",
-                text=PROMPTS[name][1](),
+                type="text", text=PROMPTS[name][1][BASH_STATE.mode]
             ),
         )
     ]
@@ -125,7 +126,7 @@ async def handle_list_tools() -> list[types.Tool]:
 - Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
 - The first or the last line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
-- The control will return to you in {tools.TIMEOUT} seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
+- The control will return to you in {CONFIG.timeout} seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
 - Run long running commands in background using screen instead of "&".
 - Use longer wait_for_seconds if the command is expected to run for a long time.
 - Do not use 'cat' to read files, use ReadFiles tool instead.
@@ -199,6 +200,7 @@ Saves provided description and file contents of all the relevant file paths or g
 async def handle_call_tool(
     name: str, arguments: dict[str, Any] | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+    global BASH_STATE
     if not arguments:
         raise ValueError("Missing arguments")
 
@@ -219,8 +221,9 @@ async def handle_call_tool(
         tool_call = tool_type(**{k: try_json(v) for k, v in arguments.items()})
 
     try:
-        output_or_dones, _ = get_tool_output(
-            tool_call, default_enc, 0.0, lambda x, y: ("", 0), 8000
+        assert BASH_STATE
+        output_or_dones, _, BASH_STATE = get_tool_output(
+            BASH_STATE, tool_call, default_enc, 0.0, lambda x, y: ("", 0), 8000
         )
 
     except Exception as e:
@@ -250,26 +253,31 @@ Initialize call done.
     return content
 
 
-async def main() -> None:
-    tools.TIMEOUT = 3
-    tools.TIMEOUT_WHILE_OUTPUT = 55
-    tools.OUTPUT_WAIT_PATIENCE = 5
-    tools.console = Console()
+BASH_STATE = None
 
+
+async def main() -> None:
+    global BASH_STATE
+    CONFIG.update(3, 55, 5)
     version = str(importlib.metadata.version("wcgw"))
-    tools.console.log("wcgw version: " + version)
-    # Run the server using stdin/stdout streams
-    async with mcp_wcgw.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="wcgw",
-                server_version=version,
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
+    home_dir = os.path.expanduser("~")
+    BASH_STATE = BashState(Console(), home_dir, None, None, None, None, None)
+    try:
+        BASH_STATE.console.log("wcgw version: " + version)
+        # Run the server using stdin/stdout streams
+        async with mcp_wcgw.server.stdio.stdio_server() as (read_stream, write_stream):
+            await server.run(
+                read_stream,
+                write_stream,
+                InitializationOptions(
+                    server_name="wcgw",
+                    server_version=version,
+                    capabilities=server.get_capabilities(
+                        notification_options=NotificationOptions(),
+                        experimental_capabilities={},
+                    ),
                 ),
-            ),
-            raise_exceptions=False,
-        )
+                raise_exceptions=False,
+            )
+    finally:
+        BASH_STATE.cleanup()

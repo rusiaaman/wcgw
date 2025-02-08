@@ -10,10 +10,7 @@ from typing import Any, Literal, Optional
 
 import pexpect
 import pyte
-import tokenizers
-
-from wcgw.client.tools import get_incremental_output, rstrip
-from wcgw.types_ import BashCommand, BashInteraction  # type: ignore
+import tokenizers  # type: ignore
 
 from ...types_ import BashCommand, BashInteraction, Console, Modes
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
@@ -24,13 +21,13 @@ BASH_CLF_OUTPUT = Literal["repl", "pending"]
 
 @dataclass
 class Config:
-    timeout: int = 5
-    timeout_while_output: int = 20
-    output_wait_patience: int = 3
+    timeout: float = 5
+    timeout_while_output: float = 20
+    output_wait_patience: float = 3
 
     def update(
         self, timeout: float, timeout_while_output: float, output_wait_patience: float
-    ):
+    ) -> None:
         self.timeout = timeout
         self.timeout_while_output = timeout_while_output
         self.output_wait_patience = output_wait_patience
@@ -204,6 +201,15 @@ class BashState:
             self._bg_expect_thread.join()
             self._bg_expect_thread = None
             self._bg_expect_thread_stop_event = threading.Event()
+
+    def cleanup(self) -> None:
+        self.close_bg_expect_thread()
+
+    def __enter__(self) -> "BashState":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        self.cleanup()
 
     @property
     def mode(self) -> Modes:
@@ -430,6 +436,28 @@ WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run mul
 """
 
 
+def get_incremental_output(old_output: list[str], new_output: list[str]) -> list[str]:
+    nold = len(old_output)
+    nnew = len(new_output)
+    if not old_output:
+        return new_output
+    for i in range(nnew - 1, -1, -1):
+        if new_output[i] != old_output[-1]:
+            continue
+        for j in range(i - 1, -1, -1):
+            if (nold - 1 + j - i) < 0:
+                break
+            if new_output[j] != old_output[-1 + j - i]:
+                break
+        else:
+            return new_output[i + 1 :]
+    return new_output
+
+
+def rstrip(lines: list[str]) -> str:
+    return "\n".join([line.rstrip() for line in lines])
+
+
 def _incremental_text(text: str, last_pending_output: str) -> str:
     # text = render_terminal_output(text[-100_000:])
     text = text[-100_000:]
@@ -646,7 +674,7 @@ def execute_bash(
     """
                 )
 
-            exit_status = get_status()
+            exit_status = get_status(bash_state)
             incremental_text += exit_status
 
             return incremental_text, 0
@@ -662,7 +690,7 @@ def execute_bash(
         output = "(...truncated)\n" + enc.decode(tokens.ids[-(max_tokens - 1) :])
 
     try:
-        exit_status = get_status()
+        exit_status = get_status(bash_state)
         output += exit_status
     except ValueError:
         bash_state.console.print(output)

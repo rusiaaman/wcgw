@@ -6,13 +6,13 @@ from unittest.mock import MagicMock, mock_open, patch
 
 from wcgw.client.bash_state.bash_state import (
     execute_bash,
+    get_incremental_output,
     render_terminal_output,
     start_shell,
 )
 from wcgw.client.tools import (
     BASH_STATE,
     ImageData,
-    get_incremental_output,
     which_tool,
     which_tool_name,
 )
