@@ -111,3 +111,17 @@ class Console(Protocol):
     def print(self, msg: str, *args: Any, **kwargs: Any) -> None: ...
 
     def log(self, msg: str, *args: Any, **kwargs: Any) -> None: ...
+
+
+class Mdata(BaseModel):
+    data: (
+        BashCommand
+        | BashInteraction
+        | WriteIfEmpty
+        | ResetShell
+        | FileEdit
+        | str
+        | ReadFiles
+        | Initialize
+        | ContextSave
+    )
