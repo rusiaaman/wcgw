@@ -1,7 +1,6 @@
 import datetime
 import os
 import platform
-import re
 import subprocess
 import threading
 import time
@@ -498,32 +497,6 @@ class BashState:
     def pending_output(self) -> str:
         return self._pending_output
 
-    def update_repl_prompt(self, command: str) -> bool:
-        if re.match(r"^wcgw_update_prompt\(\)$", command.strip()):
-            self.shell.sendintr()
-            index = self.expect([self._prompt, pexpect.TIMEOUT], timeout=0.2)
-            if index == 0:
-                return True
-            before = self.shell.before or ""
-            assert before, "Something went wrong updating repl prompt"
-            self._prompt = before.split("\n")[-1].strip()
-            # Escape all regex
-            self._prompt = re.escape(self._prompt)
-            self.console.print(f"Trying to update prompt to: {self._prompt.encode()!r}")
-            index = 0
-            counts = 0
-            while index == 0:
-                # Consume all REPL prompts till now
-                index = self.expect([self._prompt, pexpect.TIMEOUT], timeout=0.2)
-                counts += 1
-                if counts > 100:
-                    raise ValueError(
-                        "Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it"
-                    )
-            self.console.print(f"Prompt updated to: {self._prompt}")
-            return True
-        return False
-
 
 WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
 1. Get its output using `send_ascii: [10] or send_specials: ["Enter"]`
@@ -613,17 +586,6 @@ def execute_bash(
         if isinstance(bash_arg, BashCommand):
             if bash_state.bash_command_mode.allowed_commands == "none":
                 return "Error: BashCommand not allowed in current mode", 0.0
-            updated_repl_mode = bash_state.update_repl_prompt(bash_arg.command)
-            if updated_repl_mode:
-                bash_state.set_repl()
-                response = (
-                    "Prompt updated, you can execute REPL lines using BashCommand now"
-                )
-                bash_state.console.print(response)
-                return (
-                    response,
-                    0,
-                )
 
             bash_state.console.print(f"$ {bash_arg.command}")
             if bash_state.state == "pending":
@@ -694,15 +656,6 @@ def execute_bash(
                         0.0,
                     )
 
-                updated_repl_mode = bash_state.update_repl_prompt(bash_arg.send_text)
-                if updated_repl_mode:
-                    bash_state.set_repl()
-                    response = "Prompt updated, you can execute REPL lines using BashCommand now"
-                    bash_state.console.print(response)
-                    return (
-                        response,
-                        0,
-                    )
                 bash_state.console.print(f"Interact text: {bash_arg.send_text}")
                 for i in range(0, len(bash_arg.send_text), 128):
                     bash_state.send(bash_arg.send_text[i : i + 128])
@@ -765,9 +718,7 @@ def execute_bash(
                     + """---
     ----
     Failure interrupting.
-    If any REPL session was previously running or if bashrc was sourced, or if there is issue to other REPL related reasons:
-        Run BashCommand: "wcgw_update_prompt()" to reset the PS1 prompt.
-    Otherwise, you may want to try Ctrl-c again or program specific exit interactive commands.
+    You may want to try Ctrl-c again or program specific exit interactive commands.
     """
                 )
 
