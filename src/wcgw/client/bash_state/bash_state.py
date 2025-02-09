@@ -6,7 +6,15 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    Literal,
+    Optional,
+    ParamSpec,
+    TypeVar,
+)
 
 import pexpect
 import pyte
@@ -219,7 +227,37 @@ def render_terminal_output(text: str) -> list[str]:
     return lines
 
 
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def requires_shell(
+    func: Callable[Concatenate["BashState", "pexpect.spawn[str]", P], R],
+) -> Callable[Concatenate["BashState", P], R]:
+    def wrapper(self: "BashState", /, *args: P.args, **kwargs: P.kwargs) -> R:
+        if not self._shell_loading.is_set():
+            if not self._shell_loading.wait(timeout=CONFIG.timeout):
+                raise RuntimeError("Shell initialization timeout")
+
+        if self._shell_error:
+            raise RuntimeError(f"Shell failed to initialize: {self._shell_error}.")
+
+        if not self._shell:
+            raise RuntimeError("Shell not initialized")
+
+        return func(self, self._shell, *args, **kwargs)
+
+    return wrapper
+
+
 class BashState:
+    _shell: Optional["pexpect.spawn[str]"]
+    _shell_id: Optional[str]
+    _shell_lock: threading.Lock
+    _shell_loading: threading.Event
+    _shell_error: Optional[Exception]
+    _use_screen: bool
+
     def __init__(
         self,
         console: Console,
@@ -245,34 +283,63 @@ class BashState:
         self._prompt = PROMPT_CONST
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
-        self._init_shell(use_screen)
+        self._shell = None
+        self._shell_id = None
+        self._shell_lock = threading.Lock()
+        self._shell_loading = threading.Event()
+        self._shell_error = None
+        self._use_screen = use_screen
+        self._start_shell_loading()
 
-    def expect(self, pattern: Any, timeout: Optional[float] = -1) -> int:
+    def _start_shell_loading(self) -> None:
+        def load_shell() -> None:
+            try:
+                with self._shell_lock:
+                    if self._shell is not None:
+                        return
+                    self._init_shell()
+            except Exception as e:
+                self._shell_error = e
+            finally:
+                self._shell_loading.set()
+
+        threading.Thread(target=load_shell).start()
+
+    @requires_shell
+    def expect(
+        self, shell: "pexpect.spawn[str]", pattern: Any, timeout: Optional[float] = -1
+    ) -> int:
         self.close_bg_expect_thread()
-        return self._shell.expect(pattern, timeout)
+        return shell.expect(pattern, timeout)
 
-    def send(self, s: str | bytes) -> int:
-        output = self._shell.send(s)
+    @requires_shell
+    def send(self, shell: "pexpect.spawn[str]", s: str | bytes) -> int:
+        output = shell.send(s)
         self.run_bg_expect_thread()
         return output
 
-    def sendline(self, s: str | bytes) -> int:
-        output = self._shell.sendline(s)
+    @requires_shell
+    def sendline(self, shell: "pexpect.spawn[str]", s: str | bytes) -> int:
+        output = shell.sendline(s)
         self.run_bg_expect_thread()
         return output
 
     @property
-    def linesep(self) -> Any:
-        return self._shell.linesep
+    @requires_shell
+    def linesep(self, shell: "pexpect.spawn[str]") -> Any:
+        return shell.linesep
 
-    def sendintr(self) -> None:
-        self._shell.sendintr()
+    @requires_shell
+    def sendintr(self, shell: "pexpect.spawn[str]") -> None:
+        shell.sendintr()
 
     @property
-    def before(self) -> Optional[str]:
-        return self._shell.before
+    @requires_shell
+    def before(self, shell: "pexpect.spawn[str]") -> Optional[str]:
+        return shell.before
 
-    def run_bg_expect_thread(self) -> None:
+    @requires_shell
+    def run_bg_expect_thread(self, shell: "pexpect.spawn[str]") -> None:
         """
         Run background expect thread for handling shell interactions.
         """
@@ -281,7 +348,7 @@ class BashState:
             while True:
                 if self._bg_expect_thread_stop_event.is_set():
                     break
-                output = self._shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
+                output = shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
                 if output == 0:
                     break
 
@@ -301,9 +368,14 @@ class BashState:
             self._bg_expect_thread_stop_event = threading.Event()
 
     def cleanup(self) -> None:
-        self.close_bg_expect_thread()
-        self._shell.close(True)
-        cleanup_all_screens_with_name(self._shell_id, self.console)
+        with self._shell_lock:
+            if self._shell:
+                self.close_bg_expect_thread()
+                self._shell.close(True)
+                if self._shell_id:
+                    cleanup_all_screens_with_name(self._shell_id, self.console)
+                self._shell = None
+                self._shell_id = None
 
     def __enter__(self) -> "BashState":
         return self
@@ -327,31 +399,32 @@ class BashState:
     def write_if_empty_mode(self) -> WriteIfEmptyMode:
         return self._write_if_empty_mode
 
-    def ensure_env_and_bg_jobs(self) -> Optional[int]:
+    @requires_shell
+    def ensure_env_and_bg_jobs(self, shell: "pexpect.spawn[str]") -> Optional[int]:
         if self._prompt != PROMPT_CONST:
             return None
         quick_timeout = 0.2 if not self.over_screen else 1
         # First reset the prompt in case venv was sourced or other reasons.
-        self.sendline(f"export PS1={self._prompt}")
-        self.expect(self._prompt, timeout=quick_timeout)
+        shell.sendline(f"export PS1={self._prompt}")
+        shell.expect(self._prompt, timeout=quick_timeout)
         # Reset echo also if it was enabled
-        self.sendline("stty -icanon -echo")
-        self.expect(self._prompt, timeout=quick_timeout)
-        self.sendline("set +o pipefail")
-        self.expect(self._prompt, timeout=quick_timeout)
-        self.sendline("export GIT_PAGER=cat PAGER=cat")
-        self.expect(self._prompt, timeout=quick_timeout)
-        self.sendline("jobs | wc -l")
+        shell.sendline("stty -icanon -echo")
+        shell.expect(self._prompt, timeout=quick_timeout)
+        shell.sendline("set +o pipefail")
+        shell.expect(self._prompt, timeout=quick_timeout)
+        shell.sendline("export GIT_PAGER=cat PAGER=cat")
+        shell.expect(self._prompt, timeout=quick_timeout)
+        shell.sendline("jobs | wc -l")
         before = ""
         counts = 0
         while not _is_int(before):  # Consume all previous output
             try:
-                self.expect(self._prompt, timeout=quick_timeout)
+                shell.expect(self._prompt, timeout=quick_timeout)
             except pexpect.TIMEOUT:
                 self.console.print(f"Couldn't get exit code, before: {before}")
                 raise
 
-            before_val = self._shell.before
+            before_val = shell.before
             if not isinstance(before_val, str):
                 before_val = str(before_val)
             assert isinstance(before_val, str)
@@ -368,7 +441,7 @@ class BashState:
         except ValueError:
             raise ValueError(f"Malformed output: {before}")
 
-    def _init_shell(self, use_screen: bool) -> None:
+    def _init_shell(self) -> None:
         self._prompt = PROMPT_CONST
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
@@ -379,9 +452,9 @@ class BashState:
                 self._bash_command_mode.bash_mode == "restricted_mode",
                 self._cwd,
                 self.console,
-                over_screen=use_screen,
+                over_screen=self._use_screen,
             )
-            self.over_screen = use_screen
+            self.over_screen = self._use_screen
         except Exception as e:
             if not isinstance(e, ValueError):
                 self.console.log(traceback.format_exc())
@@ -431,10 +504,11 @@ class BashState:
     def prompt(self) -> str:
         return self._prompt
 
-    def update_cwd(self) -> str:
-        self.sendline("pwd")
-        self.expect(self._prompt, timeout=0.2)
-        before_val = self._shell.before
+    @requires_shell
+    def update_cwd(self, shell: "pexpect.spawn[str]") -> str:
+        shell.sendline("pwd")
+        shell.expect(self._prompt, timeout=0.2)
+        before_val = shell.before
         if not isinstance(before_val, str):
             before_val = str(before_val)
         before_lines = render_terminal_output(before_val)
@@ -444,7 +518,9 @@ class BashState:
 
     def reset_shell(self) -> None:
         self.cleanup()
-        self._init_shell(True)
+        self._shell_loading.clear()
+        self._shell_error = None
+        self._start_shell_loading()
 
     def serialize(self) -> dict[str, Any]:
         """Serialize BashState to a dictionary for saving"""
@@ -595,8 +671,10 @@ def is_status_check(arg: BashCommand) -> bool:
     )
 
 
+@requires_shell
 def execute_bash(
     bash_state: BashState,
+    shell: "pexpect.spawn[str]",
     enc: EncoderDecoder[int],
     bash_arg: BashCommand,
     max_tokens: Optional[int],
@@ -623,7 +701,7 @@ def execute_bash(
 
             for i in range(0, len(command), 128):
                 bash_state.send(command[i : i + 128])
-            bash_state.send(bash_state.linesep)
+            bash_state.send(bash_state.linesep(shell))
 
         elif isinstance(command_data, StatusCheck):
             bash_state.console.print("Checking status")
@@ -637,7 +715,7 @@ def execute_bash(
             bash_state.console.print(f"Interact text: {command_data.send_text}")
             for i in range(0, len(command_data.send_text), 128):
                 bash_state.send(command_data.send_text[i : i + 128])
-            bash_state.send(bash_state.linesep)
+            bash_state.send(bash_state.linesep(shell))
 
         elif isinstance(command_data, SendSpecials):
             if not command_data.send_specials:
