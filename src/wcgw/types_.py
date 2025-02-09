@@ -1,6 +1,6 @@
 import os
 from enum import Enum
-from typing import Any, Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional, Protocol, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -44,9 +44,9 @@ class Initialize(BaseModel):
 
     def model_post_init(self, __context: Any) -> None:
         if self.mode_name == "code_writer":
-            assert (
-                self.code_writer_config is not None
-            ), "code_writer_config can't be null when the mode is code_writer"
+            assert self.code_writer_config is not None, (
+                "code_writer_config can't be null when the mode is code_writer"
+            )
         return super().model_post_init(__context)
 
     @property
@@ -55,9 +55,9 @@ class Initialize(BaseModel):
             return "wcgw"
         if self.mode_name == "architect":
             return "architect"
-        assert (
-            self.code_writer_config is not None
-        ), "code_writer_config can't be null when the mode is code_writer"
+        assert self.code_writer_config is not None, (
+            "code_writer_config can't be null when the mode is code_writer"
+        )
         return self.code_writer_config
 
 
@@ -91,12 +91,6 @@ class ReadFiles(BaseModel):
     file_paths: list[str]
 
 
-class FileEditFindReplace(BaseModel):
-    file_path: str
-    find_lines: str
-    replace_with_lines: str
-
-
 class ResetShell(BaseModel):
     should_reset: Literal[True]
 
@@ -111,3 +105,23 @@ class ContextSave(BaseModel):
     project_root_path: str
     description: str
     relevant_file_globs: list[str]
+
+
+class Console(Protocol):
+    def print(self, msg: str, *args: Any, **kwargs: Any) -> None: ...
+
+    def log(self, msg: str, *args: Any, **kwargs: Any) -> None: ...
+
+
+class Mdata(PydanticBaseModel):
+    data: (
+        BashCommand
+        | BashInteraction
+        | WriteIfEmpty
+        | ResetShell
+        | FileEdit
+        | str
+        | ReadFiles
+        | Initialize
+        | ContextSave
+    )

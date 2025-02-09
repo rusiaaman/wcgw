@@ -23,10 +23,11 @@ from openai.types.chat import (
 from pydantic import BaseModel
 from typer import Typer
 
+from wcgw.client.bash_state.bash_state import BashState
 from wcgw.client.common import CostData, History, Models, discard_input
 from wcgw.client.memory import load_memory
 from wcgw.client.tools import (
-    DoneFlag,
+    Context,
     ImageData,
     default_enc,
     get_tool_output,
@@ -128,8 +129,8 @@ def loop(
             _, memory, _ = load_memory(
                 resume,
                 8000,
-                lambda x: default_enc.encode(x).ids,
-                lambda x: default_enc.decode(x),
+                lambda x: default_enc.encoder(x),
+                lambda x: default_enc.decoder(x),
             )
         except OSError:
             if resume == "latest":
@@ -227,29 +228,6 @@ Saves provided description and file contents of all the relevant file paths or g
         ),
     ]
 
-    system = initialize(
-        os.getcwd(),
-        [],
-        resume if (memory and resume) else "",
-        max_tokens=8000,
-        mode="wcgw",
-    )
-
-    with open(
-        os.path.join(
-            os.path.dirname(__file__), "..", "wcgw", "client", "diff-instructions.txt"
-        )
-    ) as f:
-        system += f.read()
-
-    if not history:
-        history = [{"role": "system", "content": system}]
-    else:
-        if history[-1]["role"] == "tool":
-            waiting_for_assistant = True
-
-    client = OpenAI()
-
     cost: float = 0
     input_toks = 0
     output_toks = 0
@@ -261,203 +239,232 @@ Saves provided description and file contents of all the relevant file paths or g
     assistant_console = rich.console.Console(
         style="white bold", highlight=False, markup=False
     )
-    while True:
-        if cost > limit:
-            system_console.print(
-                f"\nCost limit exceeded. Current cost: {cost}, input tokens: {input_toks}, output tokens: {output_toks}"
+
+    with BashState(
+        system_console, os.getcwd(), None, None, None, None, False, None
+    ) as bash_state:
+        context = Context(bash_state, system_console)
+        system, context = initialize(
+            context,
+            os.getcwd(),
+            [],
+            resume if (memory and resume) else "",
+            max_tokens=8000,
+            mode="wcgw",
+        )
+
+        with open(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "wcgw",
+                "client",
+                "diff-instructions.txt",
             )
-            break
+        ) as f:
+            system += f.read()
 
-        if not waiting_for_assistant:
-            if first_message:
-                msg = first_message
-                first_message = ""
-            else:
-                msg = text_from_editor(user_console)
-
-            history.append(parse_user_message_special(msg))
+        if not history:
+            history = [{"role": "system", "content": system}]
         else:
-            waiting_for_assistant = False
+            if history[-1]["role"] == "tool":
+                waiting_for_assistant = True
 
-        cost_, input_toks_ = get_input_cost(
-            config.cost_file[config.model], enc, history
-        )
-        cost += cost_
-        input_toks += input_toks_
+        client = OpenAI()
 
-        stream = client.chat.completions.create(
-            messages=history,
-            model=config.model,
-            stream=True,
-            tools=tools,
-        )
+        while True:
+            if cost > limit:
+                system_console.print(
+                    f"\nCost limit exceeded. Current cost: {cost}, input tokens: {input_toks}, output tokens: {output_toks}"
+                )
+                break
 
-        system_console.print(
-            "\n---------------------------------------\n# Assistant response",
-            style="bold",
-        )
-        tool_call_args_by_id = DefaultDict[str, DefaultDict[int, str]](
-            lambda: DefaultDict(str)
-        )
-        _histories: History = []
-        item: ChatCompletionMessageParam
-        full_response: str = ""
-        image_histories: History = []
-        try:
-            for chunk in stream:
-                if chunk.choices[0].finish_reason == "tool_calls":
-                    assert tool_call_args_by_id
-                    item = {
-                        "role": "assistant",
-                        "content": full_response,
-                        "tool_calls": [
-                            {
-                                "id": tool_call_id + str(toolindex),
-                                "type": "function",
-                                "function": {
-                                    "arguments": tool_args,
-                                    "name": type(which_tool(tool_args)).__name__,
-                                },
-                            }
-                            for tool_call_id, toolcallargs in tool_call_args_by_id.items()
-                            for toolindex, tool_args in toolcallargs.items()
-                        ],
-                    }
-                    cost_, output_toks_ = get_output_cost(
-                        config.cost_file[config.model], enc, item
-                    )
-                    cost += cost_
-                    system_console.print(
-                        f"\n---------------------------------------\n# Assistant invoked tools: {[which_tool(tool['function']['arguments']) for tool in item['tool_calls']]}"
-                    )
-                    system_console.print(f"\nTotal cost: {config.cost_unit}{cost:.3f}")
-                    output_toks += output_toks_
+            if not waiting_for_assistant:
+                if first_message:
+                    msg = first_message
+                    first_message = ""
+                else:
+                    msg = text_from_editor(user_console)
 
-                    _histories.append(item)
-                    for tool_call_id, toolcallargs in tool_call_args_by_id.items():
-                        for toolindex, tool_args in toolcallargs.items():
-                            try:
-                                output_or_dones, cost_ = get_tool_output(
-                                    json.loads(tool_args),
-                                    enc,
-                                    limit - cost,
-                                    loop,
-                                    max_tokens=8000,
-                                )
-                                output_or_done = output_or_dones[0]
-                            except Exception as e:
-                                output_or_done = (
-                                    f"GOT EXCEPTION while calling tool. Error: {e}"
-                                )
-                                tb = traceback.format_exc()
-                                error_console.print(output_or_done + "\n" + tb)
-                                cost_ = 0
-                            cost += cost_
-                            system_console.print(
-                                f"\nTotal cost: {config.cost_unit}{cost:.3f}"
-                            )
+                history.append(parse_user_message_special(msg))
+            else:
+                waiting_for_assistant = False
 
-                            if isinstance(output_or_done, DoneFlag):
-                                system_console.print(
-                                    f"\n# Task marked done, with output {output_or_done.task_output}",
-                                )
+            cost_, input_toks_ = get_input_cost(
+                config.cost_file[config.model], enc, history
+            )
+            cost += cost_
+            input_toks += input_toks_
+
+            stream = client.chat.completions.create(
+                messages=history,
+                model=config.model,
+                stream=True,
+                tools=tools,
+            )
+
+            system_console.print(
+                "\n---------------------------------------\n# Assistant response",
+                style="bold",
+            )
+            tool_call_args_by_id = DefaultDict[str, DefaultDict[int, str]](
+                lambda: DefaultDict(str)
+            )
+            _histories: History = []
+            item: ChatCompletionMessageParam
+            full_response: str = ""
+            image_histories: History = []
+            try:
+                for chunk in stream:
+                    if chunk.choices[0].finish_reason == "tool_calls":
+                        assert tool_call_args_by_id
+                        item = {
+                            "role": "assistant",
+                            "content": full_response,
+                            "tool_calls": [
+                                {
+                                    "id": tool_call_id + str(toolindex),
+                                    "type": "function",
+                                    "function": {
+                                        "arguments": tool_args,
+                                        "name": type(which_tool(tool_args)).__name__,
+                                    },
+                                }
+                                for tool_call_id, toolcallargs in tool_call_args_by_id.items()
+                                for toolindex, tool_args in toolcallargs.items()
+                            ],
+                        }
+                        cost_, output_toks_ = get_output_cost(
+                            config.cost_file[config.model], enc, item
+                        )
+                        cost += cost_
+                        system_console.print(
+                            f"\n---------------------------------------\n# Assistant invoked tools: {[which_tool(tool['function']['arguments']) for tool in item['tool_calls']]}"
+                        )
+                        system_console.print(
+                            f"\nTotal cost: {config.cost_unit}{cost:.3f}"
+                        )
+                        output_toks += output_toks_
+
+                        _histories.append(item)
+                        for tool_call_id, toolcallargs in tool_call_args_by_id.items():
+                            for toolindex, tool_args in toolcallargs.items():
+                                try:
+                                    output_or_dones, cost_ = get_tool_output(
+                                        context,
+                                        json.loads(tool_args),
+                                        enc,
+                                        limit - cost,
+                                        loop,
+                                        max_tokens=8000,
+                                    )
+                                    output_or_done = output_or_dones[0]
+                                except Exception as e:
+                                    output_or_done = (
+                                        f"GOT EXCEPTION while calling tool. Error: {e}"
+                                    )
+                                    tb = traceback.format_exc()
+                                    error_console.print(output_or_done + "\n" + tb)
+                                    cost_ = 0
+                                cost += cost_
                                 system_console.print(
                                     f"\nTotal cost: {config.cost_unit}{cost:.3f}"
                                 )
-                                return output_or_done.task_output, cost
 
-                            output = output_or_done
+                                output = output_or_done
 
-                            if isinstance(output, ImageData):
-                                randomId = petname.Generate(2, "-")
-                                if not image_histories:
-                                    image_histories.extend(
-                                        [
+                                if isinstance(output, ImageData):
+                                    randomId = petname.Generate(2, "-")
+                                    if not image_histories:
+                                        image_histories.extend(
+                                            [
+                                                {
+                                                    "role": "assistant",
+                                                    "content": f"Share images with ids: {randomId}",
+                                                },
+                                                {
+                                                    "role": "user",
+                                                    "content": [
+                                                        {
+                                                            "type": "image_url",
+                                                            "image_url": {
+                                                                "url": output.dataurl,
+                                                                "detail": "auto",
+                                                            },
+                                                        }
+                                                    ],
+                                                },
+                                            ]
+                                        )
+                                    else:
+                                        image_histories[0]["content"] += ", " + randomId
+                                        second_content = image_histories[1]["content"]
+                                        assert isinstance(second_content, list)
+                                        second_content.append(
                                             {
-                                                "role": "assistant",
-                                                "content": f"Share images with ids: {randomId}",
-                                            },
-                                            {
-                                                "role": "user",
-                                                "content": [
-                                                    {
-                                                        "type": "image_url",
-                                                        "image_url": {
-                                                            "url": output.dataurl,
-                                                            "detail": "auto",
-                                                        },
-                                                    }
-                                                ],
-                                            },
-                                        ]
-                                    )
+                                                "type": "image_url",
+                                                "image_url": {
+                                                    "url": output.dataurl,
+                                                    "detail": "auto",
+                                                },
+                                            }
+                                        )
+
+                                    item = {
+                                        "role": "tool",
+                                        "content": f"Ask user for image id: {randomId}",
+                                        "tool_call_id": tool_call_id + str(toolindex),
+                                    }
                                 else:
-                                    image_histories[0]["content"] += ", " + randomId
-                                    second_content = image_histories[1]["content"]
-                                    assert isinstance(second_content, list)
-                                    second_content.append(
-                                        {
-                                            "type": "image_url",
-                                            "image_url": {
-                                                "url": output.dataurl,
-                                                "detail": "auto",
-                                            },
-                                        }
-                                    )
+                                    item = {
+                                        "role": "tool",
+                                        "content": str(output),
+                                        "tool_call_id": tool_call_id + str(toolindex),
+                                    }
+                                cost_, output_toks_ = get_output_cost(
+                                    config.cost_file[config.model], enc, item
+                                )
+                                cost += cost_
+                                output_toks += output_toks_
 
-                                item = {
-                                    "role": "tool",
-                                    "content": f"Ask user for image id: {randomId}",
-                                    "tool_call_id": tool_call_id + str(toolindex),
-                                }
-                            else:
-                                item = {
-                                    "role": "tool",
-                                    "content": str(output),
-                                    "tool_call_id": tool_call_id + str(toolindex),
-                                }
-                            cost_, output_toks_ = get_output_cost(
-                                config.cost_file[config.model], enc, item
-                            )
-                            cost += cost_
-                            output_toks += output_toks_
-
-                            _histories.append(item)
-                    waiting_for_assistant = True
-                    break
-                elif chunk.choices[0].finish_reason:
-                    assistant_console.print("")
-                    item = {
-                        "role": "assistant",
-                        "content": full_response,
-                    }
-                    cost_, output_toks_ = get_output_cost(
-                        config.cost_file[config.model], enc, item
-                    )
-                    cost += cost_
-                    output_toks += output_toks_
-
-                    system_console.print(f"\nTotal cost: {config.cost_unit}{cost:.3f}")
-                    _histories.append(item)
-                    break
-
-                if chunk.choices[0].delta.tool_calls:
-                    tool_call = chunk.choices[0].delta.tool_calls[0]
-                    if tool_call.function and tool_call.function.arguments:
-                        tool_call_args_by_id[tool_call.id or ""][tool_call.index] += (
-                            tool_call.function.arguments
+                                _histories.append(item)
+                        waiting_for_assistant = True
+                        break
+                    elif chunk.choices[0].finish_reason:
+                        assistant_console.print("")
+                        item = {
+                            "role": "assistant",
+                            "content": full_response,
+                        }
+                        cost_, output_toks_ = get_output_cost(
+                            config.cost_file[config.model], enc, item
                         )
+                        cost += cost_
+                        output_toks += output_toks_
 
-                chunk_str = chunk.choices[0].delta.content or ""
-                assistant_console.print(chunk_str, end="")
-                full_response += chunk_str
-        except KeyboardInterrupt:
-            waiting_for_assistant = False
-            input("Interrupted...enter to redo the current turn")
-        else:
-            history.extend(_histories)
-            history.extend(image_histories)
-            save_history(history, session_id)
+                        system_console.print(
+                            f"\nTotal cost: {config.cost_unit}{cost:.3f}"
+                        )
+                        _histories.append(item)
+                        break
+
+                    if chunk.choices[0].delta.tool_calls:
+                        tool_call = chunk.choices[0].delta.tool_calls[0]
+                        if tool_call.function and tool_call.function.arguments:
+                            tool_call_args_by_id[tool_call.id or ""][
+                                tool_call.index
+                            ] += tool_call.function.arguments
+
+                    chunk_str = chunk.choices[0].delta.content or ""
+                    assistant_console.print(chunk_str, end="")
+                    full_response += chunk_str
+            except KeyboardInterrupt:
+                waiting_for_assistant = False
+                input("Interrupted...enter to redo the current turn")
+            else:
+                history.extend(_histories)
+                history.extend(image_histories)
+                save_history(history, session_id)
 
     return "Couldn't finish the task", cost
 

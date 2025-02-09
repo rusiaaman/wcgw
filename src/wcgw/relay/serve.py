@@ -18,7 +18,6 @@ from ..types_ import (
     BashInteraction,
     ContextSave,
     FileEdit,
-    FileEditFindReplace,
     Initialize,
     ReadFiles,
     ResetShell,
@@ -32,7 +31,6 @@ class Mdata(BaseModel):
         | BashInteraction
         | WriteIfEmpty
         | ResetShell
-        | FileEditFindReplace
         | FileEdit
         | ReadFiles
         | Initialize

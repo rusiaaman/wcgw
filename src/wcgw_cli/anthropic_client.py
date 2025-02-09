@@ -10,11 +10,12 @@ from pathlib import Path
 from typing import Literal, Optional, cast
 
 import rich
-from anthropic import Anthropic
+from anthropic import Anthropic, MessageStopEvent
 from anthropic.types import (
     ImageBlockParam,
     MessageParam,
     ModelParam,
+    RawMessageStartEvent,
     TextBlockParam,
     ToolParam,
     ToolResultBlockParam,
@@ -24,10 +25,11 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from typer import Typer
 
+from wcgw.client.bash_state.bash_state import BashState
 from wcgw.client.common import CostData, discard_input
 from wcgw.client.memory import load_memory
 from wcgw.client.tools import (
-    DoneFlag,
+    Context,
     ImageData,
     default_enc,
     get_tool_output,
@@ -138,8 +140,8 @@ def loop(
             _, memory, _ = load_memory(
                 resume,
                 8000,
-                lambda x: default_enc.encode(x).ids,
-                lambda x: default_enc.decode(x),
+                lambda x: default_enc.encoder(x),
+                lambda x: default_enc.decoder(x),
             )
         except OSError:
             if resume == "latest":
@@ -280,34 +282,6 @@ Saves provided description and file contents of all the relevant file paths or g
         ),
     ]
 
-    system = initialize(
-        os.getcwd(),
-        [],
-        resume if (memory and resume) else "",
-        max_tokens=8000,
-        mode="wcgw",
-    )
-
-    with open(
-        os.path.join(
-            os.path.dirname(__file__), "..", "wcgw", "client", "diff-instructions.txt"
-        )
-    ) as f:
-        system += f.read()
-
-    if history:
-        if (
-            (last_msg := history[-1])["role"] == "user"
-            and isinstance((content := last_msg["content"]), dict)
-            and content["type"] == "tool_result"
-        ):
-            waiting_for_assistant = True
-
-    client = Anthropic()
-
-    cost: float = 0
-    input_toks = 0
-    output_toks = 0
     system_console = rich.console.Console(style="blue", highlight=False, markup=False)
     error_console = rich.console.Console(style="red", highlight=False, markup=False)
     user_console = rich.console.Console(
@@ -316,216 +290,263 @@ Saves provided description and file contents of all the relevant file paths or g
     assistant_console = rich.console.Console(
         style="white bold", highlight=False, markup=False
     )
-    while True:
-        if cost > limit:
-            system_console.print(
-                f"\nCost limit exceeded. Current cost: {config.cost_unit}{cost:.4f}, "
-                f"input tokens: {input_toks}"
-                f"output tokens: {output_toks}"
-            )
-            break
-        else:
-            system_console.print(
-                f"\nTotal cost: {config.cost_unit}{cost:.4f}, input tokens: {input_toks}, output tokens: {output_toks}"
-            )
 
-        if not waiting_for_assistant:
-            if first_message:
-                msg = first_message
-                first_message = ""
+    with BashState(
+        system_console, os.getcwd(), None, None, None, None, False, None
+    ) as bash_state:
+        context = Context(bash_state, system_console)
+
+        system, context = initialize(
+            context,
+            os.getcwd(),
+            [],
+            resume if (memory and resume) else "",
+            max_tokens=8000,
+            mode="wcgw",
+        )
+
+        with open(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "wcgw",
+                "client",
+                "diff-instructions.txt",
+            )
+        ) as f:
+            system += f.read()
+
+        if history:
+            if (
+                (last_msg := history[-1])["role"] == "user"
+                and isinstance((content := last_msg["content"]), dict)
+                and content["type"] == "tool_result"
+            ):
+                waiting_for_assistant = True
+
+        client = Anthropic()
+
+        cost: float = 0
+        input_toks = 0
+        output_toks = 0
+
+        while True:
+            if cost > limit:
+                system_console.print(
+                    f"\nCost limit exceeded. Current cost: {config.cost_unit}{cost:.4f}, "
+                    f"input tokens: {input_toks}"
+                    f"output tokens: {output_toks}"
+                )
+                break
             else:
-                msg = text_from_editor(user_console)
+                system_console.print(
+                    f"\nTotal cost: {config.cost_unit}{cost:.4f}, input tokens: {input_toks}, output tokens: {output_toks}"
+                )
 
-            history.append(parse_user_message_special(msg))
-        else:
-            waiting_for_assistant = False
-        stream = client.messages.stream(
-            model=config.model,
-            messages=history,
-            tools=tools,
-            max_tokens=8096,
-            system=system,
-        )
+            if not waiting_for_assistant:
+                if first_message:
+                    msg = first_message
+                    first_message = ""
+                else:
+                    msg = text_from_editor(user_console)
 
-        system_console.print(
-            "\n---------------------------------------\n# Assistant response",
-            style="bold",
-        )
-        _histories: History = []
-        full_response: str = ""
+                history.append(parse_user_message_special(msg))
+            else:
+                waiting_for_assistant = False
+            stream = client.messages.stream(
+                model=config.model,
+                messages=history,
+                tools=tools,
+                max_tokens=8096,
+                system=system,
+            )
 
-        tool_calls = []
-        tool_results: list[ToolResultBlockParam] = []
-        try:
-            with stream as stream_:
-                for chunk in stream_:
-                    type_ = chunk.type
-                    if type_ == "message_start":
-                        message_start = chunk.message
-                        # Update cost based on token usage from the API response
-                        input_tokens = message_start.usage.input_tokens
-                        input_toks += input_tokens
-                        cost += (
-                            input_tokens
-                            * config.cost_file[config.model].cost_per_1m_input_tokens
-                        ) / 1_000_000
-                    elif type_ == "message_stop":
-                        message_stop = chunk.message
-                        # Update cost based on output tokens
-                        output_tokens = message_stop.usage.output_tokens
-                        output_toks += output_tokens
-                        cost += (
-                            output_tokens
-                            * config.cost_file[config.model].cost_per_1m_output_tokens
-                        ) / 1_000_000
-                        continue
-                    elif type_ == "content_block_start" and hasattr(
-                        chunk, "content_block"
-                    ):
-                        content_block = chunk.content_block
-                        if (
-                            hasattr(content_block, "type")
-                            and content_block.type == "text"
-                            and hasattr(content_block, "text")
+            system_console.print(
+                "\n---------------------------------------\n# Assistant response",
+                style="bold",
+            )
+            _histories: History = []
+            full_response: str = ""
+
+            tool_calls = []
+            tool_results: list[ToolResultBlockParam] = []
+            try:
+                with stream as stream_:
+                    for chunk in stream_:
+                        type_ = chunk.type
+                        if isinstance(chunk, RawMessageStartEvent):
+                            message_start = chunk.message
+                            # Update cost based on token usage from the API response
+                            input_tokens = message_start.usage.input_tokens
+                            input_toks += input_tokens
+                            cost += (
+                                input_tokens
+                                * config.cost_file[
+                                    config.model
+                                ].cost_per_1m_input_tokens
+                            ) / 1_000_000
+                        elif isinstance(chunk, MessageStopEvent):
+                            message_stop = chunk.message
+                            # Update cost based on output tokens
+                            output_tokens = message_stop.usage.output_tokens
+                            output_toks += output_tokens
+                            cost += (
+                                output_tokens
+                                * config.cost_file[
+                                    config.model
+                                ].cost_per_1m_output_tokens
+                            ) / 1_000_000
+                            continue
+                        elif type_ == "content_block_start" and hasattr(
+                            chunk, "content_block"
                         ):
-                            chunk_str = content_block.text
-                            assistant_console.print(chunk_str, end="")
-                            full_response += chunk_str
-                        elif content_block.type == "tool_use":
+                            content_block = chunk.content_block
                             if (
-                                hasattr(content_block, "input")
-                                and hasattr(content_block, "name")
-                                and hasattr(content_block, "id")
+                                hasattr(content_block, "type")
+                                and content_block.type == "text"
+                                and hasattr(content_block, "text")
                             ):
-                                assert content_block.input == {}
-                                tool_calls.append(
-                                    {
-                                        "name": str(content_block.name),
-                                        "input": str(""),
-                                        "done": False,
-                                        "id": str(content_block.id),
-                                    }
-                                )
-                        else:
-                            error_console.log(
-                                f"Ignoring unknown content block type {content_block.type}"
-                            )
-                    elif type_ == "content_block_delta" and hasattr(chunk, "delta"):
-                        delta = chunk.delta
-                        if hasattr(delta, "type"):
-                            delta_type = str(delta.type)
-                            if delta_type == "text_delta" and hasattr(delta, "text"):
-                                chunk_str = delta.text
+                                chunk_str = content_block.text
                                 assistant_console.print(chunk_str, end="")
                                 full_response += chunk_str
-                            elif delta_type == "input_json_delta" and hasattr(
-                                delta, "partial_json"
-                            ):
-                                partial_json = delta.partial_json
-                                if isinstance(tool_calls[-1]["input"], str):
-                                    tool_calls[-1]["input"] += partial_json
-                            else:
-                                error_console.log(
-                                    f"Ignoring unknown content block delta type {delta_type}"
-                                )
-                        else:
-                            raise ValueError("Content block delta has no type")
-                    elif type_ == "content_block_stop":
-                        if tool_calls and not tool_calls[-1]["done"]:
-                            tc = tool_calls[-1]
-                            tool_name = str(tc["name"])
-                            tool_input = str(tc["input"])
-                            tool_id = str(tc["id"])
-
-                            tool_parsed = which_tool_name(
-                                tool_name
-                            ).model_validate_json(tool_input)
-
-                            system_console.print(
-                                f"\n---------------------------------------\n# Assistant invoked tool: {tool_parsed}"
-                            )
-
-                            _histories.append(
-                                {
-                                    "role": "assistant",
-                                    "content": [
-                                        ToolUseBlockParam(
-                                            id=tool_id,
-                                            name=tool_name,
-                                            input=tool_parsed.model_dump(),
-                                            type="tool_use",
-                                        )
-                                    ],
-                                }
-                            )
-                            try:
-                                output_or_dones, _ = get_tool_output(
-                                    tool_parsed,
-                                    default_enc,
-                                    limit - cost,
-                                    loop,
-                                    max_tokens=8000,
-                                )
-                            except Exception as e:
-                                output_or_dones = [
-                                    (f"GOT EXCEPTION while calling tool. Error: {e}")
-                                ]
-                                tb = traceback.format_exc()
-                                error_console.print(str(output_or_dones) + "\n" + tb)
-
-                            if any(isinstance(x, DoneFlag) for x in output_or_dones):
-                                return "", cost
-
-                            tool_results_content: list[
-                                TextBlockParam | ImageBlockParam
-                            ] = []
-                            for output in output_or_dones:
-                                assert not isinstance(output, DoneFlag)
-                                if isinstance(output, ImageData):
-                                    tool_results_content.append(
+                            elif content_block.type == "tool_use":
+                                if (
+                                    hasattr(content_block, "input")
+                                    and hasattr(content_block, "name")
+                                    and hasattr(content_block, "id")
+                                ):
+                                    assert content_block.input == {}
+                                    tool_calls.append(
                                         {
-                                            "type": "image",
-                                            "source": {
-                                                "type": "base64",
-                                                "media_type": output.media_type,
-                                                "data": output.data,
-                                            },
+                                            "name": str(content_block.name),
+                                            "input": str(""),
+                                            "done": False,
+                                            "id": str(content_block.id),
                                         }
                                     )
-
-                                else:
-                                    tool_results_content.append(
-                                        {
-                                            "type": "text",
-                                            "text": output,
-                                        },
-                                    )
-                            tool_results.append(
-                                ToolResultBlockParam(
-                                    type="tool_result",
-                                    tool_use_id=str(tc["id"]),
-                                    content=tool_results_content,
+                            else:
+                                error_console.log(
+                                    f"Ignoring unknown content block type {content_block.type}"
                                 )
-                            )
-                        else:
-                            _histories.append(
-                                {
-                                    "role": "assistant",
-                                    "content": full_response
-                                    if full_response.strip()
-                                    else "...",
-                                }  # Fixes anthropic issue of non empty response only
-                            )
+                        elif type_ == "content_block_delta" and hasattr(chunk, "delta"):
+                            delta = chunk.delta
+                            if hasattr(delta, "type"):
+                                delta_type = str(delta.type)
+                                if delta_type == "text_delta" and hasattr(
+                                    delta, "text"
+                                ):
+                                    chunk_str = delta.text
+                                    assistant_console.print(chunk_str, end="")
+                                    full_response += chunk_str
+                                elif delta_type == "input_json_delta" and hasattr(
+                                    delta, "partial_json"
+                                ):
+                                    partial_json = delta.partial_json
+                                    if isinstance(tool_calls[-1]["input"], str):
+                                        tool_calls[-1]["input"] += partial_json
+                                else:
+                                    error_console.log(
+                                        f"Ignoring unknown content block delta type {delta_type}"
+                                    )
+                            else:
+                                raise ValueError("Content block delta has no type")
+                        elif type_ == "content_block_stop":
+                            if tool_calls and not tool_calls[-1]["done"]:
+                                tc = tool_calls[-1]
+                                tool_name = str(tc["name"])
+                                tool_input = str(tc["input"])
+                                tool_id = str(tc["id"])
 
-        except KeyboardInterrupt:
-            waiting_for_assistant = False
-            input("Interrupted...enter to redo the current turn")
-        else:
-            history.extend(_histories)
-            if tool_results:
-                history.append({"role": "user", "content": tool_results})
-                waiting_for_assistant = True
-            save_history(history, session_id)
+                                tool_parsed = which_tool_name(
+                                    tool_name
+                                ).model_validate_json(tool_input)
+
+                                system_console.print(
+                                    f"\n---------------------------------------\n# Assistant invoked tool: {tool_parsed}"
+                                )
+
+                                _histories.append(
+                                    {
+                                        "role": "assistant",
+                                        "content": [
+                                            ToolUseBlockParam(
+                                                id=tool_id,
+                                                name=tool_name,
+                                                input=tool_parsed.model_dump(),
+                                                type="tool_use",
+                                            )
+                                        ],
+                                    }
+                                )
+                                try:
+                                    output_or_dones, _ = get_tool_output(
+                                        context,
+                                        tool_parsed,
+                                        default_enc,
+                                        limit - cost,
+                                        loop,
+                                        max_tokens=8000,
+                                    )
+                                except Exception as e:
+                                    output_or_dones = [
+                                        (
+                                            f"GOT EXCEPTION while calling tool. Error: {e}"
+                                        )
+                                    ]
+                                    tb = traceback.format_exc()
+                                    error_console.print(
+                                        str(output_or_dones) + "\n" + tb
+                                    )
+
+                                tool_results_content: list[
+                                    TextBlockParam | ImageBlockParam
+                                ] = []
+                                for output in output_or_dones:
+                                    if isinstance(output, ImageData):
+                                        tool_results_content.append(
+                                            {
+                                                "type": "image",
+                                                "source": {
+                                                    "type": "base64",
+                                                    "media_type": output.media_type,
+                                                    "data": output.data,
+                                                },
+                                            }
+                                        )
+
+                                    else:
+                                        tool_results_content.append(
+                                            {
+                                                "type": "text",
+                                                "text": output,
+                                            },
+                                        )
+                                tool_results.append(
+                                    ToolResultBlockParam(
+                                        type="tool_result",
+                                        tool_use_id=str(tc["id"]),
+                                        content=tool_results_content,
+                                    )
+                                )
+                            else:
+                                _histories.append(
+                                    {
+                                        "role": "assistant",
+                                        "content": full_response
+                                        if full_response.strip()
+                                        else "...",
+                                    }  # Fixes anthropic issue of non empty response only
+                                )
+
+            except KeyboardInterrupt:
+                waiting_for_assistant = False
+                input("Interrupted...enter to redo the current turn")
+            else:
+                history.extend(_histories)
+                if tool_results:
+                    history.append({"role": "user", "content": tool_results})
+                    waiting_for_assistant = True
+                save_history(history, session_id)
 
     return "Couldn't finish the task", cost
 

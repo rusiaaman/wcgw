@@ -61,7 +61,7 @@ You are now running in "code_writer" mode.
     if allowed_file_edit_globs != "all":
         if allowed_file_edit_globs:
             path_prompt = f"""
-    - You are allowed to run FileEdit for files matching only the following globs: {', '.join(allowed_file_edit_globs)}
+    - You are allowed to run FileEdit for files matching only the following globs: {", ".join(allowed_file_edit_globs)}
 """
         else:
             path_prompt = """
@@ -76,7 +76,7 @@ You are now running in "code_writer" mode.
     if all_write_new_globs != "all":
         if all_write_new_globs:
             path_prompt = f"""
-    - You are allowed to run WriteIfEmpty files matching only the following globs: {', '.join(allowed_file_edit_globs)}
+    - You are allowed to run WriteIfEmpty files matching only the following globs: {", ".join(allowed_file_edit_globs)}
 """
         else:
             path_prompt = """
@@ -101,7 +101,7 @@ You are now running in "code_writer" mode.
     if allowed_commands != "all":
         if allowed_commands:
             command_prompt = f"""
-    - You are only allowed to run the following commands: {', '.join(allowed_commands)}
+    - You are only allowed to run the following commands: {", ".join(allowed_commands)}
 {run_command_common}
 """
         else:
@@ -234,9 +234,3 @@ Provide all relevant file paths in order to understand and solve the the task. E
 """
 
 KTS = {Modes.wcgw: WCGW_KT, Modes.architect: ARCHITECT_KT, Modes.code_writer: WCGW_KT}
-
-
-def get_kt_prompt() -> str:
-    from .tools import BASH_STATE
-
-    return KTS[BASH_STATE.mode]
