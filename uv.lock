@@ -1177,7 +1177,7 @@ wheels = [
 
 [[package]]
 name = "wcgw"
-version = "3.0.0"
+version = "3.0.1rc2"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

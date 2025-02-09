@@ -178,7 +178,7 @@ def start_shell(
         shell.sendline(f"trap 'screen -X -S {shellid} quit' EXIT")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
-        shell.sendline(f"screen -q -s /bin/bash -S {shellid}")
+        shell.sendline(f"screen -q -S {shellid} /bin/bash --noprofile --norc")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
         console.log(f"Entering screen session, name: {shellid}")
