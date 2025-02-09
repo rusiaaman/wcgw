@@ -210,7 +210,7 @@ async def bash_command(command: CommandWithUUID) -> str:
     await clients[user_id](
         Mdata(
             data=BashCommand(
-                command=command.command, status_check=command.status_check
+                type=command.type, wait_for_seconds=command.wait_for_seconds
             ),
             user_id=user_id,
         )
@@ -223,7 +223,6 @@ async def bash_command(command: CommandWithUUID) -> str:
         await asyncio.sleep(0.1)
 
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
-
 
 
 class ReadFileWithUUID(ReadFiles):
