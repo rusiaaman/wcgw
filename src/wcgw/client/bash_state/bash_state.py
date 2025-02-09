@@ -14,11 +14,11 @@ import pyte
 from ...types_ import (
     BashCommand,
     Command,
-    CommandInteractionAscii,
-    CommandInteractionSpecials,
-    CommandInteractionText,
     Console,
     Modes,
+    SendAscii,
+    SendSpecials,
+    SendText,
     StatusCheck,
 )
 from ..encoder import EncoderDecoder
@@ -584,15 +584,12 @@ def get_status(bash_state: BashState) -> str:
 
 def is_status_check(arg: BashCommand) -> bool:
     return (
-        isinstance(arg.type, StatusCheck)
+        isinstance(arg.action, StatusCheck)
         or (
-            isinstance(arg.type, CommandInteractionSpecials)
-            and arg.type.send_specials == ["Enter"]
+            isinstance(arg.action, SendSpecials)
+            and arg.action.send_specials == ["Enter"]
         )
-        or (
-            isinstance(arg.type, CommandInteractionAscii)
-            and arg.type.send_ascii == [10]
-        )
+        or (isinstance(arg.action, SendAscii) and arg.action.send_ascii == [10])
     )
 
 
@@ -605,13 +602,16 @@ def execute_bash(
 ) -> tuple[str, float]:
     try:
         is_interrupt = False
-        command_data = bash_arg.type
+        command_data = bash_arg.action
 
         if isinstance(command_data, Command):
             if bash_state.bash_command_mode.allowed_commands == "none":
                 return "Error: BashCommand not allowed in current mode", 0.0
 
             bash_state.console.print(f"$ {command_data.command}")
+
+            if bash_state.state == "pending":
+                raise ValueError(WAITING_INPUT_MESSAGE)
 
             command = command_data.command.strip()
             if "\n" in command:
@@ -627,7 +627,7 @@ def execute_bash(
             if bash_state.state != "pending":
                 return "No running command to check status of", 0.0
 
-        elif isinstance(command_data, CommandInteractionText):
+        elif isinstance(command_data, SendText):
             if not command_data.send_text:
                 return "Failure: send_text cannot be empty", 0.0
 
@@ -636,7 +636,7 @@ def execute_bash(
                 bash_state.send(command_data.send_text[i : i + 128])
             bash_state.send(bash_state.linesep)
 
-        elif isinstance(command_data, CommandInteractionSpecials):
+        elif isinstance(command_data, SendSpecials):
             if not command_data.send_specials:
                 return "Failure: send_specials cannot be empty", 0.0
 
@@ -665,7 +665,7 @@ def execute_bash(
                 else:
                     raise Exception(f"Unknown special character: {char}")
 
-        elif isinstance(command_data, CommandInteractionAscii):
+        elif isinstance(command_data, SendAscii):
             if not command_data.send_ascii:
                 return "Failure: send_ascii cannot be empty", 0.0
 

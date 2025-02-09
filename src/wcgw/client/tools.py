@@ -232,16 +232,31 @@ def reset_wcgw(context: Context, reset_wcgw: ResetWcgw) -> str:
             write_if_empty_mode,
             mode,
             list(context.bash_state.whitelist_for_overwrite),
-            context.bash_state.cwd,
+            reset_wcgw.starting_directory,
         )
         mode_prompt = get_mode_prompt(context)
         return (
             f"Reset successful with mode change to {reset_wcgw.change_mode}.\n"
             + mode_prompt
+            + "\n"
+            + get_status(context.bash_state)
         )
     else:
-        # Regular reset without mode change
-        context.bash_state.reset_shell()
+        # Regular reset without mode change - keep same mode but update directory
+        bash_command_mode = context.bash_state.bash_command_mode
+        file_edit_mode = context.bash_state.file_edit_mode
+        write_if_empty_mode = context.bash_state.write_if_empty_mode
+        mode = context.bash_state.mode
+
+        # Reload state with new directory
+        context.bash_state.load_state(
+            bash_command_mode,
+            file_edit_mode,
+            write_if_empty_mode,
+            mode,
+            list(context.bash_state.whitelist_for_overwrite),
+            reset_wcgw.starting_directory,
+        )
     return "Reset successful" + get_status(context.bash_state)
 
 

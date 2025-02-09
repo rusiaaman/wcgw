@@ -45,28 +45,16 @@ TOOL_PROMPTS = [
         inputSchema=BashCommand.model_json_schema(),
         name="BashCommand",
         description="""
-- Execute commands and interact with running programs using this unified tool
-- The type field specifies the operation:
-  - Command: Execute a command
-  - StatusCheck: Check status of running command 
-  - CommandInteractionText: Send text input
-  - CommandInteractionSpecials: Send special keys
-  - CommandInteractionAscii: Send raw ASCII codes
-- For commands:
-  - Status returned at the end
-  - May be truncated if too long
-  - Use pwd if files not found
-  - Use screen for background tasks
-  - Use ReadFiles instead of cat
-  - Wait for previous commands to finish
-  - Only one command allowed at a time
-  - Check status if no output (program likely still running)
-- For interactions:
-  - Only one type of interaction per call
-  - Check status before interrupting with Ctrl-c
-  - Special keys: Enter, Arrow keys, Ctrl-c/d/z
-  - ASCII codes for raw character input
-  - Wait appropriate time before interrupting
+- Execute a bash command. This is stateful (beware with subsequent calls).
+- Status of the command and the current working directory will always be returned at the end.
+- The first or the last line might be `(...truncated)` if the output is too long.
+- Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
+- Run long running commands in background using screen instead of "&".
+- Do not use 'cat' to read files, use ReadFiles tool instead
+- In order to check status of previous command, use `status_check` with empty command argument.
+- Only command is allowed to run at a time. You need to wait for any previous command to finish before running a new one.
+- Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again.
+- Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
 """,
     ),
     Prompts(

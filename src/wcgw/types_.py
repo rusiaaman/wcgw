@@ -69,7 +69,7 @@ class StatusCheck(BaseModel):
     status_check: Literal[True]
 
 
-class CommandInteractionText(BaseModel):
+class SendText(BaseModel):
     send_text: str
 
 
@@ -78,22 +78,16 @@ Specials = Literal[
 ]
 
 
-class CommandInteractionSpecials(BaseModel):
+class SendSpecials(BaseModel):
     send_specials: Sequence[Specials]
 
 
-class CommandInteractionAscii(BaseModel):
+class SendAscii(BaseModel):
     send_ascii: Sequence[int]
 
 
 class BashCommand(BaseModel):
-    type: (
-        Command
-        | StatusCheck
-        | CommandInteractionText
-        | CommandInteractionSpecials
-        | CommandInteractionAscii
-    )
+    action: Command | StatusCheck | SendText | SendSpecials | SendAscii
     wait_for_seconds: Optional[float] = None
 
 
@@ -114,6 +108,8 @@ class ResetWcgw(BaseModel):
     should_reset: Literal[True]
     change_mode: Optional[Literal["wcgw", "architect", "code_writer"]]
     code_writer_config: Optional[CodeWriterMode] = None
+    starting_directory: str
+    starting_directory: str
 
 
 class FileEdit(BaseModel):
