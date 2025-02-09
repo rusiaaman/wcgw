@@ -574,6 +574,8 @@ def get_status(bash_state: BashState) -> str:
 
 
 def is_status_check(arg: BashInteraction | BashCommand) -> bool:
+    if isinstance(arg, BashCommand):
+        return not arg.command and arg.status_check
     return isinstance(arg, BashInteraction) and (
         arg.send_specials == ["Enter"] or arg.send_ascii == [10]
     )
@@ -592,20 +594,26 @@ def execute_bash(
             if bash_state.bash_command_mode.allowed_commands == "none":
                 return "Error: BashCommand not allowed in current mode", 0.0
 
-            bash_state.console.print(f"$ {bash_arg.command}")
-            if bash_state.state == "pending":
-                raise ValueError(WAITING_INPUT_MESSAGE)
-            command = bash_arg.command.strip()
+            if bash_arg.command:
+                bash_state.console.print(f"$ {bash_arg.command}")
+                if bash_state.state == "pending":
+                    raise ValueError(WAITING_INPUT_MESSAGE)
+                command = bash_arg.command.strip()
+                if "\n" in command:
+                    raise ValueError(
+                        "Command should not contain newline character in middle. Run only one command at a time."
+                    )
 
-            if "\n" in command:
-                raise ValueError(
-                    "Command should not contain newline character in middle. Run only one command at a time."
+                for i in range(0, len(command), 128):
+                    bash_state.send(command[i : i + 128])
+                bash_state.send(bash_state.linesep)
+            else:
+                assert bash_arg.status_check, (
+                    "One of command or status_check must be provided"
                 )
 
-            for i in range(0, len(command), 128):
-                bash_state.send(command[i : i + 128])
-            bash_state.send(bash_state.linesep)
-
+                if bash_state.state != "pending":
+                    return "No running command to check status of", 0.0
         else:
             if (
                 sum(
@@ -617,10 +625,18 @@ def execute_bash(
                 )
                 != 1
             ):
-                return (
-                    "Failure: exactly one of send_text, send_specials or send_ascii should be provided",
-                    0.0,
-                )
+                if (
+                    bash_arg.send_text
+                    and bash_arg.send_specials == ["Enter"]
+                    and not bash_arg.send_ascii
+                ):
+                    # Handle the case where model is eager to send Enter.
+                    bash_arg.send_specials = []
+                else:
+                    return (
+                        "Failure: exactly one of send_text, send_specials or send_ascii should be provided",
+                        0.0,
+                    )
             if bash_arg.send_specials:
                 bash_state.console.print(
                     f"Sending special sequence: {bash_arg.send_specials}"

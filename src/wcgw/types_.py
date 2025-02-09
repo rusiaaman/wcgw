@@ -62,12 +62,18 @@ class Initialize(BaseModel):
 
 
 class BashCommand(BaseModel):
-    command: str
-    wait_for_seconds: Optional[int] = None
+    command: Optional[str]
+    status_check: bool
+    wait_for_seconds: Optional[float] = None
+
+    def __post_init__(self) -> None:
+        if not self.command and not self.status_check:
+            raise ValueError("One of command or status_check must be provided")
+        super().__init__()
 
 
 Specials = Literal[
-    "Key-up", "Key-down", "Key-left", "Key-right", "Enter", "Ctrl-c", "Ctrl-d", "Ctrl-z"
+    "Enter", "Key-up", "Key-down", "Key-left", "Key-right", "Ctrl-c", "Ctrl-d", "Ctrl-z"
 ]
 
 
@@ -75,7 +81,7 @@ class BashInteraction(BaseModel):
     send_text: Optional[str] = None
     send_specials: Optional[Sequence[Specials]] = None
     send_ascii: Optional[Sequence[int]] = None
-    wait_for_seconds: Optional[int] = None
+    wait_for_seconds: Optional[float] = None
 
 
 class ReadImage(BaseModel):

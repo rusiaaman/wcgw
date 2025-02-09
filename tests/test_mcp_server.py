@@ -161,8 +161,8 @@ async def test_handle_list_tools():
         elif tool.name == "BashCommand":
             properties = tool.inputSchema["properties"]
             assert "command" in properties
-            assert properties["command"]["type"] == "string"
             assert "wait_for_seconds" in properties
+            assert "status_check" in properties
 
         elif tool.name == "FileEdit":
             properties = tool.inputSchema["properties"]
@@ -193,6 +193,7 @@ async def test_handle_call_tool(setup_bash_state):
     json_args = {
         "command": '"ls"',  # JSON string
         "wait_for_seconds": None,
+        "status_check": False,
     }
     result = await handle_call_tool("BashCommand", json_args)
     assert isinstance(result, list)
@@ -212,7 +213,9 @@ async def test_handle_call_tool(setup_bash_state):
         "wcgw.client.mcp_server.server.get_tool_output",
         side_effect=Exception("Test error"),
     ):
-        result = await handle_call_tool("BashCommand", {"command": "test"})
+        result = await handle_call_tool(
+            "BashCommand", {"command": "test", "status_check": False}
+        )
         assert "GOT EXCEPTION" in result[0].text
 
 
