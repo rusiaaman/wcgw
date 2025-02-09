@@ -11,7 +11,16 @@ from typing import Any, Literal, Optional
 import pexpect
 import pyte
 
-from ...types_ import BashCommand, BashInteraction, Console, Modes
+from ...types_ import (
+    BashCommand,
+    Command,
+    CommandInteractionAscii,
+    CommandInteractionSpecials,
+    CommandInteractionText,
+    Console,
+    Modes,
+    StatusCheck,
+)
 from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 
@@ -573,114 +582,102 @@ def get_status(bash_state: BashState) -> str:
     return status.rstrip()
 
 
-def is_status_check(arg: BashInteraction | BashCommand) -> bool:
-    if isinstance(arg, BashCommand):
-        return not arg.command and arg.status_check
-    return isinstance(arg, BashInteraction) and (
-        arg.send_specials == ["Enter"] or arg.send_ascii == [10]
+def is_status_check(arg: BashCommand) -> bool:
+    return (
+        isinstance(arg.type, StatusCheck)
+        or (
+            isinstance(arg.type, CommandInteractionSpecials)
+            and arg.type.send_specials == ["Enter"]
+        )
+        or (
+            isinstance(arg.type, CommandInteractionAscii)
+            and arg.type.send_ascii == [10]
+        )
     )
 
 
 def execute_bash(
     bash_state: BashState,
     enc: EncoderDecoder[int],
-    bash_arg: BashCommand | BashInteraction,
+    bash_arg: BashCommand,
     max_tokens: Optional[int],
     timeout_s: Optional[float],
 ) -> tuple[str, float]:
     try:
         is_interrupt = False
-        if isinstance(bash_arg, BashCommand):
+        command_data = bash_arg.type
+
+        if isinstance(command_data, Command):
             if bash_state.bash_command_mode.allowed_commands == "none":
                 return "Error: BashCommand not allowed in current mode", 0.0
 
-            if bash_arg.command:
-                bash_state.console.print(f"$ {bash_arg.command}")
-                if bash_state.state == "pending":
-                    raise ValueError(WAITING_INPUT_MESSAGE)
-                command = bash_arg.command.strip()
-                if "\n" in command:
-                    raise ValueError(
-                        "Command should not contain newline character in middle. Run only one command at a time."
-                    )
+            bash_state.console.print(f"$ {command_data.command}")
 
-                for i in range(0, len(command), 128):
-                    bash_state.send(command[i : i + 128])
-                bash_state.send(bash_state.linesep)
-            else:
-                assert bash_arg.status_check, (
-                    "One of command or status_check must be provided"
+            command = command_data.command.strip()
+            if "\n" in command:
+                raise ValueError(
+                    "Command should not contain newline character in middle. Run only one command at a time."
                 )
 
-                if bash_state.state != "pending":
-                    return "No running command to check status of", 0.0
-        else:
-            if (
-                sum(
-                    [
-                        int(bool(bash_arg.send_text)),
-                        int(bool(bash_arg.send_specials)),
-                        int(bool(bash_arg.send_ascii)),
-                    ]
-                )
-                != 1
-            ):
-                if (
-                    bash_arg.send_text
-                    and bash_arg.send_specials == ["Enter"]
-                    and not bash_arg.send_ascii
-                ):
-                    # Handle the case where model is eager to send Enter.
-                    bash_arg.send_specials = []
+            for i in range(0, len(command), 128):
+                bash_state.send(command[i : i + 128])
+            bash_state.send(bash_state.linesep)
+
+        elif isinstance(command_data, StatusCheck):
+            if bash_state.state != "pending":
+                return "No running command to check status of", 0.0
+
+        elif isinstance(command_data, CommandInteractionText):
+            if not command_data.send_text:
+                return "Failure: send_text cannot be empty", 0.0
+
+            bash_state.console.print(f"Interact text: {command_data.send_text}")
+            for i in range(0, len(command_data.send_text), 128):
+                bash_state.send(command_data.send_text[i : i + 128])
+            bash_state.send(bash_state.linesep)
+
+        elif isinstance(command_data, CommandInteractionSpecials):
+            if not command_data.send_specials:
+                return "Failure: send_specials cannot be empty", 0.0
+
+            bash_state.console.print(
+                f"Sending special sequence: {command_data.send_specials}"
+            )
+            for char in command_data.send_specials:
+                if char == "Key-up":
+                    bash_state.send("\033[A")
+                elif char == "Key-down":
+                    bash_state.send("\033[B")
+                elif char == "Key-left":
+                    bash_state.send("\033[D")
+                elif char == "Key-right":
+                    bash_state.send("\033[C")
+                elif char == "Enter":
+                    bash_state.send("\n")
+                elif char == "Ctrl-c":
+                    bash_state.sendintr()
+                    is_interrupt = True
+                elif char == "Ctrl-d":
+                    bash_state.sendintr()
+                    is_interrupt = True
+                elif char == "Ctrl-z":
+                    bash_state.send("\x1a")
                 else:
-                    return (
-                        "Failure: exactly one of send_text, send_specials or send_ascii should be provided",
-                        0.0,
-                    )
-            if bash_arg.send_specials:
-                bash_state.console.print(
-                    f"Sending special sequence: {bash_arg.send_specials}"
-                )
-                for char in bash_arg.send_specials:
-                    if char == "Key-up":
-                        bash_state.send("\033[A")
-                    elif char == "Key-down":
-                        bash_state.send("\033[B")
-                    elif char == "Key-left":
-                        bash_state.send("\033[D")
-                    elif char == "Key-right":
-                        bash_state.send("\033[C")
-                    elif char == "Enter":
-                        bash_state.send("\n")
-                    elif char == "Ctrl-c":
-                        bash_state.sendintr()
-                        is_interrupt = True
-                    elif char == "Ctrl-d":
-                        bash_state.sendintr()
-                        is_interrupt = True
-                    elif char == "Ctrl-z":
-                        bash_state.send("\x1a")
-                    else:
-                        raise Exception(f"Unknown special character: {char}")
-            elif bash_arg.send_ascii:
-                bash_state.console.print(
-                    f"Sending ASCII sequence: {bash_arg.send_ascii}"
-                )
-                for ascii_char in bash_arg.send_ascii:
-                    bash_state.send(chr(ascii_char))
-                    if ascii_char == 3:
-                        is_interrupt = True
-            else:
-                if bash_arg.send_text is None:
-                    return (
-                        "Failure: at least one of send_text, send_specials or send_ascii should be provided",
-                        0.0,
-                    )
+                    raise Exception(f"Unknown special character: {char}")
 
-                bash_state.console.print(f"Interact text: {bash_arg.send_text}")
-                for i in range(0, len(bash_arg.send_text), 128):
-                    bash_state.send(bash_arg.send_text[i : i + 128])
-                bash_state.send(bash_state.linesep)
+        elif isinstance(command_data, CommandInteractionAscii):
+            if not command_data.send_ascii:
+                return "Failure: send_ascii cannot be empty", 0.0
+
+            bash_state.console.print(
+                f"Sending ASCII sequence: {command_data.send_ascii}"
+            )
+            for ascii_char in command_data.send_ascii:
+                bash_state.send(chr(ascii_char))
+                if ascii_char == 3:
+                    is_interrupt = True
+        else:
+            raise ValueError(f"Unknown command type: {type(command_data)}")
 
     except KeyboardInterrupt:
         bash_state.sendintr()

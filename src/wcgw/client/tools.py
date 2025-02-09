@@ -28,7 +28,6 @@ from wcgw.client.bash_state.bash_state import get_status
 
 from ..types_ import (
     BashCommand,
-    BashInteraction,
     CodeWriterMode,
     Console,
     ContextSave,
@@ -495,7 +494,6 @@ Syntax errors:
 
 TOOLS = (
     BashCommand
-    | BashInteraction
     | ResetWcgw
     | WriteIfEmpty
     | FileEdit
@@ -514,8 +512,6 @@ def which_tool(args: str) -> TOOLS:
 def which_tool_name(name: str) -> Type[TOOLS]:
     if name == "BashCommand":
         return BashCommand
-    elif name == "BashInteraction":
-        return BashInteraction
     elif name == "ResetWcgw":
         return ResetWcgw
     elif name == "WriteIfEmpty":
@@ -554,7 +550,7 @@ def get_tool_output(
     output: tuple[str | ImageData, float]
     TOOL_CALLS.append(arg)
 
-    if isinstance(arg, (BashCommand | BashInteraction)):
+    if isinstance(arg, BashCommand):
         context.console.print("Calling execute bash tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")

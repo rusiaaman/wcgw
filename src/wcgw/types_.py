@@ -61,15 +61,16 @@ class Initialize(BaseModel):
         return self.code_writer_config
 
 
-class BashCommand(BaseModel):
-    command: Optional[str]
-    status_check: bool
-    wait_for_seconds: Optional[float] = None
+class Command(BaseModel):
+    command: str
 
-    def __post_init__(self) -> None:
-        if not self.command and not self.status_check:
-            raise ValueError("One of command or status_check must be provided")
-        super().__init__()
+
+class StatusCheck(BaseModel):
+    status_check: Literal[True]
+
+
+class CommandInteractionText(BaseModel):
+    send_text: str
 
 
 Specials = Literal[
@@ -77,10 +78,22 @@ Specials = Literal[
 ]
 
 
-class BashInteraction(BaseModel):
-    send_text: Optional[str] = None
-    send_specials: Optional[Sequence[Specials]] = None
-    send_ascii: Optional[Sequence[int]] = None
+class CommandInteractionSpecials(BaseModel):
+    send_specials: Sequence[Specials]
+
+
+class CommandInteractionAscii(BaseModel):
+    send_ascii: Sequence[int]
+
+
+class BashCommand(BaseModel):
+    type: (
+        Command
+        | StatusCheck
+        | CommandInteractionText
+        | CommandInteractionSpecials
+        | CommandInteractionAscii
+    )
     wait_for_seconds: Optional[float] = None
 
 
@@ -124,7 +137,6 @@ class Console(Protocol):
 class Mdata(PydanticBaseModel):
     data: (
         BashCommand
-        | BashInteraction
         | WriteIfEmpty
         | ResetWcgw
         | FileEdit
