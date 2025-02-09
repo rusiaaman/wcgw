@@ -109,7 +109,6 @@ class ResetWcgw(BaseModel):
     change_mode: Optional[Literal["wcgw", "architect", "code_writer"]]
     code_writer_config: Optional[CodeWriterMode] = None
     starting_directory: str
-    starting_directory: str
 
 
 class FileEdit(BaseModel):
