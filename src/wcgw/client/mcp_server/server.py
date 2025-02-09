@@ -265,7 +265,7 @@ async def main() -> None:
     CONFIG.update(3, 55, 5)
     version = str(importlib.metadata.version("wcgw"))
     home_dir = os.path.expanduser("~")
-    BASH_STATE = BashState(Console(), home_dir, None, None, None, None, None)
+    BASH_STATE = BashState(Console(), home_dir, None, None, None, None, False, None)
     try:
         BASH_STATE.console.log("wcgw version: " + version)
         # Run the server using stdin/stdout streams

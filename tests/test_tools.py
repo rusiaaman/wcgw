@@ -51,6 +51,7 @@ def context(temp_dir: str) -> Generator[Context, None, None]:
         file_edit_mode=None,
         write_if_empty_mode=None,
         mode=None,
+        use_screen=True,
     )
     ctx = Context(
         bash_state=bash_state,

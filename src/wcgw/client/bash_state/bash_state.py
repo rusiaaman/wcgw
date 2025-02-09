@@ -238,17 +238,28 @@ class BashState:
 
     def expect(self, pattern: Any, timeout: Optional[float] = -1) -> int:
         self.close_bg_expect_thread()
-        return self.shell.expect(pattern, timeout)
+        return self._shell.expect(pattern, timeout)
 
     def send(self, s: str | bytes) -> int:
-        output = self.shell.send(s)
+        output = self._shell.send(s)
         self.run_bg_expect_thread()
         return output
 
     def sendline(self, s: str | bytes) -> int:
-        output = self.shell.sendline(s)
+        output = self._shell.sendline(s)
         self.run_bg_expect_thread()
         return output
+
+    @property
+    def linesep(self) -> Any:
+        return self._shell.linesep
+
+    def sendintr(self) -> None:
+        self._shell.sendintr()
+
+    @property
+    def before(self) -> Optional[str]:
+        return self._shell.before
 
     def run_bg_expect_thread(self) -> None:
         """
@@ -259,7 +270,7 @@ class BashState:
             while True:
                 if self._bg_expect_thread_stop_event.is_set():
                     break
-                output = self.shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
+                output = self._shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
                 if output == 0:
                     break
 
@@ -280,7 +291,7 @@ class BashState:
 
     def cleanup(self) -> None:
         self.close_bg_expect_thread()
-        self.shell.close(True)
+        self._shell.close(True)
         cleanup_all_screens_with_name(self._shell_id, self.console)
 
     def __enter__(self) -> "BashState":
@@ -329,7 +340,7 @@ class BashState:
                 self.console.print(f"Couldn't get exit code, before: {before}")
                 raise
 
-            before_val = self.shell.before
+            before_val = self._shell.before
             if not isinstance(before_val, str):
                 before_val = str(before_val)
             assert isinstance(before_val, str)
@@ -378,10 +389,6 @@ class BashState:
         # Get exit info to ensure shell is ready
         self.ensure_env_and_bg_jobs()
 
-    @property
-    def shell(self) -> pexpect.spawn:  # type: ignore
-        return self._shell
-
     def set_pending(self, last_pending_output: str) -> None:
         if not isinstance(self._state, datetime.datetime):
             self._state = datetime.datetime.now()
@@ -416,7 +423,7 @@ class BashState:
     def update_cwd(self) -> str:
         self.sendline("pwd")
         self.expect(self._prompt, timeout=0.2)
-        before_val = self.shell.before
+        before_val = self._shell.before
         if not isinstance(before_val, str):
             before_val = str(before_val)
         before_lines = render_terminal_output(before_val)
@@ -597,7 +604,7 @@ def execute_bash(
 
             for i in range(0, len(command), 128):
                 bash_state.send(command[i : i + 128])
-            bash_state.send(bash_state.shell.linesep)
+            bash_state.send(bash_state.linesep)
 
         else:
             if (
@@ -630,10 +637,10 @@ def execute_bash(
                     elif char == "Enter":
                         bash_state.send("\n")
                     elif char == "Ctrl-c":
-                        bash_state.shell.sendintr()
+                        bash_state.sendintr()
                         is_interrupt = True
                     elif char == "Ctrl-d":
-                        bash_state.shell.sendintr()
+                        bash_state.sendintr()
                         is_interrupt = True
                     elif char == "Ctrl-z":
                         bash_state.send("\x1a")
@@ -657,17 +664,17 @@ def execute_bash(
                 bash_state.console.print(f"Interact text: {bash_arg.send_text}")
                 for i in range(0, len(bash_arg.send_text), 128):
                     bash_state.send(bash_arg.send_text[i : i + 128])
-                bash_state.send(bash_state.shell.linesep)
+                bash_state.send(bash_state.linesep)
 
     except KeyboardInterrupt:
-        bash_state.shell.sendintr()
+        bash_state.sendintr()
         bash_state.expect(bash_state.prompt)
         return "---\n\nFailure: user interrupted the execution", 0.0
 
     wait = min(timeout_s or CONFIG.timeout, CONFIG.timeout_while_output)
     index = bash_state.expect([bash_state.prompt, pexpect.TIMEOUT], timeout=wait)
     if index == 1:
-        text = bash_state.shell.before or ""
+        text = bash_state.before or ""
         incremental_text = _incremental_text(text, bash_state.pending_output)
 
         second_wait_success = False
@@ -686,7 +693,7 @@ def execute_bash(
                     second_wait_success = True
                     break
                 else:
-                    _itext = bash_state.shell.before or ""
+                    _itext = bash_state.before or ""
                     _itext = _incremental_text(_itext, bash_state.pending_output)
                     if _itext != itext:
                         patience = 3
@@ -697,7 +704,7 @@ def execute_bash(
                 remaining = remaining - wait
 
             if not second_wait_success:
-                text = bash_state.shell.before or ""
+                text = bash_state.before or ""
                 incremental_text = _incremental_text(text, bash_state.pending_output)
 
         if not second_wait_success:
@@ -725,10 +732,9 @@ def execute_bash(
 
             return incremental_text, 0
 
-    if not isinstance(bash_state.shell.before, str):
-        bash_state.shell.before = str(bash_state.shell.before)
+    before = str(bash_state.before)
 
-    output = _incremental_text(bash_state.shell.before, bash_state.pending_output)
+    output = _incremental_text(before, bash_state.pending_output)
     bash_state.set_repl()
 
     tokens = enc.encoder(output)

@@ -24,7 +24,9 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
 
     # Create the WebSocket connection and context
     the_console = rich.console.Console(style="magenta", highlight=False, markup=False)
-    bash_state = BashState(the_console, os.getcwd(), None, None, None, None)
+    bash_state = BashState(
+        the_console, os.getcwd(), None, None, None, None, False, None
+    )
     context = Context(bash_state=bash_state, console=the_console)
 
     try:

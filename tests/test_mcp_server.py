@@ -45,7 +45,9 @@ def setup_bash_state():
 
     # Create new BashState with mode
     home_dir = os.path.expanduser("~")
-    bash_state = BashState(Console(), home_dir, None, None, None, Modes.wcgw, None)
+    bash_state = BashState(
+        Console(), home_dir, None, None, None, Modes.wcgw, False, None
+    )
     server.BASH_STATE = bash_state
 
     try:
