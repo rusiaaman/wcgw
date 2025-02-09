@@ -191,8 +191,7 @@ async def reset_shell(reset_shell: ResetShellWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class CommandWithUUID(BaseModel):
-    command: str
+class CommandWithUUID(BashCommand):
     user_id: UUID
 
 
@@ -211,7 +210,12 @@ async def bash_command(command: CommandWithUUID) -> str:
     gpts[user_id] = put_results
 
     await clients[user_id](
-        Mdata(data=BashCommand(command=command.command), user_id=user_id)
+        Mdata(
+            data=BashCommand(
+                command=command.command, status_check=command.status_check
+            ),
+            user_id=user_id,
+        )
     )
 
     start_time = time.time()
