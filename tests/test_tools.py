@@ -12,7 +12,7 @@ from wcgw.client.tools import (
     Initialize,
     ReadFiles,
     ReadImage,
-    ResetShell,
+    ResetWcgw,
     WriteIfEmpty,
     default_enc,
     get_tool_output,
@@ -428,8 +428,8 @@ def test_context_save(context: Context, temp_dir: str) -> None:
     assert outputs[0].endswith(".txt")  # Context files end with .txt extension
 
 
-def test_reset_shell(context: Context, temp_dir: str) -> None:
-    """Test the ResetShell tool."""
+def test_reset_wcgw(context: Context, temp_dir: str) -> None:
+    """Test the ResetWcgw tool with various mode changes."""
     # First initialize
     init_args = Initialize(
         any_workspace_path=temp_dir,
@@ -440,14 +440,54 @@ def test_reset_shell(context: Context, temp_dir: str) -> None:
     )
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
-    # Test shell reset
-    reset_args = ResetShell(should_reset=True)
+    # Test shell reset without mode change
+    reset_args = ResetWcgw(should_reset=True, change_mode=None)
     outputs, _ = get_tool_output(
         context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
 
     assert len(outputs) == 1
     assert "Reset successful" in outputs[0]
+    assert "mode change" not in outputs[0].lower()
+
+    # Test changing to architect mode
+    reset_args = ResetWcgw(should_reset=True, change_mode="architect")
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "Reset successful with mode change to architect" in outputs[0]
+
+    # Test changing to code_writer mode without config (should fail)
+    reset_args = ResetWcgw(should_reset=True, change_mode="code_writer")
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "Error: code_writer_config is required" in outputs[0]
+
+    # Test changing to code_writer mode with config
+    code_writer_config = {"allowed_commands": [], "allowed_globs": ["*.py"]}
+    reset_args = ResetWcgw(
+        should_reset=True,
+        change_mode="code_writer",
+        code_writer_config=code_writer_config,
+    )
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "Reset successful with mode change to code_writer" in outputs[0]
+
+    # Verify mode was actually changed by trying a command not in allowed list
+    cmd = BashCommand(command="touch test.txt", status_check=False)
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "Error: BashCommand not allowed in current mode" in str(outputs[0])
 
 
 def test_bash_interaction(context: Context, temp_dir: str) -> None:
@@ -606,7 +646,7 @@ def test_which_tool_name() -> None:
     # Test each tool type
     assert which_tool_name("BashCommand") == BashCommand
     assert which_tool_name("BashInteraction") == BashInteraction
-    assert which_tool_name("ResetShell") == ResetShell
+    assert which_tool_name("ResetWcgw") == ResetWcgw
     assert which_tool_name("WriteIfEmpty") == WriteIfEmpty
     assert which_tool_name("FileEdit") == FileEdit
     assert which_tool_name("ReadImage") == ReadImage

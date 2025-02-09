@@ -97,8 +97,10 @@ class ReadFiles(BaseModel):
     file_paths: list[str]
 
 
-class ResetShell(BaseModel):
+class ResetWcgw(BaseModel):
     should_reset: Literal[True]
+    change_mode: Optional[Literal["wcgw", "architect", "code_writer"]]
+    code_writer_config: Optional[CodeWriterMode] = None
 
 
 class FileEdit(BaseModel):
@@ -124,7 +126,7 @@ class Mdata(PydanticBaseModel):
         BashCommand
         | BashInteraction
         | WriteIfEmpty
-        | ResetShell
+        | ResetWcgw
         | FileEdit
         | str
         | ReadFiles

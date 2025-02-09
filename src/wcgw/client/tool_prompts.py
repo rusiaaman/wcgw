@@ -10,7 +10,7 @@ from ..types_ import (
     Initialize,
     ReadFiles,
     ReadImage,
-    ResetShell,
+    ResetWcgw,
     WriteIfEmpty,
 )
 
@@ -39,7 +39,7 @@ TOOL_PROMPTS = [
 - Leave `any_workspace_path` as empty if no file or folder is mentioned.
 - By default use mode "wcgw"
 - In "code-writer" mode, set the commands and globs which user asked to set, otherwise use 'all'.
-- In order to change the mode later, call this tool again but be sure to not provide any other argument like task_id_to_resume unnecessarily.
+- Call `ResetWcgw` if you want to change the mode later.
 """,
     ),
     Prompts(
@@ -89,9 +89,9 @@ TOOL_PROMPTS = [
         description="Read an image from the shell.",
     ),
     Prompts(
-        inputSchema=ResetShell.model_json_schema(),
-        name="ResetShell",
-        description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
+        inputSchema=ResetWcgw.model_json_schema(),
+        name="ResetWcgw",
+        description="Resets the shell. Use either when changing mode, or when all interrupts and prompt reset attempts have failed repeatedly.",
     ),
     Prompts(
         inputSchema=FileEdit.model_json_schema(),

@@ -129,7 +129,7 @@ async def test_handle_list_tools():
         "ReadFiles",
         "WriteIfEmpty",
         "ReadImage",
-        "ResetShell",
+        "ResetWcgw",
         "FileEdit",
         "ContextSave",
     }
