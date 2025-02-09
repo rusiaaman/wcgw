@@ -113,7 +113,7 @@ class Console(Protocol):
     def log(self, msg: str, *args: Any, **kwargs: Any) -> None: ...
 
 
-class Mdata(BaseModel):
+class Mdata(PydanticBaseModel):
     data: (
         BashCommand
         | BashInteraction
