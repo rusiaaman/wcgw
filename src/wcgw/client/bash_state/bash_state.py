@@ -368,9 +368,9 @@ class BashState:
             self._bg_expect_thread_stop_event = threading.Event()
 
     def cleanup(self) -> None:
+        self.close_bg_expect_thread()
         with self._shell_lock:
             if self._shell:
-                self.close_bg_expect_thread()
                 self._shell.close(True)
                 if self._shell_id:
                     cleanup_all_screens_with_name(self._shell_id, self.console)
@@ -400,31 +400,38 @@ class BashState:
         return self._write_if_empty_mode
 
     @requires_shell
-    def ensure_env_and_bg_jobs(self, shell: "pexpect.spawn[str]") -> Optional[int]:
+    def ensure_env_and_bg_jobs(self, _: "pexpect.spawn[str]") -> Optional[int]:
+        return self._ensure_env_and_bg_jobs()
+
+    def _ensure_env_and_bg_jobs(self) -> Optional[int]:
+        # Do not add @requires_shell decorator here, as it will cause deadlock
+
+        self.close_bg_expect_thread()
+        assert self._shell is not None, "Bad state, shell is not initialized"
         if self._prompt != PROMPT_CONST:
             return None
         quick_timeout = 0.2 if not self.over_screen else 1
         # First reset the prompt in case venv was sourced or other reasons.
-        shell.sendline(f"export PS1={self._prompt}")
-        shell.expect(self._prompt, timeout=quick_timeout)
+        self._shell.sendline(f"export PS1={self._prompt}")
+        self._shell.expect(self._prompt, timeout=quick_timeout)
         # Reset echo also if it was enabled
-        shell.sendline("stty -icanon -echo")
-        shell.expect(self._prompt, timeout=quick_timeout)
-        shell.sendline("set +o pipefail")
-        shell.expect(self._prompt, timeout=quick_timeout)
-        shell.sendline("export GIT_PAGER=cat PAGER=cat")
-        shell.expect(self._prompt, timeout=quick_timeout)
-        shell.sendline("jobs | wc -l")
+        self._shell.sendline("stty -icanon -echo")
+        self._shell.expect(self._prompt, timeout=quick_timeout)
+        self._shell.sendline("set +o pipefail")
+        self._shell.expect(self._prompt, timeout=quick_timeout)
+        self._shell.sendline("export GIT_PAGER=cat PAGER=cat")
+        self._shell.expect(self._prompt, timeout=quick_timeout)
+        self._shell.sendline("jobs | wc -l")
         before = ""
         counts = 0
         while not _is_int(before):  # Consume all previous output
             try:
-                shell.expect(self._prompt, timeout=quick_timeout)
+                self._shell.expect(self._prompt, timeout=quick_timeout)
             except pexpect.TIMEOUT:
                 self.console.print(f"Couldn't get exit code, before: {before}")
                 raise
 
-            before_val = shell.before
+            before_val = self._shell.before
             if not isinstance(before_val, str):
                 before_val = str(before_val)
             assert isinstance(before_val, str)
@@ -469,9 +476,7 @@ class BashState:
             self.over_screen = False
 
         self._pending_output = ""
-
-        # Get exit info to ensure shell is ready
-        self.ensure_env_and_bg_jobs()
+        self._ensure_env_and_bg_jobs()
 
     def set_pending(self, last_pending_output: str) -> None:
         if not isinstance(self._state, datetime.datetime):
@@ -701,7 +706,7 @@ def execute_bash(
 
             for i in range(0, len(command), 128):
                 bash_state.send(command[i : i + 128])
-            bash_state.send(bash_state.linesep(shell))
+            bash_state.send(bash_state.linesep)
 
         elif isinstance(command_data, StatusCheck):
             bash_state.console.print("Checking status")
@@ -715,7 +720,7 @@ def execute_bash(
             bash_state.console.print(f"Interact text: {command_data.send_text}")
             for i in range(0, len(command_data.send_text), 128):
                 bash_state.send(command_data.send_text[i : i + 128])
-            bash_state.send(bash_state.linesep(shell))
+            bash_state.send(bash_state.linesep)
 
         elif isinstance(command_data, SendSpecials):
             if not command_data.send_specials:
