@@ -17,6 +17,7 @@ from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 
 PROMPT_CONST = "#" + "@wcgw@#"
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 @dataclass
@@ -143,7 +144,6 @@ def start_shell(
             f"export PROMPT_COMMAND= PS1={PROMPT_CONST}"
         )  # Unset prompt command to avoid interfering
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-        console.log(shell.before or "")
     except Exception as e:
         console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
@@ -158,7 +158,6 @@ def start_shell(
         )
         shell.sendline(f"export PS1={PROMPT_CONST}")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-        console.log(shell.before or "")
 
     shellid = "wcgw." + time.strftime("%H%M%S")
     if over_screen:
@@ -167,21 +166,21 @@ def start_shell(
         # shellid is just hour, minute, second number
         shell.sendline(f"trap 'screen -X -S {shellid} quit' EXIT")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-        console.log(shell.before or "")
+
         shell.sendline(f"screen -q -s /bin/bash -S {shellid}")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-        console.log(shell.before or "")
+
         console.log(f"Entering screen session, name: {shellid}")
 
     shell.sendline("stty -icanon -echo")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-    console.log(shell.before or "")
+
     shell.sendline("set +o pipefail")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-    console.log(shell.before or "")
+
     shell.sendline("export GIT_PAGER=cat PAGER=cat")
     shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-    console.log(shell.before or "")
+
     return shell, shellid
 
 
@@ -218,6 +217,7 @@ class BashState:
         file_edit_mode: Optional[FileEditMode],
         write_if_empty_mode: Optional[WriteIfEmptyMode],
         mode: Optional[Modes],
+        use_screen: bool,
         whitelist_for_overwrite: Optional[set[str]] = None,
     ) -> None:
         self.console = console
@@ -234,7 +234,7 @@ class BashState:
         self._prompt = PROMPT_CONST
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
-        self._init_shell()
+        self._init_shell(use_screen)
 
     def expect(self, pattern: Any, timeout: Optional[float] = -1) -> int:
         self.close_bg_expect_thread()
@@ -346,7 +346,7 @@ class BashState:
         except ValueError:
             raise ValueError(f"Malformed output: {before}")
 
-    def _init_shell(self) -> None:
+    def _init_shell(self, use_screen: bool) -> None:
         self._prompt = PROMPT_CONST
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
@@ -357,9 +357,9 @@ class BashState:
                 self._bash_command_mode.bash_mode == "restricted_mode",
                 self._cwd,
                 self.console,
-                over_screen=True,
+                over_screen=use_screen,
             )
-            self.over_screen = True
+            self.over_screen = use_screen
         except Exception as e:
             if not isinstance(e, ValueError):
                 self.console.log(traceback.format_exc())
@@ -426,7 +426,7 @@ class BashState:
 
     def reset_shell(self) -> None:
         self.cleanup()
-        self._init_shell()
+        self._init_shell(True)
 
     def serialize(self) -> dict[str, Any]:
         """Serialize BashState to a dictionary for saving"""

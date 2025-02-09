@@ -140,8 +140,8 @@ def loop(
             _, memory, _ = load_memory(
                 resume,
                 8000,
-                lambda x: default_enc.encode(x).ids,
-                lambda x: default_enc.decode(x),
+                lambda x: default_enc.encoder(x),
+                lambda x: default_enc.decoder(x),
             )
         except OSError:
             if resume == "latest":
@@ -291,7 +291,9 @@ Saves provided description and file contents of all the relevant file paths or g
         style="white bold", highlight=False, markup=False
     )
 
-    bash_state = BashState(system_console, os.getcwd(), None, None, None, None, None)
+    bash_state = BashState(
+        system_console, os.getcwd(), None, None, None, None, False, None
+    )
     context = Context(bash_state, system_console)
 
     system, context = initialize(
