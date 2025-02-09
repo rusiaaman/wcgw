@@ -63,7 +63,7 @@ def get_tmpdir() -> str:
             timeout=CONFIG.timeout,
         ).strip()
         return result
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return "//tmp"
     except Exception:
         return ""
@@ -98,6 +98,8 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
     except subprocess.CalledProcessError as e:
         # When no screens exist, screen may return a non-zero exit code.
         output = (e.stdout or "") + (e.stderr or "")
+    except FileNotFoundError:
+        return
 
     sessions_to_kill = []
 
@@ -121,7 +123,7 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
                 check=True,
                 timeout=CONFIG.timeout,
             )
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             console.log(f"Failed to kill screen session: {session}")
 
 
