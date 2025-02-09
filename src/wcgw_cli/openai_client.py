@@ -240,35 +240,38 @@ Saves provided description and file contents of all the relevant file paths or g
         style="white bold", highlight=False, markup=False
     )
 
-    bash_state = BashState(
+    with BashState(
         system_console, os.getcwd(), None, None, None, None, False, None
-    )
-    context = Context(bash_state, system_console)
-    system, context = initialize(
-        context,
-        os.getcwd(),
-        [],
-        resume if (memory and resume) else "",
-        max_tokens=8000,
-        mode="wcgw",
-    )
-
-    with open(
-        os.path.join(
-            os.path.dirname(__file__), "..", "wcgw", "client", "diff-instructions.txt"
+    ) as bash_state:
+        context = Context(bash_state, system_console)
+        system, context = initialize(
+            context,
+            os.getcwd(),
+            [],
+            resume if (memory and resume) else "",
+            max_tokens=8000,
+            mode="wcgw",
         )
-    ) as f:
-        system += f.read()
 
-    if not history:
-        history = [{"role": "system", "content": system}]
-    else:
-        if history[-1]["role"] == "tool":
-            waiting_for_assistant = True
+        with open(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "wcgw",
+                "client",
+                "diff-instructions.txt",
+            )
+        ) as f:
+            system += f.read()
 
-    client = OpenAI()
+        if not history:
+            history = [{"role": "system", "content": system}]
+        else:
+            if history[-1]["role"] == "tool":
+                waiting_for_assistant = True
 
-    with bash_state:
+        client = OpenAI()
+
         while True:
             if cost > limit:
                 system_console.print(

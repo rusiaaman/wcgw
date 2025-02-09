@@ -291,42 +291,45 @@ Saves provided description and file contents of all the relevant file paths or g
         style="white bold", highlight=False, markup=False
     )
 
-    bash_state = BashState(
+    with BashState(
         system_console, os.getcwd(), None, None, None, None, False, None
-    )
-    context = Context(bash_state, system_console)
+    ) as bash_state:
+        context = Context(bash_state, system_console)
 
-    system, context = initialize(
-        context,
-        os.getcwd(),
-        [],
-        resume if (memory and resume) else "",
-        max_tokens=8000,
-        mode="wcgw",
-    )
-
-    with open(
-        os.path.join(
-            os.path.dirname(__file__), "..", "wcgw", "client", "diff-instructions.txt"
+        system, context = initialize(
+            context,
+            os.getcwd(),
+            [],
+            resume if (memory and resume) else "",
+            max_tokens=8000,
+            mode="wcgw",
         )
-    ) as f:
-        system += f.read()
 
-    if history:
-        if (
-            (last_msg := history[-1])["role"] == "user"
-            and isinstance((content := last_msg["content"]), dict)
-            and content["type"] == "tool_result"
-        ):
-            waiting_for_assistant = True
+        with open(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "wcgw",
+                "client",
+                "diff-instructions.txt",
+            )
+        ) as f:
+            system += f.read()
 
-    client = Anthropic()
+        if history:
+            if (
+                (last_msg := history[-1])["role"] == "user"
+                and isinstance((content := last_msg["content"]), dict)
+                and content["type"] == "tool_result"
+            ):
+                waiting_for_assistant = True
 
-    cost: float = 0
-    input_toks = 0
-    output_toks = 0
+        client = Anthropic()
 
-    with bash_state:
+        cost: float = 0
+        input_toks = 0
+        output_toks = 0
+
         while True:
             if cost > limit:
                 system_console.print(

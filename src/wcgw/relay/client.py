@@ -24,47 +24,47 @@ def register_client(server_url: str, client_uuid: str = "") -> None:
 
     # Create the WebSocket connection and context
     the_console = rich.console.Console(style="magenta", highlight=False, markup=False)
-    bash_state = BashState(
+    with BashState(
         the_console, os.getcwd(), None, None, None, None, False, None
-    )
-    context = Context(bash_state=bash_state, console=the_console)
+    ) as bash_state:
+        context = Context(bash_state=bash_state, console=the_console)
 
-    try:
-        with syncconnect(f"{server_url}/{client_uuid}") as websocket:
-            server_version = str(websocket.recv())
-            print(f"Server version: {server_version}")
-            client_version = importlib.metadata.version("wcgw")
-            websocket.send(client_version)
+        try:
+            with syncconnect(f"{server_url}/{client_uuid}") as websocket:
+                server_version = str(websocket.recv())
+                print(f"Server version: {server_version}")
+                client_version = importlib.metadata.version("wcgw")
+                websocket.send(client_version)
 
-            print(f"Connected. Share this user id with the chatbot: {client_uuid}")
-            while True:
-                # Wait to receive data from the server
-                message = websocket.recv()
-                mdata = Mdata.model_validate_json(message)
-                if isinstance(mdata.data, str):
-                    raise Exception(mdata)
-                try:
-                    outputs, cost = get_tool_output(
-                        context,
-                        mdata.data,
-                        default_enc,
-                        0.0,
-                        lambda x, y: ("", 0),
-                        8000,
-                    )
-                    output = outputs[0]
-                    curr_cost += cost
-                    print(f"{curr_cost=}")
-                except Exception as e:
-                    output = f"GOT EXCEPTION while calling tool. Error: {e}"
-                    context.console.print(traceback.format_exc())
-                assert isinstance(output, str)
-                websocket.send(output)
+                print(f"Connected. Share this user id with the chatbot: {client_uuid}")
+                while True:
+                    # Wait to receive data from the server
+                    message = websocket.recv()
+                    mdata = Mdata.model_validate_json(message)
+                    if isinstance(mdata.data, str):
+                        raise Exception(mdata)
+                    try:
+                        outputs, cost = get_tool_output(
+                            context,
+                            mdata.data,
+                            default_enc,
+                            0.0,
+                            lambda x, y: ("", 0),
+                            8000,
+                        )
+                        output = outputs[0]
+                        curr_cost += cost
+                        print(f"{curr_cost=}")
+                    except Exception as e:
+                        output = f"GOT EXCEPTION while calling tool. Error: {e}"
+                        context.console.print(traceback.format_exc())
+                    assert isinstance(output, str)
+                    websocket.send(output)
 
-    except (websockets.ConnectionClosed, ConnectionError, OSError):
-        print(f"Connection closed for UUID: {client_uuid}, retrying")
-        time.sleep(0.5)
-        register_client(server_url, client_uuid)
+        except (websockets.ConnectionClosed, ConnectionError, OSError):
+            print(f"Connection closed for UUID: {client_uuid}, retrying")
+            time.sleep(0.5)
+            register_client(server_url, client_uuid)
 
 
 run = Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)

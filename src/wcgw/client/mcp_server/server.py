@@ -265,8 +265,9 @@ async def main() -> None:
     CONFIG.update(3, 55, 5)
     version = str(importlib.metadata.version("wcgw"))
     home_dir = os.path.expanduser("~")
-    BASH_STATE = BashState(Console(), home_dir, None, None, None, None, False, None)
-    try:
+    with BashState(
+        Console(), home_dir, None, None, None, None, False, None
+    ) as BASH_STATE:
         BASH_STATE.console.log("wcgw version: " + version)
         # Run the server using stdin/stdout streams
         async with mcp_wcgw.server.stdio.stdio_server() as (read_stream, write_stream):
@@ -283,5 +284,3 @@ async def main() -> None:
                 ),
                 raise_exceptions=False,
             )
-    finally:
-        BASH_STATE.cleanup()
