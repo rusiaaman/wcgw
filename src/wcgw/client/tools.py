@@ -119,7 +119,7 @@ def initialize(
                 if not read_files_:
                     read_files_ = [any_workspace_path]
                 any_workspace_path = os.path.dirname(any_workspace_path)
-            repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
+            repo_context, folder_to_start = get_repo_context(any_workspace_path, 50)
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
 

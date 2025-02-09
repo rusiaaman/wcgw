@@ -109,18 +109,7 @@ class DirectoryTree:
                 current_path, shown_items
             )
             if hidden_files > 0 or hidden_dirs > 0:
-                hidden_msg = []
-                if hidden_dirs > 0:
-                    hidden_msg.append(
-                        f"{hidden_dirs} director{'ies' if hidden_dirs != 1 else 'y'}"
-                    )
-                if hidden_files > 0:
-                    hidden_msg.append(
-                        f"{hidden_files} file{'s' if hidden_files != 1 else ''}"
-                    )
-                writer.write(
-                    f"{' ' * (indent + 2)}... {' and '.join(hidden_msg)} hidden\n"
-                )
+                writer.write(f"{' ' * (indent + 2)}...\n")
 
         _display_recursive(self.root, depth=0)
 

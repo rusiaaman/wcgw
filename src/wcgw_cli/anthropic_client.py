@@ -275,6 +275,7 @@ def loop(
                 history.append(parse_user_message_special(msg))
             else:
                 waiting_for_assistant = False
+
             stream = client.messages.stream(
                 model=config.model,
                 messages=history,
