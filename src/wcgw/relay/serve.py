@@ -15,12 +15,11 @@ from pydantic import BaseModel
 
 from ..types_ import (
     BashCommand,
-    BashInteraction,
     ContextSave,
     FileEdit,
     Initialize,
     ReadFiles,
-    ResetShell,
+    ResetWcgw,
     WriteIfEmpty,
 )
 
@@ -28,9 +27,8 @@ from ..types_ import (
 class Mdata(BaseModel):
     data: (
         BashCommand
-        | BashInteraction
         | WriteIfEmpty
-        | ResetShell
+        | ResetWcgw
         | FileEdit
         | ReadFiles
         | Initialize
@@ -162,13 +160,13 @@ async def file_edit_find_replace(
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class ResetShellWithUUID(ResetShell):
+class ResetWcgwWithUUID(ResetWcgw):
     user_id: UUID
 
 
-@app.post("/v1/reset_shell")
-async def reset_shell(reset_shell: ResetShellWithUUID) -> str:
-    user_id = reset_shell.user_id
+@app.post("/v1/reset_wcgw")
+async def reset_wcgw(reset_wcgw: ResetWcgwWithUUID) -> str:
+    user_id = reset_wcgw.user_id
     if user_id not in clients:
         return "Failure: id not found, ask the user to check it."
 
@@ -180,7 +178,7 @@ async def reset_shell(reset_shell: ResetShellWithUUID) -> str:
 
     gpts[user_id] = put_results
 
-    await clients[user_id](Mdata(data=reset_shell, user_id=user_id))
+    await clients[user_id](Mdata(data=reset_wcgw, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:
@@ -191,8 +189,7 @@ async def reset_shell(reset_shell: ResetShellWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-class CommandWithUUID(BaseModel):
-    command: str
+class CommandWithUUID(BashCommand):
     user_id: UUID
 
 
@@ -211,39 +208,10 @@ async def bash_command(command: CommandWithUUID) -> str:
     gpts[user_id] = put_results
 
     await clients[user_id](
-        Mdata(data=BashCommand(command=command.command), user_id=user_id)
-    )
-
-    start_time = time.time()
-    while time.time() - start_time < 30:
-        if results is not None:
-            return results
-        await asyncio.sleep(0.1)
-
-    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
-
-
-class BashInteractionWithUUID(BashInteraction):
-    user_id: UUID
-
-
-@app.post("/v1/bash_interaction")
-async def bash_interaction(bash_interaction: BashInteractionWithUUID) -> str:
-    user_id = bash_interaction.user_id
-    if user_id not in clients:
-        return "Failure: id not found, ask the user to check it."
-
-    results: Optional[str] = None
-
-    def put_results(result: str) -> None:
-        nonlocal results
-        results = result
-
-    gpts[user_id] = put_results
-
-    await clients[user_id](
         Mdata(
-            data=bash_interaction,
+            data=BashCommand(
+                action=command.action, wait_for_seconds=command.wait_for_seconds
+            ),
             user_id=user_id,
         )
     )

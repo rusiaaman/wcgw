@@ -28,7 +28,6 @@ from wcgw.client.bash_state.bash_state import get_status
 
 from ..types_ import (
     BashCommand,
-    BashInteraction,
     CodeWriterMode,
     Console,
     ContextSave,
@@ -38,7 +37,7 @@ from ..types_ import (
     ModesConfig,
     ReadFiles,
     ReadImage,
-    ResetShell,
+    ResetWcgw,
     WriteIfEmpty,
 )
 from .bash_state.bash_state import (
@@ -64,6 +63,22 @@ class Context:
 
 
 INITIALIZED = False
+
+
+def get_mode_prompt(context: Context) -> str:
+    mode_prompt = ""
+    if context.bash_state.mode == Modes.code_writer:
+        mode_prompt = code_writer_prompt(
+            context.bash_state.file_edit_mode.allowed_globs,
+            context.bash_state.write_if_empty_mode.allowed_globs,
+            "all" if context.bash_state.bash_command_mode.allowed_commands else [],
+        )
+    elif context.bash_state.mode == Modes.architect:
+        mode_prompt = ARCHITECT_PROMPT
+    else:
+        mode_prompt = WCGW_PROMPT
+
+    return mode_prompt
 
 
 def initialize(
@@ -104,7 +119,7 @@ def initialize(
                 if not read_files_:
                     read_files_ = [any_workspace_path]
                 any_workspace_path = os.path.dirname(any_workspace_path)
-            repo_context, folder_to_start = get_repo_context(any_workspace_path, 200)
+            repo_context, folder_to_start = get_repo_context(any_workspace_path, 50)
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
 
@@ -173,19 +188,7 @@ def initialize(
 
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
-
-    mode_prompt = ""
-    if context.bash_state.mode == Modes.code_writer:
-        mode_prompt = code_writer_prompt(
-            context.bash_state.file_edit_mode.allowed_globs,
-            context.bash_state.write_if_empty_mode.allowed_globs,
-            "all" if context.bash_state.bash_command_mode.allowed_commands else [],
-        )
-    elif context.bash_state.mode == Modes.architect:
-        mode_prompt = ARCHITECT_PROMPT
-    else:
-        mode_prompt = WCGW_PROMPT
-
+    mode_prompt = get_mode_prompt(context)
     output = f"""
 {mode_prompt}
 
@@ -203,14 +206,57 @@ Initialized in directory (also cwd): {context.bash_state.cwd}
 {memory}
 """
 
-    global INITIALIZED
-    INITIALIZED = True
-
     return output, context
 
 
-def reset_shell(context: Context) -> str:
-    context.bash_state.reset_shell()
+def reset_wcgw(context: Context, reset_wcgw: ResetWcgw) -> str:
+    if reset_wcgw.change_mode:
+        # Convert to the type expected by modes_to_state
+        mode_config: ModesConfig
+        if reset_wcgw.change_mode == "code_writer":
+            if not reset_wcgw.code_writer_config:
+                return "Error: code_writer_config is required when changing to code_writer mode"
+            mode_config = reset_wcgw.code_writer_config
+        else:
+            mode_config = reset_wcgw.change_mode
+
+        # Get new state configuration
+        bash_command_mode, file_edit_mode, write_if_empty_mode, mode = modes_to_state(
+            mode_config
+        )
+
+        # Reset shell with new mode
+        context.bash_state.load_state(
+            bash_command_mode,
+            file_edit_mode,
+            write_if_empty_mode,
+            mode,
+            list(context.bash_state.whitelist_for_overwrite),
+            reset_wcgw.starting_directory,
+        )
+        mode_prompt = get_mode_prompt(context)
+        return (
+            f"Reset successful with mode change to {reset_wcgw.change_mode}.\n"
+            + mode_prompt
+            + "\n"
+            + get_status(context.bash_state)
+        )
+    else:
+        # Regular reset without mode change - keep same mode but update directory
+        bash_command_mode = context.bash_state.bash_command_mode
+        file_edit_mode = context.bash_state.file_edit_mode
+        write_if_empty_mode = context.bash_state.write_if_empty_mode
+        mode = context.bash_state.mode
+
+        # Reload state with new directory
+        context.bash_state.load_state(
+            bash_command_mode,
+            file_edit_mode,
+            write_if_empty_mode,
+            mode,
+            list(context.bash_state.whitelist_for_overwrite),
+            reset_wcgw.starting_directory,
+        )
     return "Reset successful" + get_status(context.bash_state)
 
 
@@ -463,8 +509,7 @@ Syntax errors:
 
 TOOLS = (
     BashCommand
-    | BashInteraction
-    | ResetShell
+    | ResetWcgw
     | WriteIfEmpty
     | FileEdit
     | ReadImage
@@ -482,10 +527,8 @@ def which_tool(args: str) -> TOOLS:
 def which_tool_name(name: str) -> Type[TOOLS]:
     if name == "BashCommand":
         return BashCommand
-    elif name == "BashInteraction":
-        return BashInteraction
-    elif name == "ResetShell":
-        return ResetShell
+    elif name == "ResetWcgw":
+        return ResetWcgw
     elif name == "WriteIfEmpty":
         return WriteIfEmpty
     elif name == "FileEdit":
@@ -522,7 +565,7 @@ def get_tool_output(
     output: tuple[str | ImageData, float]
     TOOL_CALLS.append(arg)
 
-    if isinstance(arg, (BashCommand | BashInteraction)):
+    if isinstance(arg, BashCommand):
         context.console.print("Calling execute bash tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
@@ -548,9 +591,11 @@ def get_tool_output(
     elif isinstance(arg, ReadFiles):
         context.console.print("Calling read file tool")
         output = read_files(arg.file_paths, max_tokens, context), 0.0
-    elif isinstance(arg, ResetShell):
-        context.console.print("Calling reset shell tool")
-        output = reset_shell(context), 0.0
+    elif isinstance(arg, ResetWcgw):
+        context.console.print("Calling reset wcgw tool")
+        output = reset_wcgw(context, arg), 0.0
+
+        INITIALIZED = True
     elif isinstance(arg, Initialize):
         context.console.print("Calling initial info tool")
         output_, context = initialize(
@@ -562,6 +607,8 @@ def get_tool_output(
             arg.mode,
         )
         output = output_, 0.0
+
+        INITIALIZED = True
     elif isinstance(arg, ContextSave):
         context.console.print("Calling task memory tool")
         relevant_files = []

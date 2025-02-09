@@ -12,13 +12,21 @@ from wcgw.client.tools import (
     Initialize,
     ReadFiles,
     ReadImage,
-    ResetShell,
+    ResetWcgw,
     WriteIfEmpty,
     default_enc,
     get_tool_output,
     which_tool_name,
 )
-from wcgw.types_ import BashInteraction, Console, FileEdit
+from wcgw.types_ import (
+    Command,
+    Console,
+    FileEdit,
+    SendAscii,
+    SendSpecials,
+    SendText,
+    StatusCheck,
+)
 
 
 class TestConsole(Console):
@@ -59,7 +67,12 @@ def context(temp_dir: str) -> Generator[Context, None, None]:
     )
     yield ctx
     # Cleanup after each test
-    bash_state.cleanup()
+    try:
+        bash_state.sendintr()  # Send Ctrl-C to any running process
+        bash_state.reset_shell()  # Reset shell state
+        bash_state.cleanup()  # Cleanup final shell
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
 
 
 def test_initialize(context: Context, temp_dir: str) -> None:
@@ -253,15 +266,105 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     )
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
-    # Test simple command
-    cmd = BashCommand(command="echo 'hello world'")
+    # Test when nothing is running
+    cmd = BashCommand(action=StatusCheck(status_check=True))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
+    assert len(outputs) == 1
+    assert "No running command to check status of" in outputs[0]
 
+    # Start a command and check status
+    cmd = BashCommand(action=Command(command="sleep 1"), wait_for_seconds=0.1)
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "status = still running" in outputs[0]
+
+    # Check status while command is running
+    status_check = BashCommand(action=StatusCheck(status_check=True))
+    outputs, _ = get_tool_output(
+        context, status_check, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "status = process exited" in outputs[0]
+
+    # Test simple command
+    cmd = BashCommand(action=Command(command="echo 'hello world'"))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
     assert "hello world" in outputs[0]
+
+
+def test_interaction_commands(context: Context, temp_dir: str) -> None:
+    """Test the various interaction command types."""
+    # First initialize
+    init_args = Initialize(
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    # Test text interaction
+    cmd = BashCommand(action=SendText(send_text="hello"))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+
+    # Test special keys
+    cmd = BashCommand(action=SendSpecials(send_specials=["Enter"]))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert "status = process exited" in outputs[0]
+
+    #  Send ctrl-c
+    cmd = BashCommand(action=SendAscii(send_ascii=[3]))  # Ctrl-C
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert "status = process exited" in outputs[0]
+
+    # Test interactions with long running command
+    cmd = BashCommand(action=Command(command="sleep 1"), wait_for_seconds=0.1)
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "status = still running" in outputs[0]
+
+    # Check status with special keys
+    cmd = BashCommand(action=SendSpecials(send_specials=["Enter"]))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "status = process exited" in outputs[0]
+
+    # Test interrupting command
+    cmd = BashCommand(action=Command(command="sleep 1"), wait_for_seconds=0.1)
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "status = still running" in outputs[0]
+
+    # Send Ctrl-C
+    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-c"]))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "status = process exited" in outputs[0]
 
 
 def test_write_and_read_file(context: Context, temp_dir: str) -> None:
@@ -371,8 +474,8 @@ def test_context_save(context: Context, temp_dir: str) -> None:
     assert outputs[0].endswith(".txt")  # Context files end with .txt extension
 
 
-def test_reset_shell(context: Context, temp_dir: str) -> None:
-    """Test the ResetShell tool."""
+def test_reset_wcgw(context: Context, temp_dir: str) -> None:
+    """Test the ResetWcgw tool with various mode changes."""
     # First initialize
     init_args = Initialize(
         any_workspace_path=temp_dir,
@@ -383,19 +486,59 @@ def test_reset_shell(context: Context, temp_dir: str) -> None:
     )
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
-    # Test shell reset
-    reset_args = ResetShell(should_reset=True)
+    # Test shell reset without mode change
+    reset_args = ResetWcgw(should_reset=True, change_mode=None, starting_directory=temp_dir)
     outputs, _ = get_tool_output(
         context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
 
     assert len(outputs) == 1
     assert "Reset successful" in outputs[0]
+    assert "mode change" not in outputs[0].lower()
+
+    # Test changing to architect mode
+    reset_args = ResetWcgw(should_reset=True, change_mode="architect", starting_directory=temp_dir)
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "Reset successful with mode change to architect" in outputs[0]
+
+    # Test changing to code_writer mode without config (should fail)
+    reset_args = ResetWcgw(should_reset=True, change_mode="code_writer", starting_directory=temp_dir)
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "Error: code_writer_config is required" in outputs[0]
+
+    # Test changing to code_writer mode with config
+    code_writer_config = {"allowed_commands": [], "allowed_globs": ["*.py"]}
+    reset_args = ResetWcgw(
+        should_reset=True,
+        change_mode="code_writer",
+        code_writer_config=code_writer_config,
+        starting_directory=temp_dir,
+    )
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "Reset successful with mode change to code_writer" in outputs[0]
+
+    # Verify mode was actually changed by trying a command not in allowed list
+    cmd = BashCommand(action=Command(command="touch test.txt"))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "Error: BashCommand not allowed in current mode" in str(outputs[0])
 
 
-def test_bash_interaction(context: Context, temp_dir: str) -> None:
-    """Test the BashInteraction tool."""
-    # First initialize
+def _test_init(context: Context, temp_dir: str) -> None:
+    """Initialize test environment."""
     init_args = Initialize(
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
@@ -404,104 +547,99 @@ def test_bash_interaction(context: Context, temp_dir: str) -> None:
         code_writer_config=None,
     )
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    # Reset shell to clean state
+    context.bash_state.reset_shell()
 
-    # Test basic command
+
+def test_file_io(context: Context, temp_dir: str) -> None:
+    """Test reading from a file with cat."""
+    _test_init(context, temp_dir)
+
     test_file = os.path.join(temp_dir, "input.txt")
     with open(test_file, "w") as f:
         f.write("hello world")
-    cmd = BashCommand(command=f"cat {test_file}")
+
+    cmd = BashCommand(action=Command(command=f"cat {test_file}"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert len(outputs) == 1
     assert "hello world" in outputs[0]
+    assert "status = process exited" in outputs[0]
 
-    # Test long-running command with BashInteraction
-    # Start a sleep command in the background that prints numbers
-    cmd = BashCommand(command="for i in $(seq 1 5); do echo $i; sleep 1; done")
+
+def test_command_interrupt(context: Context, temp_dir: str) -> None:
+    """Test Ctrl-C interruption."""
+    _test_init(context, temp_dir)
+
+    cmd = BashCommand(action=Command(command="sleep 5"), wait_for_seconds=0.1)
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
-    assert len(outputs) == 1
+    assert "status = still running" in outputs[0]
 
-    # Check command output by sending Enter
-    check_cmd = BashInteraction(send_specials=["Enter"])
+    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-c"]))
     outputs, _ = get_tool_output(
-        context, check_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
-    assert len(outputs) >= 1
-    assert any(
-        str(i) in str(outputs) for i in range(1, 6)
-    )  # Should see some numbers from 1-5
+    assert "status = process exited" in outputs[0]
 
-    # Test Ctrl-C handling using yes command
-    cmd = BashCommand(command="yes 'testing' > /dev/null")  # Continuous output command
+
+def test_command_suspend(context: Context, temp_dir: str) -> None:
+    """Test Ctrl-Z suspension."""
+    _test_init(context, temp_dir)
+
+    cmd = BashCommand(action=Command(command="sleep 5"), wait_for_seconds=0.1)
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "status = still running" in outputs[0]
+
+    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-z"]))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert "stopped" in str(outputs[0]).lower()
+
+
+def test_text_input(context: Context, temp_dir: str) -> None:
+    """Test sending text to a program."""
+    _test_init(context, temp_dir)
+
+    cmd = BashCommand(action=Command(command="cat"))
     get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
-    interrupt_cmd = BashInteraction(send_specials=["Ctrl-c"])
+    cmd = BashCommand(action=SendText(send_text="hello"))
     outputs, _ = get_tool_output(
-        context, interrupt_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
-    assert len(outputs) == 1
-    assert "status = process exited" in str(outputs[0])
-
-    # Test Ctrl-D handling with cat
-    cmd = BashCommand(command="cat > /dev/null")  # Wait for EOF
-    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
-
-    # Give it a moment to start
-    check_cmd = BashInteraction(send_specials=["Enter"])
-    get_tool_output(context, check_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
-
-    eof_cmd = BashInteraction(send_specials=["Ctrl-d"])
-    get_tool_output(context, eof_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
-
-    assert "status = process exited" in str(outputs[0])
-
-    # Test Ctrl-Z handling
-    cmd = BashCommand(command="sleep 6")  # Long running command
-    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
-
-    suspend_cmd = BashInteraction(send_specials=["Ctrl-z"])
-    outputs, _ = get_tool_output(
-        context, suspend_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
-    )
-    assert len(outputs) == 1
-
-    # Test ASCII sequence sending
-    cmd = BashCommand(command="cat")  # Command that reads input
-    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
-
-    # Send ASCII sequence (Ctrl-C = ASCII 3)
-    send_text = BashInteraction(send_text="hello")
-    outputs, _ = get_tool_output(
-        context, send_text, default_enc, 1.0, lambda x, y: ("", 0.0), None
-    )
-    assert len(outputs) == 1
     assert "hello" in str(outputs[0])
 
-    # Send ASCII sequence (Ctrl-C = ASCII 3)
-    ascii_cmd = BashInteraction(send_ascii=[3])
+    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-d"]))
     outputs, _ = get_tool_output(
-        context, ascii_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
-    assert len(outputs) == 1
-    assert "process exited" in str(outputs[0])
+    assert "status = process exited" in str(outputs[0])
 
-    # Test empty send arguments
+
+def test_ascii_input(context: Context, temp_dir: str) -> None:
+    """Test sending ASCII codes."""
+    _test_init(context, temp_dir)
+
+    cmd = BashCommand(action=Command(command="cat"))
+    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    cmd = BashCommand(action=SendAscii(send_ascii=[65, 66, 67]))  # ABC
     outputs, _ = get_tool_output(
-        context,
-        BashInteraction(),
-        default_enc,
-        1.0,
-        lambda x, y: ("", 0.0),
-        None,
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
-    assert len(outputs) == 1
-    assert (
-        "exactly one of send_text, send_specials or send_ascii should be provided"
-        in outputs[0]
+    assert "ABC" in str(outputs[0])
+
+    cmd = BashCommand(action=SendAscii(send_ascii=[3]))  # Ctrl-C
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
+    assert "status = process exited" in str(outputs[0])
 
 
 def test_read_image(context: Context, temp_dir: str) -> None:
@@ -542,8 +680,7 @@ def test_which_tool_name() -> None:
     """Test the which_tool_name function."""
     # Test each tool type
     assert which_tool_name("BashCommand") == BashCommand
-    assert which_tool_name("BashInteraction") == BashInteraction
-    assert which_tool_name("ResetShell") == ResetShell
+    assert which_tool_name("ResetWcgw") == ResetWcgw
     assert which_tool_name("WriteIfEmpty") == WriteIfEmpty
     assert which_tool_name("FileEdit") == FileEdit
     assert which_tool_name("ReadImage") == ReadImage
@@ -588,7 +725,7 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
     assert "Success" in outputs[0]  # Should succeed as it creates directories
 
     # Test invalid bash command
-    cmd = BashCommand(command="nonexistentcommand")
+    cmd = BashCommand(action=Command(command="nonexistentcommand"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )

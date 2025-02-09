@@ -26,6 +26,7 @@ from typer import Typer
 from wcgw.client.bash_state.bash_state import BashState
 from wcgw.client.common import CostData, History, Models, discard_input
 from wcgw.client.memory import load_memory
+from wcgw.client.tool_prompts import TOOL_PROMPTS
 from wcgw.client.tools import (
     Context,
     ImageData,
@@ -33,16 +34,7 @@ from wcgw.client.tools import (
     get_tool_output,
     initialize,
     which_tool,
-)
-from wcgw.types_ import (
-    BashCommand,
-    BashInteraction,
-    ContextSave,
-    FileEdit,
-    ReadFiles,
-    ReadImage,
-    ResetShell,
-    WriteIfEmpty,
+    which_tool_name,
 )
 
 from .openai_utils import get_input_cost, get_output_cost
@@ -167,65 +159,10 @@ def loop(
 
     tools = [
         openai.pydantic_function_tool(
-            BashCommand,
-            description="""
-- Execute a bash command. This is stateful (beware with subsequent calls).
-- Do not use interactive commands like nano. Prefer writing simpler commands.
-- Status of the command and the current working directory will always be returned at the end.
-- Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
-- The first or the last line might be `(...truncated)` if the output is too long.
-- Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
-- The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
-- Run long running commands in background using screen instead of "&".
-- Do not use 'cat' to read files, use ReadFiles tool instead.
-""",
-        ),
-        openai.pydantic_function_tool(
-            BashInteraction,
-            description="""
-- Interact with running program using this tool
-- Special keys like arrows, interrupts, enter, etc.
-- Send text input to the running program.
-- Send send_specials=["Enter"] to recheck status of a running program.
-- Only one of send_text, send_specials, send_ascii should be provided.""",
-        ),
-        openai.pydantic_function_tool(
-            ReadFiles,
-            description="""
-- Read full file content of one or more files.
-- Provide absolute file paths only
-""",
-        ),
-        openai.pydantic_function_tool(
-            WriteIfEmpty,
-            description="""
-- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
-- Provide absolute file path only.
-- For editing existing files, use FileEdit instead of this tool.""",
-        ),
-        openai.pydantic_function_tool(
-            FileEdit,
-            description="""
-- Use absolute file path only.
-- Use ONLY SEARCH/REPLACE blocks to edit the file.
-- file_edit_using_search_replace_blocks should start with <<<<<<< SEARCH
-""",
-        ),
-        openai.pydantic_function_tool(
-            ReadImage, description="Read an image from the shell."
-        ),
-        openai.pydantic_function_tool(
-            ResetShell,
-            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
-        ),
-        openai.pydantic_function_tool(
-            ContextSave,
-            description="""
-
-Saves provided description and file contents of all the relevant file paths or globs in a single text file.
-- Provide random unqiue id or whatever user provided.
-- Leave project path as empty string if no project path""",
-        ),
+            which_tool_name(tool.name), description=tool.description
+        )
+        for tool in TOOL_PROMPTS
+        if tool.name != "Initialize"
     ]
 
     cost: float = 0

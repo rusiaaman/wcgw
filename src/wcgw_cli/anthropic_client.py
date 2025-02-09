@@ -28,6 +28,7 @@ from typer import Typer
 from wcgw.client.bash_state.bash_state import BashState
 from wcgw.client.common import CostData, discard_input
 from wcgw.client.memory import load_memory
+from wcgw.client.tool_prompts import TOOL_PROMPTS
 from wcgw.client.tools import (
     Context,
     ImageData,
@@ -35,16 +36,6 @@ from wcgw.client.tools import (
     get_tool_output,
     initialize,
     which_tool_name,
-)
-from wcgw.types_ import (
-    BashCommand,
-    BashInteraction,
-    ContextSave,
-    FileEdit,
-    ReadFiles,
-    ReadImage,
-    ResetShell,
-    WriteIfEmpty,
 )
 
 
@@ -205,81 +196,12 @@ def loop(
 
     tools = [
         ToolParam(
-            input_schema=BashCommand.model_json_schema(),
-            name="BashCommand",
-            description="""
-- Execute a bash command. This is stateful (beware with subsequent calls).
-- Do not use interactive commands like nano. Prefer writing simpler commands.
-- Status of the command and the current working directory will always be returned at the end.
-- Optionally `exit shell has restarted` is the output, in which case environment resets, you can run fresh commands.
-- The first or the last line might be `(...truncated)` if the output is too long.
-- Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
-- The control will return to you in 5 seconds regardless of the status. For heavy commands, keep checking status using BashInteraction till they are finished.
-- Run long running commands in background using screen instead of "&".
-- Use longer wait_for_seconds if the command is expected to run for a long time.
-- Do not use 'cat' to read files, use ReadFiles tool instead.
-""",
-        ),
-        ToolParam(
-            input_schema=BashInteraction.model_json_schema(),
-            name="BashInteraction",
-            description="""
-- Interact with running program using this tool
-- Special keys like arrows, interrupts, enter, etc.
-- Send text input to the running program.
-- Send send_specials=["Enter"] to recheck status of a running program.
-- Only one of send_text, send_specials, send_ascii should be provided.
-- This returns within 5 seconds, for heavy programs keep checking status for upto 10 turns before asking user to continue checking again.
-- Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again using ["Enter"].
-- Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
-- Set longer wait_for_seconds when program is expected to run for a long time.
-""",
-        ),
-        ToolParam(
-            input_schema=ReadFiles.model_json_schema(),
-            name="ReadFiles",
-            description="""
-- Read full file content of one or more files.
-- Provide absolute file paths only
-""",
-        ),
-        ToolParam(
-            input_schema=WriteIfEmpty.model_json_schema(),
-            name="WriteIfEmpty",
-            description="""
-- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
-- Provide absolute file path only.
-- For editing existing files, use FileEdit instead of this tool.
-""",
-        ),
-        ToolParam(
-            input_schema=ReadImage.model_json_schema(),
-            name="ReadImage",
-            description="Read an image from the shell.",
-        ),
-        ToolParam(
-            input_schema=ResetShell.model_json_schema(),
-            name="ResetShell",
-            description="Resets the shell. Use only if all interrupts and prompt reset attempts have failed repeatedly.",
-        ),
-        ToolParam(
-            input_schema=FileEdit.model_json_schema(),
-            name="FileEdit",
-            description="""
-- Use absolute file path only.
-- Use SEARCH/REPLACE blocks to edit the file.
-- If the edit fails due to block not matching, please retry with correct block till it matches. Re-read the file to ensure you've all the lines correct.
-""",
-        ),
-        ToolParam(
-            input_schema=ContextSave.model_json_schema(),
-            name="ContextSave",
-            description="""
-Saves provided description and file contents of all the relevant file paths or globs in a single text file.
-- Provide random unqiue id or whatever user provided.
-- Leave project path as empty string if no project path
-""",
-        ),
+            name=tool.name,
+            description=tool.description,
+            input_schema=tool.inputSchema,
+        )
+        for tool in TOOL_PROMPTS
+        if tool.name != "Initialize"
     ]
 
     system_console = rich.console.Console(style="blue", highlight=False, markup=False)
@@ -353,6 +275,7 @@ Saves provided description and file contents of all the relevant file paths or g
                 history.append(parse_user_message_special(msg))
             else:
                 waiting_for_assistant = False
+
             stream = client.messages.stream(
                 model=config.model,
                 messages=history,

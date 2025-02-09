@@ -125,11 +125,10 @@ async def test_handle_list_tools():
     required_tools = {
         "Initialize",
         "BashCommand",
-        "BashInteraction",
         "ReadFiles",
         "WriteIfEmpty",
         "ReadImage",
-        "ResetShell",
+        "ResetWcgw",
         "FileEdit",
         "ContextSave",
     }
@@ -157,13 +156,21 @@ async def test_handle_list_tools():
             assert properties["any_workspace_path"]["type"] == "string"
             assert "initial_files_to_read" in properties
             assert properties["initial_files_to_read"]["type"] == "array"
-
         elif tool.name == "BashCommand":
             properties = tool.inputSchema["properties"]
-            assert "command" in properties
-            assert properties["command"]["type"] == "string"
+            assert "action" in properties
             assert "wait_for_seconds" in properties
-
+            # Check type field has all the command types
+            type_properties = properties["action"]["anyOf"]
+            type_refs = set(p["$ref"].split("/")[-1] for p in type_properties)
+            required_types = {
+                "Command",
+                "StatusCheck",
+                "SendText",
+                "SendSpecials",
+                "SendAscii",
+            }
+            assert required_types.issubset(type_refs)
         elif tool.name == "FileEdit":
             properties = tool.inputSchema["properties"]
             assert "file_path" in properties
@@ -190,10 +197,7 @@ async def test_handle_call_tool(setup_bash_state):
     assert "Initialize" in result[0].text
 
     # Test JSON string argument handling
-    json_args = {
-        "command": '"ls"',  # JSON string
-        "wait_for_seconds": None,
-    }
+    json_args = {"action": {"command": "ls"}, "wait_for_seconds": None}
     result = await handle_call_tool("BashCommand", json_args)
     assert isinstance(result, list)
 
@@ -212,7 +216,9 @@ async def test_handle_call_tool(setup_bash_state):
         "wcgw.client.mcp_server.server.get_tool_output",
         side_effect=Exception("Test error"),
     ):
-        result = await handle_call_tool("BashCommand", {"command": "test"})
+        result = await handle_call_tool(
+            "BashCommand", {"action": {"command": "ls"}, "wait_for_seconds": None}
+        )
         assert "GOT EXCEPTION" in result[0].text
 
 
