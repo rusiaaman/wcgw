@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "https://04df-103-212-152-58.ngrok-free.app"
+      "url": "https://7781-2401-4900-1c2d-12ae-c55d-45dc-459-c089.ngrok-free.app"
     }
   ],
   "paths": {
@@ -90,16 +90,16 @@
         }
       }
     },
-    "/v1/reset_shell": {
+    "/v1/reset_wcgw": {
       "post": {
         "x-openai-isConsequential": false,
-        "summary": "Reset Shell",
-        "operationId": "reset_shell_v1_reset_shell_post",
+        "summary": "Reset Wcgw",
+        "operationId": "reset_wcgw_v1_reset_wcgw_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResetShellWithUUID"
+                "$ref": "#/components/schemas/ResetWcgwWithUUID"
               }
             }
           },
@@ -112,7 +112,7 @@
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "title": "Response Reset Shell V1 Reset Shell Post"
+                  "title": "Response Reset Wcgw V1 Reset Wcgw Post"
                 }
               }
             }
@@ -153,46 +153,6 @@
                 "schema": {
                   "type": "string",
                   "title": "Response Bash Command V1 Bash Command Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/bash_interaction": {
-      "post": {
-        "x-openai-isConsequential": false,
-        "summary": "Bash Interaction",
-        "operationId": "bash_interaction_v1_bash_interaction_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BashInteractionWithUUID"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string",
-                  "title": "Response Bash Interaction V1 Bash Interaction Post"
                 }
               }
             }
@@ -333,81 +293,6 @@
   },
   "components": {
     "schemas": {
-      "BashInteractionWithUUID": {
-        "properties": {
-          "send_text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Send Text"
-          },
-          "send_specials": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string",
-                  "enum": [
-                    "Key-up",
-                    "Key-down",
-                    "Key-left",
-                    "Key-right",
-                    "Enter",
-                    "Ctrl-c",
-                    "Ctrl-d",
-                    "Ctrl-z"
-                  ]
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Send Specials"
-          },
-          "send_ascii": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Send Ascii"
-          },
-          "wait_for_seconds": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Wait For Seconds"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "user_id"
-        ],
-        "title": "BashInteractionWithUUID"
-      },
       "CodeWriterMode": {
         "properties": {
           "allowed_globs": {
@@ -449,11 +334,52 @@
         ],
         "title": "CodeWriterMode"
       },
-      "CommandWithUUID": {
+      "Command": {
         "properties": {
           "command": {
             "type": "string",
             "title": "Command"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "title": "Command"
+      },
+      "CommandWithUUID": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Command"
+              },
+              {
+                "$ref": "#/components/schemas/StatusCheck"
+              },
+              {
+                "$ref": "#/components/schemas/SendText"
+              },
+              {
+                "$ref": "#/components/schemas/SendSpecials"
+              },
+              {
+                "$ref": "#/components/schemas/SendAscii"
+              }
+            ],
+            "title": "Action"
+          },
+          "wait_for_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait For Seconds"
           },
           "user_id": {
             "type": "string",
@@ -461,9 +387,10 @@
             "title": "User Id"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "command",
+          "action",
           "user_id"
         ],
         "title": "CommandWithUUID"
@@ -620,12 +547,42 @@
         ],
         "title": "ReadFileWithUUID"
       },
-      "ResetShellWithUUID": {
+      "ResetWcgwWithUUID": {
         "properties": {
           "should_reset": {
             "type": "boolean",
             "const": true,
             "title": "Should Reset"
+          },
+          "change_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "wcgw",
+                  "architect",
+                  "code_writer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Mode"
+          },
+          "code_writer_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodeWriterMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starting_directory": {
+            "type": "string",
+            "title": "Starting Directory"
           },
           "user_id": {
             "type": "string",
@@ -637,9 +594,84 @@
         "type": "object",
         "required": [
           "should_reset",
+          "change_mode",
+          "starting_directory",
           "user_id"
         ],
-        "title": "ResetShellWithUUID"
+        "title": "ResetWcgwWithUUID"
+      },
+      "SendAscii": {
+        "properties": {
+          "send_ascii": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Send Ascii"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "send_ascii"
+        ],
+        "title": "SendAscii"
+      },
+      "SendSpecials": {
+        "properties": {
+          "send_specials": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "Enter",
+                "Key-up",
+                "Key-down",
+                "Key-left",
+                "Key-right",
+                "Ctrl-c",
+                "Ctrl-d",
+                "Ctrl-z"
+              ]
+            },
+            "type": "array",
+            "title": "Send Specials"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "send_specials"
+        ],
+        "title": "SendSpecials"
+      },
+      "SendText": {
+        "properties": {
+          "send_text": {
+            "type": "string",
+            "title": "Send Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "send_text"
+        ],
+        "title": "SendText"
+      },
+      "StatusCheck": {
+        "properties": {
+          "status_check": {
+            "type": "boolean",
+            "const": true,
+            "title": "Status Check"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status_check"
+        ],
+        "title": "StatusCheck"
       },
       "ValidationError": {
         "properties": {

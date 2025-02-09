@@ -28,6 +28,8 @@ Instructions for `BashCommand`:
 - Only one command allowed at a time, you need to wait for the first command to finish before running the next one.
 - In order to check status of previous command, use `status_check` with empty command argument.
 - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again.
+- Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
+- Use SendText or SendSpecials or SendAscii to interact with running command.
 
 Instructions for `Read Files`
 - Read full file content of one or more files.
@@ -37,12 +39,6 @@ Instructions for `Write if Empty`
 - Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
 - Provide absolute file path only.
 - For editing existing files, use FileEdit.
-
-Instructions for `BashInteraction`
-- Interact with running program using this tool
-- Special keys like arrows, interrupts, etc.
-- Send text input to the running program.
-- Only one of send_text, send_specials, send_ascii should be provided.
 
 Instructions for `ResetWcgw`
 - Resets the shell. Use either when changing mode, or when all interrupts and prompt reset attempts have failed repeatedly.

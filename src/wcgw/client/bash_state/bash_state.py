@@ -624,6 +624,7 @@ def execute_bash(
             bash_state.send(bash_state.linesep)
 
         elif isinstance(command_data, StatusCheck):
+            bash_state.console.print("Checking status")
             if bash_state.state != "pending":
                 return "No running command to check status of", 0.0
 
