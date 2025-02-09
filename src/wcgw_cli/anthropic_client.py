@@ -201,6 +201,7 @@ def loop(
             input_schema=tool.inputSchema,
         )
         for tool in TOOL_PROMPTS
+        if tool.name != "Initialize"
     ]
 
     system_console = rich.console.Console(style="blue", highlight=False, markup=False)

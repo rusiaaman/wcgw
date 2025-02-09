@@ -162,6 +162,7 @@ def loop(
             which_tool_name(tool.name), description=tool.description
         )
         for tool in TOOL_PROMPTS
+        if tool.name != "Initialize"
     ]
 
     cost: float = 0
