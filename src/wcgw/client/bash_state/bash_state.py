@@ -674,10 +674,8 @@ def is_status_check(arg: BashCommand) -> bool:
     )
 
 
-@requires_shell
 def execute_bash(
     bash_state: BashState,
-    shell: "pexpect.spawn[str]",
     enc: EncoderDecoder[int],
     bash_arg: BashCommand,
     max_tokens: Optional[int],
