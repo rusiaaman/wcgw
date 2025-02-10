@@ -102,6 +102,8 @@ def line_process_max_space_tolerance(line: str) -> str:
     return re.sub(r"\s", "", line)
 
 
+REMOVE_INDENTATION = "Warning: matching after removing all spaces in lines."
+
 DEFAULT_TOLERANCES = [
     Tolerance(
         line_process=str.rstrip,
@@ -119,9 +121,48 @@ DEFAULT_TOLERANCES = [
         line_process=line_process_max_space_tolerance,
         severity_cat="WARNING",
         score_multiplier=50,
-        error_name="Warning: matching after removing all spaces in lines.",
+        error_name=REMOVE_INDENTATION,
     ),
 ]
+
+
+def fix_indentation(
+    matched_lines: list[str], searched_lines: list[str], replaced_lines: list[str]
+) -> list[str]:
+    if not matched_lines or not searched_lines or not replaced_lines:
+        return replaced_lines
+
+    def get_indentation(line: str) -> str:
+        match = re.match(r"^(\s*)", line)
+        assert match
+        return match.group(0)
+
+    matched_indents = [get_indentation(line) for line in matched_lines if line.strip()]
+    searched_indents = [
+        get_indentation(line) for line in searched_lines if line.strip()
+    ]
+    if len(matched_indents) != len(searched_indents):
+        return replaced_lines
+    diffs: list[int] = [
+        len(searched) - len(matched)
+        for matched, searched in zip(matched_indents, searched_indents)
+    ]
+    if not all(diff == diffs[0] for diff in diffs):
+        return replaced_lines
+    if diffs[0] == 0:
+        return replaced_lines
+
+    # At this point we have same number of non-empty lines and the same indentation difference
+    # We can now adjust the indentation of the replaced lines
+    def adjust_indentation(line: str, diff: int) -> str:
+        if diff < 0:
+            return matched_indents[0][:-diff] + line
+        return line[diff:]
+
+    if diffs[0] > 0:
+        if not (all(not line[: diffs[0]].strip() for line in replaced_lines)):
+            return replaced_lines
+    return [adjust_indentation(line, diffs[0]) for line in replaced_lines]
 
 
 def remove_leading_trailing_empty_lines(lines: list[str]) -> list[str]:
@@ -247,6 +288,16 @@ class FileEditInput:
                         ]
 
             for match, tolerances in matches_with_tolerances:
+                if any(
+                    tolerance.error_name == REMOVE_INDENTATION
+                    for tolerance in tolerances
+                ):
+                    replace_by = fix_indentation(
+                        self.file_lines[match.start : match.stop],
+                        first_block[0],
+                        replace_by,
+                    )
+
                 file_edit_input = FileEditInput(
                     self.file_lines,
                     match.stop,

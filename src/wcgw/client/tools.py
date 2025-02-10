@@ -206,6 +206,8 @@ Initialized in directory (also cwd): {context.bash_state.cwd}
 {memory}
 """
 
+    global INITIALIZED
+    INITIALIZED = True
     return output, context
 
 
@@ -257,6 +259,8 @@ def reset_wcgw(context: Context, reset_wcgw: ResetWcgw) -> str:
             list(context.bash_state.whitelist_for_overwrite),
             reset_wcgw.starting_directory,
         )
+    global INITIALIZED
+    INITIALIZED = True
     return "Reset successful" + get_status(context.bash_state)
 
 
@@ -595,7 +599,6 @@ def get_tool_output(
         context.console.print("Calling reset wcgw tool")
         output = reset_wcgw(context, arg), 0.0
 
-        INITIALIZED = True
     elif isinstance(arg, Initialize):
         context.console.print("Calling initial info tool")
         output_, context = initialize(
@@ -608,7 +611,6 @@ def get_tool_output(
         )
         output = output_, 0.0
 
-        INITIALIZED = True
     elif isinstance(arg, ContextSave):
         context.console.print("Calling task memory tool")
         relevant_files = []
