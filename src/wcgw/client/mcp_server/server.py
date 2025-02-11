@@ -1,5 +1,4 @@
 import importlib
-import json
 import logging
 import os
 from typing import Any
@@ -9,7 +8,7 @@ import mcp_wcgw.types as types
 from mcp_wcgw.server import NotificationOptions, Server
 from mcp_wcgw.server.models import InitializationOptions
 from mcp_wcgw.types import Tool as ToolParam
-from pydantic import AnyUrl, ValidationError
+from pydantic import AnyUrl
 
 from wcgw.client.modes import KTS
 from wcgw.client.tool_prompts import TOOL_PROMPTS
@@ -18,7 +17,13 @@ from ...types_ import (
     Initialize,
 )
 from ..bash_state.bash_state import CONFIG, BashState
-from ..tools import Context, default_enc, get_tool_output, which_tool_name
+from ..tools import (
+    Context,
+    default_enc,
+    get_tool_output,
+    parse_tool_by_name,
+    which_tool_name,
+)
 
 server = Server("wcgw")
 
@@ -104,20 +109,7 @@ async def handle_call_tool(
         raise ValueError("Missing arguments")
 
     tool_type = which_tool_name(name)
-
-    try:
-        tool_call = tool_type(**arguments)
-    except ValidationError:
-
-        def try_json(x: str) -> Any:
-            if not isinstance(x, str):
-                return x
-            try:
-                return json.loads(x)
-            except json.JSONDecodeError:
-                return x
-
-        tool_call = tool_type(**{k: try_json(v) for k, v in arguments.items()})
+    tool_call = parse_tool_by_name(name, arguments)
 
     try:
         assert BASH_STATE
