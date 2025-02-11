@@ -32,7 +32,7 @@ from ...types_ import (
 from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 
-PROMPT_CONST = "#" + "@wcgw@#"
+PROMPT_CONST = "wcgw→" + " "
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -144,7 +144,7 @@ def start_shell(
         **os.environ,
         "PS1": PROMPT_CONST,
         "TMPDIR": get_tmpdir(),
-        "TERM": "vt100",
+        "TERM": "xterm-256color",
     }
     try:
         shell = pexpect.spawn(
@@ -156,9 +156,10 @@ def start_shell(
             cwd=initial_dir,
             codec_errors="backslashreplace",
             dimensions=(500, 160),
+            maxread=100000,
         )
         shell.sendline(
-            f"export PROMPT_COMMAND= PS1={PROMPT_CONST}"
+            f"export PROMPT_COMMAND= PS1='{PROMPT_CONST}'"
         )  # Unset prompt command to avoid interfering
         shell.expect(PROMPT_CONST, timeout=0.2)
     except Exception as e:
@@ -172,8 +173,9 @@ def start_shell(
             encoding="utf-8",
             timeout=CONFIG.timeout,
             codec_errors="backslashreplace",
+            maxread=100000,
         )
-        shell.sendline(f"export PS1={PROMPT_CONST}")
+        shell.sendline(f"export PS1='{PROMPT_CONST}'")
         shell.expect(PROMPT_CONST, timeout=0.2)
 
     shellid = "wcgw." + time.strftime("%H%M%S")
@@ -296,6 +298,7 @@ class BashState:
                     if self._shell is not None:
                         return
                     self._init_shell()
+                self.run_bg_expect_thread()
             except Exception as e:
                 self._shell_error = e
             finally:
@@ -308,18 +311,19 @@ class BashState:
         self, shell: "pexpect.spawn[str]", pattern: Any, timeout: Optional[float] = -1
     ) -> int:
         self.close_bg_expect_thread()
-        return shell.expect(pattern, timeout)
+        output = shell.expect(pattern, timeout)
+        return output
 
     @requires_shell
     def send(self, shell: "pexpect.spawn[str]", s: str | bytes) -> int:
+        self.close_bg_expect_thread()
         output = shell.send(s)
-        self.run_bg_expect_thread()
         return output
 
     @requires_shell
     def sendline(self, shell: "pexpect.spawn[str]", s: str | bytes) -> int:
+        self.close_bg_expect_thread()
         output = shell.sendline(s)
-        self.run_bg_expect_thread()
         return output
 
     @property
@@ -329,6 +333,7 @@ class BashState:
 
     @requires_shell
     def sendintr(self, shell: "pexpect.spawn[str]") -> None:
+        self.close_bg_expect_thread()
         shell.sendintr()
 
     @property
@@ -336,8 +341,7 @@ class BashState:
     def before(self, shell: "pexpect.spawn[str]") -> Optional[str]:
         return shell.before
 
-    @requires_shell
-    def run_bg_expect_thread(self, shell: "pexpect.spawn[str]") -> None:
+    def run_bg_expect_thread(self) -> None:
         """
         Run background expect thread for handling shell interactions.
         """
@@ -346,11 +350,16 @@ class BashState:
             while True:
                 if self._bg_expect_thread_stop_event.is_set():
                     break
-                output = shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
+                if self._shell is None:
+                    time.sleep(0.1)
+                    continue
+                output = self._shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
                 if output == 0:
                     break
 
-        if self._bg_expect_thread:
+        if self._bg_expect_thread and self._bg_expect_thread.is_alive():
+            if not self._bg_expect_thread_stop_event.is_set():
+                return
             self.close_bg_expect_thread()
 
         self._bg_expect_thread = threading.Thread(
@@ -403,14 +412,13 @@ class BashState:
 
     def _ensure_env_and_bg_jobs(self) -> Optional[int]:
         # Do not add @requires_shell decorator here, as it will cause deadlock
-
         self.close_bg_expect_thread()
         assert self._shell is not None, "Bad state, shell is not initialized"
         if self._prompt != PROMPT_CONST:
             return None
         quick_timeout = 0.2 if not self.over_screen else 1
         # First reset the prompt in case venv was sourced or other reasons.
-        self._shell.sendline(f"export PS1={self._prompt}")
+        self._shell.sendline(f"export PS1='{self._prompt}'")
         self._shell.expect(self._prompt, timeout=quick_timeout)
         # Reset echo also if it was enabled
         self._shell.sendline("stty -icanon -echo")
@@ -440,7 +448,6 @@ class BashState:
                 raise ValueError(
                     "Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it"
                 )
-
         try:
             return int(before)
         except ValueError:
@@ -483,7 +490,6 @@ class BashState:
         if not isinstance(self._state, datetime.datetime):
             self._state = datetime.datetime.now()
         self._pending_output = last_pending_output
-        self.run_bg_expect_thread()
 
     def set_repl(self) -> None:
         self._state = "repl"
@@ -688,6 +694,19 @@ def is_status_check(arg: BashCommand) -> bool:
 
 
 def execute_bash(
+    bash_state: BashState,
+    enc: EncoderDecoder[int],
+    bash_arg: BashCommand,
+    max_tokens: Optional[int],
+    timeout_s: Optional[float],
+) -> tuple[str, float]:
+    try:
+        return _execute_bash(bash_state, enc, bash_arg, max_tokens, timeout_s)
+    finally:
+        bash_state.run_bg_expect_thread()
+
+
+def _execute_bash(
     bash_state: BashState,
     enc: EncoderDecoder[int],
     bash_arg: BashCommand,
