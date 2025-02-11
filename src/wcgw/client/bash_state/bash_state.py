@@ -79,9 +79,7 @@ def get_tmpdir() -> str:
 
 def check_if_screen_command_available() -> bool:
     try:
-        subprocess.run(
-            ["screen", "-v"], capture_output=True, check=True, timeout=CONFIG.timeout
-        )
+        subprocess.run(["screen", "-v"], capture_output=True, check=True, timeout=0.2)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
@@ -100,7 +98,7 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
             capture_output=True,
             text=True,
             check=True,
-            timeout=CONFIG.timeout,
+            timeout=0.2,
         )
         output = result.stdout
     except subprocess.CalledProcessError as e:
@@ -162,7 +160,7 @@ def start_shell(
         shell.sendline(
             f"export PROMPT_COMMAND= PS1={PROMPT_CONST}"
         )  # Unset prompt command to avoid interfering
-        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+        shell.expect(PROMPT_CONST, timeout=0.2)
     except Exception as e:
         console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
@@ -176,7 +174,7 @@ def start_shell(
             codec_errors="backslashreplace",
         )
         shell.sendline(f"export PS1={PROMPT_CONST}")
-        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+        shell.expect(PROMPT_CONST, timeout=0.2)
 
     shellid = "wcgw." + time.strftime("%H%M%S")
     if over_screen:
@@ -184,19 +182,19 @@ def start_shell(
             raise ValueError("Screen command not available")
         # shellid is just hour, minute, second number
         shell.sendline(f"trap 'screen -X -S {shellid} quit' EXIT")
-        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+        shell.expect(PROMPT_CONST, timeout=0.2)
 
         shell.sendline(f"screen -q -S {shellid} /bin/bash --noprofile --norc")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
     shell.sendline("stty -icanon -echo")
-    shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+    shell.expect(PROMPT_CONST, timeout=0.2)
 
     shell.sendline("set +o pipefail")
-    shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+    shell.expect(PROMPT_CONST, timeout=0.2)
 
     shell.sendline("export GIT_PAGER=cat PAGER=cat")
-    shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
+    shell.expect(PROMPT_CONST, timeout=0.2)
 
     return shell, shellid
 
@@ -234,7 +232,9 @@ def requires_shell(
 ) -> Callable[Concatenate["BashState", P], R]:
     def wrapper(self: "BashState", /, *args: P.args, **kwargs: P.kwargs) -> R:
         if not self._shell_loading.is_set():
-            if not self._shell_loading.wait(timeout=CONFIG.timeout):
+            if not self._shell_loading.wait(
+                timeout=CONFIG.timeout * 2
+            ):  # Twice in worst case if screen fails
                 raise RuntimeError("Shell initialization timeout")
 
         if self._shell_error:
@@ -474,7 +474,10 @@ class BashState:
             self.over_screen = False
 
         self._pending_output = ""
-        self._ensure_env_and_bg_jobs()
+        try:
+            self._ensure_env_and_bg_jobs()
+        except ValueError as e:
+            self.console.log("Error while running _ensure_env_and_bg_jobs" + str(e))
 
     def set_pending(self, last_pending_output: str) -> None:
         if not isinstance(self._state, datetime.datetime):
