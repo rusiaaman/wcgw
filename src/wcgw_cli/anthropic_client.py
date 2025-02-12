@@ -35,7 +35,7 @@ from wcgw.client.tools import (
     default_enc,
     get_tool_output,
     initialize,
-    which_tool_name,
+    parse_tool_by_name,
 )
 
 
@@ -379,9 +379,9 @@ def loop(
                                 tool_input = str(tc["input"])
                                 tool_id = str(tc["id"])
 
-                                tool_parsed = which_tool_name(
-                                    tool_name
-                                ).model_validate_json(tool_input)
+                                tool_parsed = parse_tool_by_name(
+                                    tool_name, json.loads(tool_input)
+                                )
 
                                 system_console.print(
                                     f"\n---------------------------------------\n# Assistant invoked tool: {tool_parsed}"

@@ -10,6 +10,7 @@ from os.path import expanduser
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import (
+    Any,
     Callable,
     Literal,
     Optional,
@@ -21,7 +22,7 @@ from typing import (
 from openai.types.chat import (
     ChatCompletionMessageParam,
 )
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from syntax_checker import check_syntax
 
 from wcgw.client.bash_state.bash_state import get_status
@@ -547,6 +548,23 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return ContextSave
     else:
         raise ValueError(f"Unknown tool name: {name}")
+
+
+def parse_tool_by_name(name: str, arguments: dict[str, Any]) -> TOOLS:
+    tool_type = which_tool_name(name)
+    try:
+        return tool_type(**arguments)
+    except ValidationError:
+
+        def try_json(x: str) -> Any:
+            if not isinstance(x, str):
+                return x
+            try:
+                return json.loads(x)
+            except json.JSONDecodeError:
+                return x
+
+        return tool_type(**{k: try_json(v) for k, v in arguments.items()})
 
 
 TOOL_CALLS: list[TOOLS] = []
