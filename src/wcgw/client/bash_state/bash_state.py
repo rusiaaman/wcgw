@@ -157,7 +157,6 @@ def start_shell(
             cwd=initial_dir,
             codec_errors="backslashreplace",
             dimensions=(500, 160),
-            maxread=100000,
         )
         shell.sendline(PROMPT_STATEMENT)  # Unset prompt command to avoid interfering
         shell.expect(PROMPT_CONST, timeout=0.2)
@@ -172,7 +171,6 @@ def start_shell(
             encoding="utf-8",
             timeout=CONFIG.timeout,
             codec_errors="backslashreplace",
-            maxread=100000,
         )
         shell.sendline(PROMPT_STATEMENT)
         shell.expect(PROMPT_CONST, timeout=0.2)
@@ -681,9 +679,17 @@ def execute_bash(
     timeout_s: Optional[float],
 ) -> tuple[str, float]:
     try:
-        return _execute_bash(bash_state, enc, bash_arg, max_tokens, timeout_s)
+        output, cost = _execute_bash(bash_state, enc, bash_arg, max_tokens, timeout_s)
+
+        # Remove echo if it's a command
+        if isinstance(bash_arg.action, Command):
+            command = bash_arg.action.command.strip()
+            if output.startswith(command):
+                output = output[len(command) :]
+
     finally:
         bash_state.run_bg_expect_thread()
+    return output, cost
 
 
 def _execute_bash(

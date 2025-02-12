@@ -31,14 +31,6 @@ from wcgw.client.modes import Modes
 @pytest.fixture(scope="function", autouse=True)
 def setup_bash_state():
     """Setup BashState for each test"""
-    # Reset server.BASH_STATE
-    if server.BASH_STATE:
-        try:
-            server.BASH_STATE.close_bg_expect_thread()
-            server.BASH_STATE.cleanup()
-        except:
-            pass
-        server.BASH_STATE = None
 
     # Update CONFIG immediately
     CONFIG.update(3, 55, 5)
@@ -53,17 +45,11 @@ def setup_bash_state():
     try:
         yield server.BASH_STATE
     finally:
-        if server.BASH_STATE:
-            try:
-                server.BASH_STATE.close_bg_expect_thread()
-                server.BASH_STATE.cleanup()
-            except Exception as e:
-                print(f"Error during cleanup: {e}")
-            server.BASH_STATE = None
-            # Sleep a bit to allow cleanup to complete
-            import time
-
-            time.sleep(0.1)
+        try:
+            bash_state.cleanup()
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+        server.BASH_STATE = None
 
 
 @pytest.mark.asyncio
@@ -132,9 +118,9 @@ async def test_handle_list_tools():
         "FileEdit",
         "ContextSave",
     }
-    assert required_tools.issubset(tool_names), (
-        f"Missing tools: {required_tools - tool_names}"
-    )
+    assert required_tools.issubset(
+        tool_names
+    ), f"Missing tools: {required_tools - tool_names}"
 
     # Test each tool's schema and description
     for tool in tools:
