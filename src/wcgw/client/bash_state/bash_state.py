@@ -33,6 +33,7 @@ from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 
 PROMPT_CONST = "wcgw→" + " "
+PROMPT_STATEMENT = "export GIT_PAGER=cat PAGER=cat PROMPT_COMMAND= PS1='wcgw→'' '"
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -150,7 +151,7 @@ def start_shell(
         shell = pexpect.spawn(
             cmd,
             env=overrideenv,  # type: ignore[arg-type]
-            echo=False,
+            echo=True,
             encoding="utf-8",
             timeout=CONFIG.timeout,
             cwd=initial_dir,
@@ -158,9 +159,7 @@ def start_shell(
             dimensions=(500, 160),
             maxread=100000,
         )
-        shell.sendline(
-            f"export PROMPT_COMMAND= PS1='{PROMPT_CONST}'"
-        )  # Unset prompt command to avoid interfering
+        shell.sendline(PROMPT_STATEMENT)  # Unset prompt command to avoid interfering
         shell.expect(PROMPT_CONST, timeout=0.2)
     except Exception as e:
         console.print(traceback.format_exc())
@@ -169,13 +168,13 @@ def start_shell(
         shell = pexpect.spawn(
             "/bin/bash --noprofile --norc",
             env=overrideenv,  # type: ignore[arg-type]
-            echo=False,
+            echo=True,
             encoding="utf-8",
             timeout=CONFIG.timeout,
             codec_errors="backslashreplace",
             maxread=100000,
         )
-        shell.sendline(f"export PS1='{PROMPT_CONST}'")
+        shell.sendline(PROMPT_STATEMENT)
         shell.expect(PROMPT_CONST, timeout=0.2)
 
     shellid = "wcgw." + time.strftime("%H%M%S")
@@ -188,15 +187,6 @@ def start_shell(
 
         shell.sendline(f"screen -q -S {shellid} /bin/bash --noprofile --norc")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
-
-    shell.sendline("stty -icanon -echo")
-    shell.expect(PROMPT_CONST, timeout=0.2)
-
-    shell.sendline("set +o pipefail")
-    shell.expect(PROMPT_CONST, timeout=0.2)
-
-    shell.sendline("export GIT_PAGER=cat PAGER=cat")
-    shell.expect(PROMPT_CONST, timeout=0.2)
 
     return shell, shellid
 
@@ -280,7 +270,6 @@ class BashState:
         )
         self._mode = mode or Modes.wcgw
         self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
-        self._prompt = PROMPT_CONST
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
         self._shell = None
@@ -414,25 +403,18 @@ class BashState:
         # Do not add @requires_shell decorator here, as it will cause deadlock
         self.close_bg_expect_thread()
         assert self._shell is not None, "Bad state, shell is not initialized"
-        if self._prompt != PROMPT_CONST:
-            return None
         quick_timeout = 0.2 if not self.over_screen else 1
         # First reset the prompt in case venv was sourced or other reasons.
-        self._shell.sendline(f"export PS1='{self._prompt}'")
-        self._shell.expect(self._prompt, timeout=quick_timeout)
+        self._shell.sendline(PROMPT_STATEMENT)
+        self._shell.expect(PROMPT_CONST, timeout=quick_timeout)
         # Reset echo also if it was enabled
-        self._shell.sendline("stty -icanon -echo")
-        self._shell.expect(self._prompt, timeout=quick_timeout)
-        self._shell.sendline("set +o pipefail")
-        self._shell.expect(self._prompt, timeout=quick_timeout)
-        self._shell.sendline("export GIT_PAGER=cat PAGER=cat")
-        self._shell.expect(self._prompt, timeout=quick_timeout)
-        self._shell.sendline("jobs | wc -l")
+        command = "jobs | wc -l"
+        self._shell.sendline(command)
         before = ""
         counts = 0
         while not _is_int(before):  # Consume all previous output
             try:
-                self._shell.expect(self._prompt, timeout=quick_timeout)
+                self._shell.expect(PROMPT_CONST, timeout=quick_timeout)
             except pexpect.TIMEOUT:
                 self.console.print(f"Couldn't get exit code, before: {before}")
                 raise
@@ -442,7 +424,7 @@ class BashState:
                 before_val = str(before_val)
             assert isinstance(before_val, str)
             before_lines = render_terminal_output(before_val)
-            before = "\n".join(before_lines).strip()
+            before = "\n".join(before_lines).replace(command, "").strip()
             counts += 1
             if counts > 100:
                 raise ValueError(
@@ -454,7 +436,6 @@ class BashState:
             raise ValueError(f"Malformed output: {before}")
 
     def _init_shell(self) -> None:
-        self._prompt = PROMPT_CONST
         self._state: Literal["repl"] | datetime.datetime = "repl"
         self._is_in_docker: Optional[str] = ""
         # Ensure self._cwd exists
@@ -514,12 +495,12 @@ class BashState:
 
     @property
     def prompt(self) -> str:
-        return self._prompt
+        return PROMPT_CONST
 
     @requires_shell
     def update_cwd(self, shell: "pexpect.spawn[str]") -> str:
         shell.sendline("pwd")
-        shell.expect(self._prompt, timeout=0.2)
+        shell.expect(PROMPT_CONST, timeout=0.2)
         before_val = shell.before
         if not isinstance(before_val, str):
             before_val = str(before_val)
@@ -646,9 +627,8 @@ def _incremental_text(text: str, last_pending_output: str) -> str:
     # text = render_terminal_output(text[-100_000:])
     text = text[-100_000:]
 
-    last_pending_output_rendered_lines = render_terminal_output(last_pending_output)
-    last_pending_output_rendered = "\n".join(last_pending_output_rendered_lines)
-    last_rendered_lines = last_pending_output_rendered.split("\n")
+    last_rendered_lines = render_terminal_output(last_pending_output)
+    last_pending_output_rendered = "\n".join(last_rendered_lines)
     if not last_rendered_lines:
         return rstrip(render_terminal_output(text))
 
