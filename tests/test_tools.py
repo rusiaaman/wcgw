@@ -12,7 +12,6 @@ from wcgw.client.tools import (
     Initialize,
     ReadFiles,
     ReadImage,
-    ResetWcgw,
     WriteIfEmpty,
     default_enc,
     get_tool_output,
@@ -79,6 +78,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     """Test the Initialize tool with various configurations."""
     # Test default wcgw mode
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -97,6 +97,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
 
     # Test architect mode
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -117,6 +118,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         "allowed_globs": ["*.py", "*.txt"],
     }
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -147,6 +149,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
 
     # Now try to resume the saved context
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[test_file],
         task_id_to_resume="test_task_123",
@@ -179,6 +182,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
 
     # Now try to resume the saved context but in architect mode
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[new_test_file],
         task_id_to_resume="test_task_mode_switch",
@@ -200,6 +204,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
 
     # Test with empty workspace path
     init_args = Initialize(
+        type="first_call",
         any_workspace_path="",
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -217,6 +222,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     # Test with non-existent workspace path
     nonexistent_path = os.path.join(temp_dir, "does_not_exist")
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=nonexistent_path,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -238,6 +244,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         f.write("test content")
 
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=file_as_workspace,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -258,6 +265,7 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     """Test the BashCommand tool."""
     # First initialize
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -303,6 +311,7 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     """Test the various interaction command types."""
     # First initialize
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -371,6 +380,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     """Test WriteIfEmpty and ReadFiles tools."""
     # First initialize
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -440,6 +450,7 @@ def test_context_save(context: Context, temp_dir: str) -> None:
     """Test the ContextSave tool."""
     # First initialize
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -474,10 +485,11 @@ def test_context_save(context: Context, temp_dir: str) -> None:
     assert outputs[0].endswith(".txt")  # Context files end with .txt extension
 
 
-def test_reset_wcgw(context: Context, temp_dir: str) -> None:
-    """Test the ResetWcgw tool with various mode changes."""
+def test_reinitialize(context: Context, temp_dir: str) -> None:
+    """Test the tool with various mode changes."""
     # First initialize
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -487,7 +499,14 @@ def test_reset_wcgw(context: Context, temp_dir: str) -> None:
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
     # Test shell reset without mode change
-    reset_args = ResetWcgw(should_reset=True, change_mode=None, starting_directory=temp_dir)
+    reset_args = Initialize(
+        type="user_asked_mode_change",
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
     outputs, _ = get_tool_output(
         context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -497,7 +516,14 @@ def test_reset_wcgw(context: Context, temp_dir: str) -> None:
     assert "mode change" not in outputs[0].lower()
 
     # Test changing to architect mode
-    reset_args = ResetWcgw(should_reset=True, change_mode="architect", starting_directory=temp_dir)
+    reset_args = Initialize(
+        type="user_asked_mode_change",
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="architect",
+        code_writer_config=None,
+    )
     outputs, _ = get_tool_output(
         context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -505,22 +531,15 @@ def test_reset_wcgw(context: Context, temp_dir: str) -> None:
     assert len(outputs) == 1
     assert "Reset successful with mode change to architect" in outputs[0]
 
-    # Test changing to code_writer mode without config (should fail)
-    reset_args = ResetWcgw(should_reset=True, change_mode="code_writer", starting_directory=temp_dir)
-    outputs, _ = get_tool_output(
-        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
-    )
-
-    assert len(outputs) == 1
-    assert "Error: code_writer_config is required" in outputs[0]
-
     # Test changing to code_writer mode with config
     code_writer_config = {"allowed_commands": [], "allowed_globs": ["*.py"]}
-    reset_args = ResetWcgw(
-        should_reset=True,
-        change_mode="code_writer",
+    reset_args = Initialize(
+        type="user_asked_mode_change",
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="code_writer",
         code_writer_config=code_writer_config,
-        starting_directory=temp_dir,
     )
     outputs, _ = get_tool_output(
         context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
@@ -536,10 +555,27 @@ def test_reset_wcgw(context: Context, temp_dir: str) -> None:
     )
     assert "Error: BashCommand not allowed in current mode" in str(outputs[0])
 
+    # Test changing to code_writer mode with config
+    reset_args = Initialize(
+        type="user_asked_change_workspace",
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="shouldnot_proceed",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "Warning: task can only be resumed in a new conversation" in outputs[0]
+
 
 def _test_init(context: Context, temp_dir: str) -> None:
     """Initialize test environment."""
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -646,6 +682,7 @@ def test_read_image(context: Context, temp_dir: str) -> None:
     """Test the ReadImage tool."""
     # First initialize
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -680,7 +717,6 @@ def test_which_tool_name() -> None:
     """Test the which_tool_name function."""
     # Test each tool type
     assert which_tool_name("BashCommand") == BashCommand
-    assert which_tool_name("ResetWcgw") == ResetWcgw
     assert which_tool_name("WriteIfEmpty") == WriteIfEmpty
     assert which_tool_name("FileEdit") == FileEdit
     assert which_tool_name("ReadImage") == ReadImage
@@ -698,6 +734,7 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
     """Test various error cases."""
     # First initialize
     init_args = Initialize(
+        type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",

@@ -38,7 +38,6 @@ from ..types_ import (
     ModesConfig,
     ReadFiles,
     ReadImage,
-    ResetWcgw,
     WriteIfEmpty,
 )
 from .bash_state.bash_state import (
@@ -83,6 +82,7 @@ def get_mode_prompt(context: Context) -> str:
 
 
 def initialize(
+    type: Literal["user_asked_change_workspace", "first_call"],
     context: Context,
     any_workspace_path: str,
     read_files_: list[str],
@@ -96,20 +96,26 @@ def initialize(
 
     memory = ""
     loaded_state = None
-    if task_id_to_resume:
-        try:
-            project_root_path, task_mem, loaded_state = load_memory(
-                task_id_to_resume,
-                max_tokens,
-                lambda x: default_enc.encoder(x),
-                lambda x: default_enc.decoder(x),
-            )
-            memory = "Following is the retrieved task:\n" + task_mem
-            if os.path.exists(project_root_path):
-                any_workspace_path = project_root_path
 
-        except Exception:
-            memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
+    if type == "first_call":
+        if task_id_to_resume:
+            try:
+                project_root_path, task_mem, loaded_state = load_memory(
+                    task_id_to_resume,
+                    max_tokens,
+                    lambda x: default_enc.encoder(x),
+                    lambda x: default_enc.decoder(x),
+                )
+                memory = "Following is the retrieved task:\n" + task_mem
+                if os.path.exists(project_root_path):
+                    any_workspace_path = project_root_path
+
+            except Exception:
+                memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
+    elif task_id_to_resume:
+        memory = (
+            "Warning: task can only be resumed in a new conversation. No task loaded."
+        )
 
     folder_to_start = None
     if any_workspace_path:
@@ -212,16 +218,32 @@ Initialized in directory (also cwd): {context.bash_state.cwd}
     return output, context
 
 
-def reset_wcgw(context: Context, reset_wcgw: ResetWcgw) -> str:
-    if reset_wcgw.change_mode:
+def is_mode_change(mode_config: ModesConfig, bash_state: BashState):
+    allowed = modes_to_state(mode_config)
+    bash_allowed = (
+        bash_state.bash_command_mode,
+        bash_state.file_edit_mode,
+        bash_state.write_if_empty_mode,
+        bash_state.mode,
+    )
+    return allowed != bash_allowed
+
+
+def reset_wcgw(
+    context: Context,
+    starting_directory: str,
+    change_mode: Optional[Modes],
+    code_writer_config: Optional[CodeWriterMode],
+) -> str:
+    if change_mode:
         # Convert to the type expected by modes_to_state
         mode_config: ModesConfig
-        if reset_wcgw.change_mode == "code_writer":
-            if not reset_wcgw.code_writer_config:
+        if change_mode == "code_writer":
+            if not code_writer_config:
                 return "Error: code_writer_config is required when changing to code_writer mode"
-            mode_config = reset_wcgw.code_writer_config
+            mode_config = code_writer_config
         else:
-            mode_config = reset_wcgw.change_mode
+            mode_config = change_mode
 
         # Get new state configuration
         bash_command_mode, file_edit_mode, write_if_empty_mode, mode = modes_to_state(
@@ -235,11 +257,11 @@ def reset_wcgw(context: Context, reset_wcgw: ResetWcgw) -> str:
             write_if_empty_mode,
             mode,
             list(context.bash_state.whitelist_for_overwrite),
-            reset_wcgw.starting_directory,
+            starting_directory,
         )
         mode_prompt = get_mode_prompt(context)
         return (
-            f"Reset successful with mode change to {reset_wcgw.change_mode}.\n"
+            f"Reset successful with mode change to {change_mode.value}.\n"
             + mode_prompt
             + "\n"
             + get_status(context.bash_state)
@@ -258,7 +280,7 @@ def reset_wcgw(context: Context, reset_wcgw: ResetWcgw) -> str:
             write_if_empty_mode,
             mode,
             list(context.bash_state.whitelist_for_overwrite),
-            reset_wcgw.starting_directory,
+            starting_directory,
         )
     global INITIALIZED
     INITIALIZED = True
@@ -514,7 +536,6 @@ Syntax errors:
 
 TOOLS = (
     BashCommand
-    | ResetWcgw
     | WriteIfEmpty
     | FileEdit
     | ReadImage
@@ -532,8 +553,6 @@ def which_tool(args: str) -> TOOLS:
 def which_tool_name(name: str) -> Type[TOOLS]:
     if name == "BashCommand":
         return BashCommand
-    elif name == "ResetWcgw":
-        return ResetWcgw
     elif name == "WriteIfEmpty":
         return WriteIfEmpty
     elif name == "FileEdit":
@@ -613,21 +632,37 @@ def get_tool_output(
     elif isinstance(arg, ReadFiles):
         context.console.print("Calling read file tool")
         output = read_files(arg.file_paths, max_tokens, context), 0.0
-    elif isinstance(arg, ResetWcgw):
-        context.console.print("Calling reset wcgw tool")
-        output = reset_wcgw(context, arg), 0.0
-
     elif isinstance(arg, Initialize):
         context.console.print("Calling initial info tool")
-        output_, context = initialize(
-            context,
-            arg.any_workspace_path,
-            arg.initial_files_to_read,
-            arg.task_id_to_resume,
-            max_tokens,
-            arg.mode,
-        )
-        output = output_, 0.0
+        if arg.type == "user_asked_mode_change" or arg.type == "reset_shell":
+            workspace_path = (
+                arg.any_workspace_path
+                if os.path.isdir(arg.any_workspace_path)
+                else os.path.dirname(arg.any_workspace_path)
+            )
+            workspace_path = workspace_path if os.path.exists(workspace_path) else ""
+            output = (
+                reset_wcgw(
+                    context,
+                    workspace_path,
+                    arg.mode_name
+                    if is_mode_change(arg.mode, context.bash_state)
+                    else None,
+                    arg.code_writer_config,
+                ),
+                0.0,
+            )
+        else:
+            output_, context = initialize(
+                arg.type,
+                context,
+                arg.any_workspace_path,
+                arg.initial_files_to_read,
+                arg.task_id_to_resume,
+                max_tokens,
+                arg.mode,
+            )
+            output = output_, 0.0
 
     elif isinstance(arg, ContextSave):
         context.console.print("Calling task memory tool")
