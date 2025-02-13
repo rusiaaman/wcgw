@@ -29,12 +29,9 @@ TOOL_PROMPTS = [
         name="Initialize",
         description="""
 - Always call this at the start of the conversation before using any of the shell tools from wcgw.
-- This will reset the shell.
 - Use `any_workspace_path` to initialize the shell in the appropriate project directory.
-- If the user has mentioned a workspace or project root, use it to set `any_workspace_path`.
-- If the user has mentioned a folder or file with unclear project root, use the file or folder as `any_workspace_path`.
+- If the user has mentioned a workspace or project root or any other file or folder use it to set `any_workspace_path`.
 - If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
-- Leave `any_workspace_path` as empty if no file or folder is mentioned.
 - By default use mode "wcgw"
 - In "code-writer" mode, set the commands and globs which user asked to set, otherwise use 'all'.
 - Use type="first_call" if it's the first call to this tool.
