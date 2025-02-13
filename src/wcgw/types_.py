@@ -45,7 +45,7 @@ class Initialize(BaseModel):
     any_workspace_path: str
     initial_files_to_read: list[str]
     task_id_to_resume: str
-    mode_name: Modes
+    mode_name: Literal["wcgw", "architect", "code_writer"]
     code_writer_config: Optional[CodeWriterMode] = None
 
     def model_post_init(self, __context: Any) -> None:

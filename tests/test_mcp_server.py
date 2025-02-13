@@ -174,6 +174,7 @@ async def test_handle_call_tool(setup_bash_state):
         "initial_files_to_read": [],
         "task_id_to_resume": "",
         "mode_name": "wcgw",
+        "type": "first_call",
     }
     result = await handle_call_tool("Initialize", init_args)
     assert isinstance(result, list)
