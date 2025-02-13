@@ -19,7 +19,6 @@ from ..types_ import (
     FileEdit,
     Initialize,
     ReadFiles,
-    ResetWcgw,
     WriteIfEmpty,
 )
 
@@ -28,7 +27,6 @@ class Mdata(BaseModel):
     data: (
         BashCommand
         | WriteIfEmpty
-        | ResetWcgw
         | FileEdit
         | ReadFiles
         | Initialize
@@ -150,35 +148,6 @@ async def file_edit_find_replace(
             user_id=user_id,
         )
     )
-
-    start_time = time.time()
-    while time.time() - start_time < 30:
-        if results is not None:
-            return results
-        await asyncio.sleep(0.1)
-
-    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
-
-
-class ResetWcgwWithUUID(ResetWcgw):
-    user_id: UUID
-
-
-@app.post("/v1/reset_wcgw")
-async def reset_wcgw(reset_wcgw: ResetWcgwWithUUID) -> str:
-    user_id = reset_wcgw.user_id
-    if user_id not in clients:
-        return "Failure: id not found, ask the user to check it."
-
-    results: Optional[str] = None
-
-    def put_results(result: str) -> None:
-        nonlocal results
-        results = result
-
-    gpts[user_id] = put_results
-
-    await clients[user_id](Mdata(data=reset_wcgw, user_id=user_id))
 
     start_time = time.time()
     while time.time() - start_time < 30:
