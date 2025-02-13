@@ -8,8 +8,6 @@ import traceback
 from dataclasses import dataclass
 from typing import (
     Any,
-    Callable,
-    Concatenate,
     Literal,
     Optional,
     ParamSpec,
@@ -217,33 +215,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def requires_shell(
-    func: Callable[Concatenate["BashState", "pexpect.spawn[str]", P], R],
-) -> Callable[Concatenate["BashState", P], R]:
-    def wrapper(self: "BashState", /, *args: P.args, **kwargs: P.kwargs) -> R:
-        if not self._shell_loading.is_set():
-            if not self._shell_loading.wait(
-                timeout=CONFIG.timeout * 2
-            ):  # Twice in worst case if screen fails
-                raise RuntimeError("Shell initialization timeout")
-
-        if self._shell_error:
-            raise RuntimeError(f"Shell failed to initialize: {self._shell_error}.")
-
-        if not self._shell:
-            raise RuntimeError("Shell not initialized")
-
-        return func(self, self._shell, *args, **kwargs)
-
-    return wrapper
-
-
 class BashState:
-    _shell: Optional["pexpect.spawn[str]"]
-    _shell_id: Optional[str]
-    _shell_lock: threading.Lock
-    _shell_loading: threading.Event
-    _shell_error: Optional[Exception]
     _use_screen: bool
 
     def __init__(
@@ -270,63 +242,35 @@ class BashState:
         self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
-        self._shell = None
-        self._shell_id = None
-        self._shell_lock = threading.Lock()
-        self._shell_loading = threading.Event()
-        self._shell_error = None
         self._use_screen = use_screen
-        self._start_shell_loading()
+        self._init_shell()
 
-    def _start_shell_loading(self) -> None:
-        def load_shell() -> None:
-            try:
-                with self._shell_lock:
-                    if self._shell is not None:
-                        return
-                    self._init_shell()
-                self.run_bg_expect_thread()
-            except Exception as e:
-                self._shell_error = e
-            finally:
-                self._shell_loading.set()
-
-        threading.Thread(target=load_shell).start()
-
-    @requires_shell
-    def expect(
-        self, shell: "pexpect.spawn[str]", pattern: Any, timeout: Optional[float] = -1
-    ) -> int:
+    def expect(self, pattern: Any, timeout: Optional[float] = -1) -> int:
         self.close_bg_expect_thread()
-        output = shell.expect(pattern, timeout)
+        output = self._shell.expect(pattern, timeout)
         return output
 
-    @requires_shell
-    def send(self, shell: "pexpect.spawn[str]", s: str | bytes) -> int:
+    def send(self, s: str | bytes) -> int:
         self.close_bg_expect_thread()
-        output = shell.send(s)
+        output = self._shell.send(s)
         return output
 
-    @requires_shell
-    def sendline(self, shell: "pexpect.spawn[str]", s: str | bytes) -> int:
+    def sendline(self, s: str | bytes) -> int:
         self.close_bg_expect_thread()
-        output = shell.sendline(s)
+        output = self._shell.sendline(s)
         return output
 
     @property
-    @requires_shell
-    def linesep(self, shell: "pexpect.spawn[str]") -> Any:
-        return shell.linesep
+    def linesep(self) -> Any:
+        return self._shell.linesep
 
-    @requires_shell
-    def sendintr(self, shell: "pexpect.spawn[str]") -> None:
+    def sendintr(self) -> None:
         self.close_bg_expect_thread()
-        shell.sendintr()
+        self._shell.sendintr()
 
     @property
-    @requires_shell
-    def before(self, shell: "pexpect.spawn[str]") -> Optional[str]:
-        return shell.before
+    def before(self) -> Optional[str]:
+        return self._shell.before
 
     def run_bg_expect_thread(self) -> None:
         """
@@ -363,13 +307,8 @@ class BashState:
 
     def cleanup(self) -> None:
         self.close_bg_expect_thread()
-        with self._shell_lock:
-            if self._shell:
-                self._shell.close(True)
-                if self._shell_id:
-                    cleanup_all_screens_with_name(self._shell_id, self.console)
-                self._shell = None
-                self._shell_id = None
+        self._shell.close(True)
+        cleanup_all_screens_with_name(self._shell_id, self.console)
 
     def __enter__(self) -> "BashState":
         return self
@@ -393,8 +332,7 @@ class BashState:
     def write_if_empty_mode(self) -> WriteIfEmptyMode:
         return self._write_if_empty_mode
 
-    @requires_shell
-    def ensure_env_and_bg_jobs(self, _: "pexpect.spawn[str]") -> Optional[int]:
+    def ensure_env_and_bg_jobs(self) -> Optional[int]:
         return self._ensure_env_and_bg_jobs()
 
     def _ensure_env_and_bg_jobs(self) -> Optional[int]:
@@ -465,6 +403,8 @@ class BashState:
         except ValueError as e:
             self.console.log("Error while running _ensure_env_and_bg_jobs" + str(e))
 
+        self.run_bg_expect_thread()
+
     def set_pending(self, last_pending_output: str) -> None:
         if not isinstance(self._state, datetime.datetime):
             self._state = datetime.datetime.now()
@@ -495,11 +435,10 @@ class BashState:
     def prompt(self) -> str:
         return PROMPT_CONST
 
-    @requires_shell
-    def update_cwd(self, shell: "pexpect.spawn[str]") -> str:
-        shell.sendline("pwd")
-        shell.expect(PROMPT_CONST, timeout=0.2)
-        before_val = shell.before
+    def update_cwd(self) -> str:
+        self._shell.sendline("pwd")
+        self._shell.expect(PROMPT_CONST, timeout=0.2)
+        before_val = self._shell.before
         if not isinstance(before_val, str):
             before_val = str(before_val)
         before_lines = render_terminal_output(before_val)
@@ -509,9 +448,7 @@ class BashState:
 
     def reset_shell(self) -> None:
         self.cleanup()
-        self._shell_loading.clear()
-        self._shell_error = None
-        self._start_shell_loading()
+        self._init_shell()
 
     def serialize(self) -> dict[str, Any]:
         """Serialize BashState to a dictionary for saving"""

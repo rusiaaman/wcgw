@@ -114,7 +114,6 @@ async def test_handle_list_tools():
         "ReadFiles",
         "WriteIfEmpty",
         "ReadImage",
-        "ResetWcgw",
         "FileEdit",
         "ContextSave",
     }

@@ -67,6 +67,7 @@ def test_file_edit(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
+        type="first_call",
     )
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 

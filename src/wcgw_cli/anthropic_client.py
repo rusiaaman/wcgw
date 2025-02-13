@@ -22,7 +22,7 @@ from anthropic.types import (
     ToolUseBlockParam,
 )
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from typer import Typer
 
 from wcgw.client.bash_state.bash_state import BashState
@@ -379,14 +379,6 @@ def loop(
                                 tool_input = str(tc["input"])
                                 tool_id = str(tc["id"])
 
-                                tool_parsed = parse_tool_by_name(
-                                    tool_name, json.loads(tool_input)
-                                )
-
-                                system_console.print(
-                                    f"\n---------------------------------------\n# Assistant invoked tool: {tool_parsed}"
-                                )
-
                                 _histories.append(
                                     {
                                         "role": "assistant",
@@ -394,12 +386,35 @@ def loop(
                                             ToolUseBlockParam(
                                                 id=tool_id,
                                                 name=tool_name,
-                                                input=tool_parsed.model_dump(),
+                                                input=json.loads(tool_input),
                                                 type="tool_use",
                                             )
                                         ],
                                     }
                                 )
+                                try:
+                                    tool_parsed = parse_tool_by_name(
+                                        tool_name, json.loads(tool_input)
+                                    )
+                                except ValidationError:
+                                    error_msg = f"Error parsing tool {tool_name}\n{traceback.format_exc()}"
+                                    system_console.log(
+                                        f"Error parsing tool {tool_name}"
+                                    )
+                                    tool_results.append(
+                                        ToolResultBlockParam(
+                                            type="tool_result",
+                                            tool_use_id=str(tc["id"]),
+                                            content=error_msg,
+                                            is_error=True,
+                                        )
+                                    )
+                                    continue
+
+                                system_console.print(
+                                    f"\n---------------------------------------\n# Assistant invoked tool: {tool_parsed}"
+                                )
+
                                 try:
                                     output_or_dones, _ = get_tool_output(
                                         context,
