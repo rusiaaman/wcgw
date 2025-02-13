@@ -561,7 +561,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="shouldnot_proceed",
-        mode_name="wcgw",
+        mode_name="architect",
         code_writer_config=None,
     )
     outputs, _ = get_tool_output(
@@ -570,6 +570,25 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
 
     assert len(outputs) == 1
     assert "Warning: task can only be resumed in a new conversation" in outputs[0]
+    assert "architect mode" in outputs[0]
+
+    # Test do not print prompt again
+
+    # Test changing to code_writer mode with config
+    reset_args = Initialize(
+        type="user_asked_change_workspace",
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="architect",
+        code_writer_config=None,
+    )
+    outputs, _ = get_tool_output(
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert "architect mode" not in outputs[0]
 
 
 def _test_init(context: Context, temp_dir: str) -> None:

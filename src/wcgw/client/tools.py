@@ -171,7 +171,9 @@ def initialize(
             context.console.print(traceback.format_exc())
             context.console.print("Error: couldn't load bash state")
             pass
+        mode_prompt = get_mode_prompt(context)
     else:
+        mode_changed = is_mode_change(mode, context.bash_state)
         state = modes_to_state(mode)
         context.bash_state.load_state(
             state[0],
@@ -181,6 +183,11 @@ def initialize(
             list(context.bash_state.whitelist_for_overwrite),
             str(folder_to_start) if folder_to_start else "",
         )
+        if type == "first_call" or mode_changed:
+            mode_prompt = get_mode_prompt(context)
+        else:
+            mode_prompt = ""
+
     del mode
 
     initial_files_context = ""
@@ -195,7 +202,7 @@ def initialize(
 
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
-    mode_prompt = get_mode_prompt(context)
+
     output = f"""
 {mode_prompt}
 
@@ -218,7 +225,7 @@ Initialized in directory (also cwd): {context.bash_state.cwd}
     return output, context
 
 
-def is_mode_change(mode_config: ModesConfig, bash_state: BashState):
+def is_mode_change(mode_config: ModesConfig, bash_state: BashState) -> bool:
     allowed = modes_to_state(mode_config)
     bash_allowed = (
         bash_state.bash_command_mode,
@@ -232,22 +239,13 @@ def is_mode_change(mode_config: ModesConfig, bash_state: BashState):
 def reset_wcgw(
     context: Context,
     starting_directory: str,
-    change_mode: Optional[Modes],
-    code_writer_config: Optional[CodeWriterMode],
+    mode_name: Optional[Modes],
+    change_mode: ModesConfig,
 ) -> str:
-    if change_mode:
-        # Convert to the type expected by modes_to_state
-        mode_config: ModesConfig
-        if change_mode == "code_writer":
-            if not code_writer_config:
-                return "Error: code_writer_config is required when changing to code_writer mode"
-            mode_config = code_writer_config
-        else:
-            mode_config = change_mode
-
+    if mode_name:
         # Get new state configuration
         bash_command_mode, file_edit_mode, write_if_empty_mode, mode = modes_to_state(
-            mode_config
+            change_mode
         )
 
         # Reset shell with new mode
@@ -261,7 +259,7 @@ def reset_wcgw(
         )
         mode_prompt = get_mode_prompt(context)
         return (
-            f"Reset successful with mode change to {change_mode.value}.\n"
+            f"Reset successful with mode change to {mode_name.value}.\n"
             + mode_prompt
             + "\n"
             + get_status(context.bash_state)
@@ -648,7 +646,7 @@ def get_tool_output(
                     arg.mode_name
                     if is_mode_change(arg.mode, context.bash_state)
                     else None,
-                    arg.code_writer_config,
+                    arg.mode,
                 ),
                 0.0,
             )

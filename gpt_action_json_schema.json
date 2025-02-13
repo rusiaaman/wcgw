@@ -90,46 +90,6 @@
         }
       }
     },
-    "/v1/reset_wcgw": {
-      "post": {
-        "x-openai-isConsequential": false,
-        "summary": "Reset Wcgw",
-        "operationId": "reset_wcgw_v1_reset_wcgw_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResetWcgwWithUUID"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string",
-                  "title": "Response Reset Wcgw V1 Reset Wcgw Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/bash_command": {
       "post": {
         "x-openai-isConsequential": false,
@@ -473,6 +433,16 @@
       },
       "InitializeWithUUID": {
         "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "first_call",
+              "user_asked_mode_change",
+              "reset_shell",
+              "user_asked_change_workspace"
+            ],
+            "title": "Type"
+          },
           "any_workspace_path": {
             "type": "string",
             "title": "Any Workspace Path"
@@ -489,13 +459,7 @@
             "title": "Task Id To Resume"
           },
           "mode_name": {
-            "type": "string",
-            "enum": [
-              "wcgw",
-              "architect",
-              "code_writer"
-            ],
-            "title": "Mode Name"
+            "$ref": "#/components/schemas/Modes"
           },
           "code_writer_config": {
             "anyOf": [
@@ -516,6 +480,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "type",
           "any_workspace_path",
           "initial_files_to_read",
           "task_id_to_resume",
@@ -523,6 +488,15 @@
           "user_id"
         ],
         "title": "InitializeWithUUID"
+      },
+      "Modes": {
+        "type": "string",
+        "enum": [
+          "wcgw",
+          "architect",
+          "code_writer"
+        ],
+        "title": "Modes"
       },
       "ReadFileWithUUID": {
         "properties": {
@@ -546,59 +520,6 @@
           "user_id"
         ],
         "title": "ReadFileWithUUID"
-      },
-      "ResetWcgwWithUUID": {
-        "properties": {
-          "should_reset": {
-            "type": "boolean",
-            "const": true,
-            "title": "Should Reset"
-          },
-          "change_mode": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "wcgw",
-                  "architect",
-                  "code_writer"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Change Mode"
-          },
-          "code_writer_config": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CodeWriterMode"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "starting_directory": {
-            "type": "string",
-            "title": "Starting Directory"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "should_reset",
-          "change_mode",
-          "starting_directory",
-          "user_id"
-        ],
-        "title": "ResetWcgwWithUUID"
       },
       "SendAscii": {
         "properties": {
