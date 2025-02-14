@@ -24,7 +24,6 @@ from wcgw.client.mcp_server.server import (
     handle_read_resource,
     main,
 )
-from wcgw.client.modes import Modes
 
 
 # Reset server.BASH_STATE before all tests
@@ -37,9 +36,7 @@ def setup_bash_state():
 
     # Create new BashState with mode
     home_dir = os.path.expanduser("~")
-    bash_state = BashState(
-        Console(), home_dir, None, None, None, Modes.wcgw, False, None
-    )
+    bash_state = BashState(Console(), home_dir, None, None, None, "wcgw", False, None)
     server.BASH_STATE = bash_state
 
     try:

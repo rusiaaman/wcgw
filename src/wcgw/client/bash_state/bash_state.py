@@ -238,7 +238,7 @@ class BashState:
         self._write_if_empty_mode: WriteIfEmptyMode = (
             write_if_empty_mode or WriteIfEmptyMode("all")
         )
-        self._mode = mode or Modes.wcgw
+        self._mode = mode or "wcgw"
         self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
@@ -468,7 +468,7 @@ class BashState:
             BashCommandMode.deserialize(state["bash_command_mode"]),
             FileEditMode.deserialize(state["file_edit_mode"]),
             WriteIfEmptyMode.deserialize(state["write_if_empty_mode"]),
-            Modes[str(state["mode"])],
+            state["mode"],
             state["whitelist_for_overwrite"],
         )
 

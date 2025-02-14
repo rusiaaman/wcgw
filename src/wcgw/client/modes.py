@@ -150,17 +150,17 @@ Respond only after doing the following:
 
 
 DEFAULT_MODES: dict[Modes, ModeImpl] = {
-    Modes.wcgw: ModeImpl(
+    "wcgw": ModeImpl(
         bash_command_mode=BashCommandMode("normal_mode", "all"),
         write_if_empty_mode=WriteIfEmptyMode("all"),
         file_edit_mode=FileEditMode("all"),
     ),
-    Modes.architect: ModeImpl(
+    "architect": ModeImpl(
         bash_command_mode=BashCommandMode("restricted_mode", "all"),
         write_if_empty_mode=WriteIfEmptyMode([]),
         file_edit_mode=FileEditMode([]),
     ),
-    Modes.code_writer: ModeImpl(
+    "code_writer": ModeImpl(
         bash_command_mode=BashCommandMode("normal_mode", "all"),
         write_if_empty_mode=WriteIfEmptyMode("all"),
         file_edit_mode=FileEditMode("all"),
@@ -173,11 +173,11 @@ def modes_to_state(
 ) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes]:
     # First get default mode config
     if isinstance(mode, str):
-        mode_impl = DEFAULT_MODES[Modes[mode]]  # converts str to Modes enum
-        mode_name = Modes[mode]
+        mode_impl = DEFAULT_MODES[mode]  # converts str to Modes enum
+        mode_name: Modes = mode
     else:
         # For CodeWriterMode, use code_writer as base and override
-        mode_impl = DEFAULT_MODES[Modes.code_writer]
+        mode_impl = DEFAULT_MODES["code_writer"]
         # Override with custom settings from CodeWriterMode
         mode_impl = ModeImpl(
             bash_command_mode=BashCommandMode(
@@ -187,7 +187,7 @@ def modes_to_state(
             file_edit_mode=FileEditMode(mode.allowed_globs),
             write_if_empty_mode=WriteIfEmptyMode(mode.allowed_globs),
         )
-        mode_name = Modes.code_writer
+        mode_name = "code_writer"
     return (
         mode_impl.bash_command_mode,
         mode_impl.file_edit_mode,
@@ -234,4 +234,4 @@ Provide all relevant file paths in order to understand and solve the the task. E
 (Note to self: this conversation can then be resumed later asking "Resume wcgw task `<generated id>`" which should call Initialize tool)
 """
 
-KTS = {Modes.wcgw: WCGW_KT, Modes.architect: ARCHITECT_KT, Modes.code_writer: WCGW_KT}
+KTS = {"wcgw": WCGW_KT, "architect": ARCHITECT_KT, "code_writer": WCGW_KT}
