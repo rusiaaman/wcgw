@@ -23,6 +23,16 @@ class CodeWriterMode(BaseModel):
     allowed_globs: Literal["all"] | list[str]
     allowed_commands: Literal["all"] | list[str]
 
+    def __post_init__(self) -> None:
+        # Patch frequently wrong output trading off accuracy
+        # in rare case there's a file named 'all' or a command named 'all'
+        if len(self.allowed_commands) == 1:
+            if self.allowed_commands[0] == "all":
+                self.allowed_commands = "all"
+        if len(self.allowed_globs) == 1:
+            if self.allowed_globs[0] == "all":
+                self.allowed_globs = "all"
+
     def update_relative_globs(self, workspace_root: str) -> None:
         """Update globs if they're relative paths"""
         if self.allowed_globs != "all":
