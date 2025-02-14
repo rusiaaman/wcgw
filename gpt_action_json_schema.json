@@ -459,7 +459,13 @@
             "title": "Task Id To Resume"
           },
           "mode_name": {
-            "$ref": "#/components/schemas/Modes"
+            "type": "string",
+            "enum": [
+              "wcgw",
+              "architect",
+              "code_writer"
+            ],
+            "title": "Mode Name"
           },
           "code_writer_config": {
             "anyOf": [
@@ -488,15 +494,6 @@
           "user_id"
         ],
         "title": "InitializeWithUUID"
-      },
-      "Modes": {
-        "type": "string",
-        "enum": [
-          "wcgw",
-          "architect",
-          "code_writer"
-        ],
-        "title": "Modes"
       },
       "ReadFileWithUUID": {
         "properties": {
