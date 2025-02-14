@@ -1,5 +1,4 @@
 import os
-from enum import Enum
 from typing import Any, Literal, Optional, Protocol, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
@@ -13,10 +12,7 @@ class NoExtraArgs(PydanticBaseModel):
 BaseModel = NoExtraArgs
 
 
-class Modes(Enum):
-    wcgw = "wcgw"
-    architect = "architect"
-    code_writer = "code_writer"
+Modes = Literal["wcgw", "architect", "code_writer"]
 
 
 class CodeWriterMode(BaseModel):

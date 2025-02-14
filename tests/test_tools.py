@@ -570,7 +570,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
 
     assert len(outputs) == 1
     assert "Warning: task can only be resumed in a new conversation" in outputs[0]
-    assert "architect mode" in outputs[0]
+    assert '"architect" mode' in outputs[0]
 
     # Test do not print prompt again
 

@@ -67,13 +67,13 @@ INITIALIZED = False
 
 def get_mode_prompt(context: Context) -> str:
     mode_prompt = ""
-    if context.bash_state.mode == Modes.code_writer:
+    if context.bash_state.mode == "code_writer":
         mode_prompt = code_writer_prompt(
             context.bash_state.file_edit_mode.allowed_globs,
             context.bash_state.write_if_empty_mode.allowed_globs,
             "all" if context.bash_state.bash_command_mode.allowed_commands else [],
         )
-    elif context.bash_state.mode == Modes.architect:
+    elif context.bash_state.mode == "architect":
         mode_prompt = ARCHITECT_PROMPT
     else:
         mode_prompt = WCGW_PROMPT
@@ -261,7 +261,7 @@ def reset_wcgw(
         mode_prompt = get_mode_prompt(context)
         INITIALIZED = True
         return (
-            f"Reset successful with mode change to {mode_name.value}.\n"
+            f"Reset successful with mode change to {mode_name}.\n"
             + mode_prompt
             + "\n"
             + get_status(context.bash_state)
@@ -644,7 +644,7 @@ def get_tool_output(
                 reset_wcgw(
                     context,
                     workspace_path,
-                    Modes(arg.mode_name)
+                    arg.mode_name
                     if is_mode_change(arg.mode, context.bash_state)
                     else None,
                     arg.mode,
