@@ -242,6 +242,7 @@ def reset_wcgw(
     mode_name: Optional[Modes],
     change_mode: ModesConfig,
 ) -> str:
+    global INITIALIZED
     if mode_name:
         # Get new state configuration
         bash_command_mode, file_edit_mode, write_if_empty_mode, mode = modes_to_state(
@@ -258,6 +259,7 @@ def reset_wcgw(
             starting_directory,
         )
         mode_prompt = get_mode_prompt(context)
+        INITIALIZED = True
         return (
             f"Reset successful with mode change to {mode_name.value}.\n"
             + mode_prompt
@@ -280,7 +282,6 @@ def reset_wcgw(
             list(context.bash_state.whitelist_for_overwrite),
             starting_directory,
         )
-    global INITIALIZED
     INITIALIZED = True
     return "Reset successful" + get_status(context.bash_state)
 
@@ -643,7 +644,7 @@ def get_tool_output(
                 reset_wcgw(
                     context,
                     workspace_path,
-                    arg.mode_name
+                    Modes(arg.mode_name)
                     if is_mode_change(arg.mode, context.bash_state)
                     else None,
                     arg.mode,
