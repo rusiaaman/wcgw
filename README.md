@@ -15,6 +15,8 @@ Empowering chat applications to code, build and run on your local machine.
 
 ## Updates
 
+- [16 Feb 2025] You can now attach to the working terminal that the AI uses. See the "attach-to-terminal" section below.
+
 - [15 Jan 2025] Modes introduced: architect, code-writer, and all powerful wcgw mode.
 
 - [8 Jan 2025] Context saving tool for saving relevant file paths along with a description in a single file. Can be used as a task checkpoint or for knowledge transfer.
@@ -23,9 +25,6 @@ Empowering chat applications to code, build and run on your local machine.
 
 - [9 Dec 2024] [Vscode extension to paste context on Claude app](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw)
 
-- [01 Dec 2024] Removed author hosted relay server for chatgpt.
-
-- [26 Nov 2024] Introduced claude desktop support through mcp
 
 ## 🚀 Highlights
 
@@ -72,9 +71,7 @@ First install `uv` using homebrew `brew install uv`
 
 (**Important:** use homebrew to install uv. Otherwise make sure `uv` is present in a global location like /usr/bin/)
 
-Then update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
-
-If it doesn't exist, you can just `touch ~/Library/Application\ Support/Claude/claude_desktop_config.json` or create the file.
+Then create or update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json) with following json.
 
 ```json
 {
@@ -101,6 +98,8 @@ _If there's an error in setting up_
 
 - If there's an error like "uv ENOENT", make sure `uv` is installed. Then run 'which uv' in the terminal, and use its output in place of "uv" in the configuration.
 - If there's still an issue, check that `uv tool run --from wcgw@latest --python 3.12 wcgw_mcp` runs in your terminal. It should have no output and shouldn't exit.
+- Try removing ~/.cache/uv folder
+- Try using `uv` version `0.6.0` for which this tool was tested.
 - Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
 
 ### Alternative configuration using smithery (npx required)
@@ -112,6 +111,9 @@ Then to configure wcgw for Claude Desktop automatically via [Smithery](https://s
 ```bash
 npx -y @smithery/cli install wcgw --client claude
 ```
+
+_If there's an error in setting up_
+- Try removing ~/.cache/uv folder
 
 ### Usage
 
@@ -141,6 +143,18 @@ There are three built-in modes. You may ask Claude to run in one of the modes, l
 | **wcgw\*\* | Default mode with everything allowed | Everything | Nothing | No prompt, or "Run in wcgw mode" |
 
 Note: in code-writer mode either all commands are allowed or none are allowed for now. If you give a list of allowed commands, Claude is instructed to run only those commands, but no actual check happens. (WIP)
+
+#### Attach to the working terminal to investigate
+If you've `screen` command installed, wcgw runs on a screen instance automatically. If you've started wcgw mcp server, you can list the screen sessions:
+`screen -ls`
+And note down the wcgw screen name which will be something like `93358.wcgw.235521` where the last number is in the hour-minute-second format.
+You can then attach to the session using `screen -x 93358.wcgw.235521`
+
+You may interrupt any running command safely.
+
+You can interact with the terminal but beware that the AI might be running in parallel and it may conflict with what you're doing. It's recommended to keep your interactions to minimum. 
+
+You shouldn't exit the session using `exit `or Ctrl-d, instead you should use `ctrl+a+d` to safely detach without destroying the screen session.
 
 ### [Optional] Vs code extension
 
