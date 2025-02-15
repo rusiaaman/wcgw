@@ -49,6 +49,7 @@ Empowering chat applications to code, build and run on your local machine.
   - Ask it to run in 'code-writer' mode for code editing and project building. You can provide specific paths with wild card support to prevent other files getting edited.
   - By default it runs in 'wcgw' mode that has no restrictions and full authorisation.
   - More details in [Modes section](#modes)
+- ⚡ **Runs in multiplex terminal** Run `screen -x` to attach to the terminal that the AI runs commands on. See history or interrupt process or interact with the same terminal that AI uses.
 
 ## Top use cases examples
 
