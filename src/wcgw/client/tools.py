@@ -4,6 +4,7 @@ import glob
 import json
 import mimetypes
 import os
+import subprocess
 import traceback
 from dataclasses import dataclass
 from os.path import expanduser
@@ -306,6 +307,30 @@ def expand_user(path: str) -> str:
     if not path or not path.startswith("~"):
         return path
     return expanduser(path)
+
+
+def try_open_file(file_path: str) -> None:
+    """Try to open a file using the system's default application."""
+    # Determine the appropriate open command based on OS
+    open_cmd = None
+    if os.uname().sysname == "Darwin":  # macOS
+        open_cmd = "open"
+    elif os.uname().sysname == "Linux":
+        # Try common Linux open commands
+        for cmd in ["xdg-open", "gnome-open", "kde-open"]:
+            try:
+                subprocess.run(["which", cmd], timeout=1, capture_output=True)
+                open_cmd = cmd
+                break
+            except:
+                continue
+    
+    # Try to open the file if a command is available
+    if open_cmd:
+        try:
+            subprocess.run([open_cmd, file_path], timeout=2)
+        except:
+            pass
 
 
 MEDIA_TYPES = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
@@ -687,6 +712,8 @@ def get_tool_output(
             output_ = f'Error: No files found for the given globs. Context file successfully saved at "{output_}", but please fix the error.'
         elif warnings:
             output_ = warnings + "\nContext file successfully saved at " + output_
+        # Try to open the saved file
+        try_open_file(output_)
         output = output_, 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
