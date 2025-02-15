@@ -207,7 +207,6 @@ The server provides the following MCP tools:
   - Parameters: `any_workspace_path` (string), `initial_files_to_read` (string[]), `mode_name` ("wcgw"|"architect"|"code_writer"), `task_id_to_resume` (string)
 - `BashCommand`: Execute shell commands with timeout control
   - Parameters: `command` (string), `wait_for_seconds` (int, optional)
-- `BashInteraction`: Send keyboard input to running programs
   - Parameters: `send_text` (string) or `send_specials` (["Enter"|"Key-up"|...]) or `send_ascii` (int[]), `wait_for_seconds` (int, optional)
 
 **File Operations:**
@@ -225,7 +224,5 @@ The server provides the following MCP tools:
 
 - `ContextSave`: Save project context and files for Knowledge Transfer or saving task checkpoints to be resumed later
   - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[])
-- `ResetShell`: Emergency reset for shell environment
-  - Parameters: `should_reset` (boolean)
 
 All tools support absolute paths and include built-in protections against common errors. See the [MCP specification](https://modelcontextprotocol.io/) for detailed protocol information.
