@@ -182,6 +182,7 @@ def loop(
     ) as bash_state:
         context = Context(bash_state, system_console)
         system, context = initialize(
+            "first_call",
             context,
             os.getcwd(),
             [],

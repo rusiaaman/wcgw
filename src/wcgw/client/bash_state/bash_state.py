@@ -105,6 +105,9 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
         output = (e.stdout or "") + (e.stderr or "")
     except FileNotFoundError:
         return
+    except Exception as e:
+        console.log(f"{e}: exception while clearing running screens.")
+        return
 
     sessions_to_kill = []
 
@@ -128,8 +131,8 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
                 check=True,
                 timeout=CONFIG.timeout,
             )
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            console.log(f"Failed to kill screen session: {session}")
+        except Exception as e:
+            console.log(f"Failed to kill screen session: {session}\n{e}")
 
 
 def start_shell(
@@ -281,16 +284,11 @@ class BashState:
             while True:
                 if self._bg_expect_thread_stop_event.is_set():
                     break
-                if self._shell is None:
-                    time.sleep(0.1)
-                    continue
                 output = self._shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
                 if output == 0:
                     break
 
-        if self._bg_expect_thread and self._bg_expect_thread.is_alive():
-            if not self._bg_expect_thread_stop_event.is_set():
-                return
+        if self._bg_expect_thread:
             self.close_bg_expect_thread()
 
         self._bg_expect_thread = threading.Thread(
@@ -333,29 +331,23 @@ class BashState:
         return self._write_if_empty_mode
 
     def ensure_env_and_bg_jobs(self) -> Optional[int]:
-        return self._ensure_env_and_bg_jobs()
-
-    def _ensure_env_and_bg_jobs(self) -> Optional[int]:
-        # Do not add @requires_shell decorator here, as it will cause deadlock
-        self.close_bg_expect_thread()
-        assert self._shell is not None, "Bad state, shell is not initialized"
         quick_timeout = 0.2 if not self.over_screen else 1
         # First reset the prompt in case venv was sourced or other reasons.
-        self._shell.sendline(PROMPT_STATEMENT)
-        self._shell.expect(PROMPT_CONST, timeout=quick_timeout)
+        self.sendline(PROMPT_STATEMENT)
+        self.expect(PROMPT_CONST, timeout=quick_timeout)
         # Reset echo also if it was enabled
         command = "jobs | wc -l"
-        self._shell.sendline(command)
+        self.sendline(command)
         before = ""
         counts = 0
         while not _is_int(before):  # Consume all previous output
             try:
-                self._shell.expect(PROMPT_CONST, timeout=quick_timeout)
+                self.expect(PROMPT_CONST, timeout=quick_timeout)
             except pexpect.TIMEOUT:
                 self.console.print(f"Couldn't get exit code, before: {before}")
                 raise
 
-            before_val = self._shell.before
+            before_val = self.before
             if not isinstance(before_val, str):
                 before_val = str(before_val)
             assert isinstance(before_val, str)
@@ -373,7 +365,6 @@ class BashState:
 
     def _init_shell(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
-        self._is_in_docker: Optional[str] = ""
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
         try:
@@ -399,7 +390,7 @@ class BashState:
 
         self._pending_output = ""
         try:
-            self._ensure_env_and_bg_jobs()
+            self.ensure_env_and_bg_jobs()
         except ValueError as e:
             self.console.log("Error while running _ensure_env_and_bg_jobs" + str(e))
 
@@ -421,13 +412,6 @@ class BashState:
         return "pending"
 
     @property
-    def is_in_docker(self) -> Optional[str]:
-        return self._is_in_docker
-
-    def set_in_docker(self, docker_image_id: str) -> None:
-        self._is_in_docker = docker_image_id
-
-    @property
     def cwd(self) -> str:
         return self._cwd
 
@@ -436,9 +420,9 @@ class BashState:
         return PROMPT_CONST
 
     def update_cwd(self) -> str:
-        self._shell.sendline("pwd")
-        self._shell.expect(PROMPT_CONST, timeout=0.2)
-        before_val = self._shell.before
+        self.sendline("pwd")
+        self.expect(PROMPT_CONST, timeout=0.2)
+        before_val = self.before
         if not isinstance(before_val, str):
             before_val = str(before_val)
         before_lines = render_terminal_output(before_val)
