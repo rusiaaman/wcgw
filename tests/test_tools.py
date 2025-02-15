@@ -547,6 +547,10 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
 
     assert len(outputs) == 1
     assert "Reset successful with mode change to code_writer" in outputs[0]
+    assert context.bash_state._write_if_empty_mode.allowed_globs == [
+        temp_dir + "/" + "*.py"
+    ]
+    assert context.bash_state.file_edit_mode.allowed_globs == [temp_dir + "/" + "*.py"]
 
     # Verify mode was actually changed by trying a command not in allowed list
     cmd = BashCommand(action=Command(command="touch test.txt"))

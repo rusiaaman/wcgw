@@ -244,6 +244,12 @@ def reset_wcgw(
 ) -> str:
     global INITIALIZED
     if mode_name:
+        # update modes if they're relative
+        if isinstance(change_mode, CodeWriterMode):
+            change_mode.update_relative_globs(starting_directory)
+        else:
+            assert isinstance(change_mode, str)
+
         # Get new state configuration
         bash_command_mode, file_edit_mode, write_if_empty_mode, mode = modes_to_state(
             change_mode
