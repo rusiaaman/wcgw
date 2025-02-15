@@ -146,8 +146,11 @@ Note: in code-writer mode either all commands are allowed or none are allowed fo
 
 #### Attach to the working terminal to investigate
 If you've `screen` command installed, wcgw runs on a screen instance automatically. If you've started wcgw mcp server, you can list the screen sessions:
+
 `screen -ls`
+
 And note down the wcgw screen name which will be something like `93358.wcgw.235521` where the last number is in the hour-minute-second format.
+
 You can then attach to the session using `screen -x 93358.wcgw.235521`
 
 You may interrupt any running command safely.
