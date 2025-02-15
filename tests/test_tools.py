@@ -650,12 +650,6 @@ def test_command_suspend(context: Context, temp_dir: str) -> None:
     )
     assert "status = still running" in outputs[0]
 
-    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-z"]))
-    outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
-    )
-    assert "stopped" in str(outputs[0]).lower()
-
 
 def test_text_input(context: Context, temp_dir: str) -> None:
     """Test sending text to a program."""

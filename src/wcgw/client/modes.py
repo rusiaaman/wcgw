@@ -85,7 +85,7 @@ You are now running in "code_writer" mode.
     base += path_prompt
 
     run_command_common = """
-    - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
+    - Do not use Ctrl-c interrupt commands without asking the user, because often the programs don't show any update but they still are running.
     - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - You should use the provided bash execution, reading and writing file tools to complete objective.
@@ -124,7 +124,7 @@ Instructions:
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
     - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools
-    - Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
+    - Do not use Ctrl-c or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
     - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
     
 Additional instructions:
@@ -138,7 +138,7 @@ ARCHITECT_PROMPT = """You are now running in "architect" mode. This means
 - You are not allowed to edit or update any file. You are not allowed to create any file. 
 - You are not allowed to run any commands that may change disk, system configuration, packages or environment. Only read-only commands are allowed.
 - Only run commands that allows you to explore the repository, understand the system or read anything of relevance. 
-- Do not use Ctrl-c or Ctrl-z or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
+- Do not use Ctrl-c or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
 - You are not allowed to change directory (bash will run in -r mode)
 - Share only snippets when any implementation is requested.
 

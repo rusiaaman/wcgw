@@ -86,7 +86,7 @@ class SendText(BaseModel):
 
 
 Specials = Literal[
-    "Enter", "Key-up", "Key-down", "Key-left", "Key-right", "Ctrl-c", "Ctrl-d", "Ctrl-z"
+    "Enter", "Key-up", "Key-down", "Key-left", "Key-right", "Ctrl-c", "Ctrl-d"
 ]
 
 
