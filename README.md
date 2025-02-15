@@ -74,6 +74,8 @@ First install `uv` using homebrew `brew install uv`
 
 Then update `claude_desktop_config.json` (~/Library/Application Support/Claude/claude_desktop_config.json)
 
+If it doesn't exist, you can just `touch ~/Library/Application\ Support/Claude/claude_desktop_config.json` or create the file.
+
 ```json
 {
   "mcpServers": {
