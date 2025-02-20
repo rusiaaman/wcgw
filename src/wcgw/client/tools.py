@@ -707,13 +707,15 @@ def get_tool_output(
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
         relevant_files_data = read_files(relevant_files[:10_000], None, context)
-        output_ = save_memory(arg, relevant_files_data, context.bash_state.serialize())
+        save_path = save_memory(arg, relevant_files_data, context.bash_state.serialize())
         if not relevant_files and arg.relevant_file_globs:
-            output_ = f'Error: No files found for the given globs. Context file successfully saved at "{output_}", but please fix the error.'
+            output_ = f'Error: No files found for the given globs. Context file successfully saved at "{save_path}", but please fix the error.'
         elif warnings:
-            output_ = warnings + "\nContext file successfully saved at " + output_
+            output_ = warnings + "\nContext file successfully saved at " + save_path
+        else:
+            output_ = save_path
         # Try to open the saved file
-        try_open_file(output_)
+        try_open_file(save_path)
         output = output_, 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")

@@ -31,7 +31,7 @@ TOOL_PROMPTS = [
 - Always call this at the start of the conversation before using any of the shell tools from wcgw.
 - Use `any_workspace_path` to initialize the shell in the appropriate project directory.
 - If the user has mentioned a workspace or project root or any other file or folder use it to set `any_workspace_path`.
-- If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only.
+- If user has mentioned any files use `initial_files_to_read` to read, use absolute paths only (~ allowed)
 - By default use mode "wcgw"
 - In "code-writer" mode, set the commands and globs which user asked to set, otherwise use 'all'.
 - Use type="first_call" if it's the first call to this tool.
@@ -61,7 +61,7 @@ TOOL_PROMPTS = [
         name="ReadFiles",
         description="""
 - Read full file content of one or more files.
-- Provide absolute file paths only
+- Provide absolute paths only (~ allowed)
 """,
     ),
     Prompts(
@@ -69,7 +69,7 @@ TOOL_PROMPTS = [
         name="WriteIfEmpty",
         description="""
 - Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
-- Provide absolute file path only.
+- Provide absolute path only.
 - For editing existing files, use FileEdit instead of this tool.
 """,
     ),
@@ -82,7 +82,7 @@ TOOL_PROMPTS = [
         inputSchema=FileEdit.model_json_schema(),
         name="FileEdit",
         description="""
-- Use absolute file path only.
+- Use absolute path only.
 - Use SEARCH/REPLACE blocks to edit the file.
 - If the edit fails due to block not matching, please retry with correct block till it matches. Re-read the file to ensure you've all the lines correct.
 """
