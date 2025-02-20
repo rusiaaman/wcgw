@@ -698,6 +698,7 @@ def get_tool_output(
         context.console.print("Calling task memory tool")
         relevant_files = []
         warnings = ""
+        arg.project_root_path = os.path.expanduser(arg.project_root_path) 
         for fglob in arg.relevant_file_globs:
             fglob = expand_user(fglob)
             if not os.path.isabs(fglob) and arg.project_root_path:
