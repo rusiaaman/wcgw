@@ -427,6 +427,8 @@ class BashState:
             before_val = str(before_val)
         before_lines = render_terminal_output(before_val)
         current_dir = "\n".join(before_lines).strip()
+        if current_dir.startswith("pwd"):
+            current_dir = current_dir[3:].strip()
         self._cwd = current_dir
         return current_dir
 
