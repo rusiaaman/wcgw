@@ -468,16 +468,6 @@ class BashState:
         cwd: str,
     ) -> None:
         """Create a new BashState instance from a serialized state dictionary"""
-        if (
-            self._bash_command_mode == bash_command_mode
-            and ((self._cwd == cwd) or not cwd)
-            and (self._file_edit_mode == file_edit_mode)
-            and (self._write_if_empty_mode == write_if_empty_mode)
-            and (self._mode == mode)
-            and (self._whitelist_for_overwrite == set(whitelist_for_overwrite))
-        ):
-            # No need to reset shell if the state is the same
-            return
         self._bash_command_mode = bash_command_mode
         self._cwd = cwd or self._cwd
         self._file_edit_mode = file_edit_mode

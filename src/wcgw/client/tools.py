@@ -324,7 +324,7 @@ def try_open_file(file_path: str) -> None:
                 break
             except:
                 continue
-    
+
     # Try to open the file if a command is available
     if open_cmd:
         try:
@@ -698,7 +698,7 @@ def get_tool_output(
         context.console.print("Calling task memory tool")
         relevant_files = []
         warnings = ""
-        arg.project_root_path = os.path.expanduser(arg.project_root_path) 
+        arg.project_root_path = os.path.expanduser(arg.project_root_path)
         for fglob in arg.relevant_file_globs:
             fglob = expand_user(fglob)
             if not os.path.isabs(fglob) and arg.project_root_path:
@@ -708,7 +708,9 @@ def get_tool_output(
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
         relevant_files_data = read_files(relevant_files[:10_000], None, context)
-        save_path = save_memory(arg, relevant_files_data, context.bash_state.serialize())
+        save_path = save_memory(
+            arg, relevant_files_data, context.bash_state.serialize()
+        )
         if not relevant_files and arg.relevant_file_globs:
             output_ = f'Error: No files found for the given globs. Context file successfully saved at "{save_path}", but please fix the error.'
         elif warnings:
