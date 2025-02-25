@@ -310,7 +310,7 @@
       },
       "CommandWithUUID": {
         "properties": {
-          "action": {
+          "action_json": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Command"
@@ -328,7 +328,7 @@
                 "$ref": "#/components/schemas/SendAscii"
               }
             ],
-            "title": "Action"
+            "title": "ActionJson"
           },
           "wait_for_seconds": {
             "anyOf": [
@@ -350,7 +350,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "action",
+          "action_json",
           "user_id"
         ],
         "title": "CommandWithUUID"

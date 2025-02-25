@@ -19,7 +19,7 @@ class CodeWriterMode(BaseModel):
     allowed_globs: Literal["all"] | list[str]
     allowed_commands: Literal["all"] | list[str]
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, _: Any) -> None:
         # Patch frequently wrong output trading off accuracy
         # in rare case there's a file named 'all' or a command named 'all'
         if len(self.allowed_commands) == 1:
@@ -99,7 +99,7 @@ class SendAscii(BaseModel):
 
 
 class BashCommand(BaseModel):
-    action: Command | StatusCheck | SendText | SendSpecials | SendAscii
+    action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
     wait_for_seconds: Optional[float] = None
 
 

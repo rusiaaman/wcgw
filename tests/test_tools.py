@@ -275,7 +275,7 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
     # Test when nothing is running
-    cmd = BashCommand(action=StatusCheck(status_check=True))
+    cmd = BashCommand(action_json=StatusCheck(status_check=True))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -283,14 +283,14 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     assert "No running command to check status of" in outputs[0]
 
     # Start a command and check status
-    cmd = BashCommand(action=Command(command="sleep 1"), wait_for_seconds=0.1)
+    cmd = BashCommand(action_json=Command(command="sleep 1"), wait_for_seconds=0.1)
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert "status = still running" in outputs[0]
 
     # Check status while command is running
-    status_check = BashCommand(action=StatusCheck(status_check=True))
+    status_check = BashCommand(action_json=StatusCheck(status_check=True))
     outputs, _ = get_tool_output(
         context, status_check, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -298,7 +298,7 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     assert "status = process exited" in outputs[0]
 
     # Test simple command
-    cmd = BashCommand(action=Command(command="echo 'hello world'"))
+    cmd = BashCommand(action_json=Command(command="echo 'hello world'"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -321,7 +321,7 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
     # Test text interaction
-    cmd = BashCommand(action=SendText(send_text="hello"))
+    cmd = BashCommand(action_json=SendText(send_text="hello"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -329,7 +329,7 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     assert isinstance(outputs[0], str)
 
     # Test special keys
-    cmd = BashCommand(action=SendSpecials(send_specials=["Enter"]))
+    cmd = BashCommand(action_json=SendSpecials(send_specials=["Enter"]))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -338,7 +338,7 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     assert "status = process exited" in outputs[0]
 
     #  Send ctrl-c
-    cmd = BashCommand(action=SendAscii(send_ascii=[3]))  # Ctrl-C
+    cmd = BashCommand(action_json=SendAscii(send_ascii=[3]))  # Ctrl-C
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -347,28 +347,28 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     assert "status = process exited" in outputs[0]
 
     # Test interactions with long running command
-    cmd = BashCommand(action=Command(command="sleep 1"), wait_for_seconds=0.1)
+    cmd = BashCommand(action_json=Command(command="sleep 1"), wait_for_seconds=0.1)
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert "status = still running" in outputs[0]
 
     # Check status with special keys
-    cmd = BashCommand(action=SendSpecials(send_specials=["Enter"]))
+    cmd = BashCommand(action_json=SendSpecials(send_specials=["Enter"]))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert "status = process exited" in outputs[0]
 
     # Test interrupting command
-    cmd = BashCommand(action=Command(command="sleep 1"), wait_for_seconds=0.1)
+    cmd = BashCommand(action_json=Command(command="sleep 1"), wait_for_seconds=0.1)
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert "status = still running" in outputs[0]
 
     # Send Ctrl-C
-    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-c"]))
+    cmd = BashCommand(action_json=SendSpecials(send_specials=["Ctrl-c"]))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -553,7 +553,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
     assert context.bash_state.file_edit_mode.allowed_globs == [temp_dir + "/" + "*.py"]
 
     # Verify mode was actually changed by trying a command not in allowed list
-    cmd = BashCommand(action=Command(command="touch test.txt"))
+    cmd = BashCommand(action_json=Command(command="touch test.txt"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -618,7 +618,7 @@ def test_file_io(context: Context, temp_dir: str) -> None:
     with open(test_file, "w") as f:
         f.write("hello world")
 
-    cmd = BashCommand(action=Command(command=f"cat {test_file}"))
+    cmd = BashCommand(action_json=Command(command=f"cat {test_file}"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -631,13 +631,13 @@ def test_command_interrupt(context: Context, temp_dir: str) -> None:
     """Test Ctrl-C interruption."""
     _test_init(context, temp_dir)
 
-    cmd = BashCommand(action=Command(command="sleep 5"), wait_for_seconds=0.1)
+    cmd = BashCommand(action_json=Command(command="sleep 5"), wait_for_seconds=0.1)
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert "status = still running" in outputs[0]
 
-    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-c"]))
+    cmd = BashCommand(action_json=SendSpecials(send_specials=["Ctrl-c"]))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -648,7 +648,7 @@ def test_command_suspend(context: Context, temp_dir: str) -> None:
     """Test Ctrl-Z suspension."""
     _test_init(context, temp_dir)
 
-    cmd = BashCommand(action=Command(command="sleep 5"), wait_for_seconds=0.1)
+    cmd = BashCommand(action_json=Command(command="sleep 5"), wait_for_seconds=0.1)
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -659,16 +659,16 @@ def test_text_input(context: Context, temp_dir: str) -> None:
     """Test sending text to a program."""
     _test_init(context, temp_dir)
 
-    cmd = BashCommand(action=Command(command="cat"))
+    cmd = BashCommand(action_json=Command(command="cat"))
     get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
-    cmd = BashCommand(action=SendText(send_text="hello"))
+    cmd = BashCommand(action_json=SendText(send_text="hello"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert "hello" in str(outputs[0])
 
-    cmd = BashCommand(action=SendSpecials(send_specials=["Ctrl-d"]))
+    cmd = BashCommand(action_json=SendSpecials(send_specials=["Ctrl-d"]))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -679,16 +679,16 @@ def test_ascii_input(context: Context, temp_dir: str) -> None:
     """Test sending ASCII codes."""
     _test_init(context, temp_dir)
 
-    cmd = BashCommand(action=Command(command="cat"))
+    cmd = BashCommand(action_json=Command(command="cat"))
     get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
 
-    cmd = BashCommand(action=SendAscii(send_ascii=[65, 66, 67]))  # ABC
+    cmd = BashCommand(action_json=SendAscii(send_ascii=[65, 66, 67]))  # ABC
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert "ABC" in str(outputs[0])
 
-    cmd = BashCommand(action=SendAscii(send_ascii=[3]))  # Ctrl-C
+    cmd = BashCommand(action_json=SendAscii(send_ascii=[3]))  # Ctrl-C
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -779,7 +779,7 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
     assert "Success" in outputs[0]  # Should succeed as it creates directories
 
     # Test invalid bash command
-    cmd = BashCommand(action=Command(command="nonexistentcommand"))
+    cmd = BashCommand(action_json=Command(command="nonexistentcommand"))
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )

@@ -575,12 +575,12 @@ def get_status(bash_state: BashState) -> str:
 
 def is_status_check(arg: BashCommand) -> bool:
     return (
-        isinstance(arg.action, StatusCheck)
+        isinstance(arg.action_json, StatusCheck)
         or (
-            isinstance(arg.action, SendSpecials)
-            and arg.action.send_specials == ["Enter"]
+            isinstance(arg.action_json, SendSpecials)
+            and arg.action_json.send_specials == ["Enter"]
         )
-        or (isinstance(arg.action, SendAscii) and arg.action.send_ascii == [10])
+        or (isinstance(arg.action_json, SendAscii) and arg.action_json.send_ascii == [10])
     )
 
 
@@ -595,8 +595,8 @@ def execute_bash(
         output, cost = _execute_bash(bash_state, enc, bash_arg, max_tokens, timeout_s)
 
         # Remove echo if it's a command
-        if isinstance(bash_arg.action, Command):
-            command = bash_arg.action.command.strip()
+        if isinstance(bash_arg.action_json, Command):
+            command = bash_arg.action_json.command.strip()
             if output.startswith(command):
                 output = output[len(command) :]
 
@@ -614,7 +614,7 @@ def _execute_bash(
 ) -> tuple[str, float]:
     try:
         is_interrupt = False
-        command_data = bash_arg.action
+        command_data = bash_arg.action_json
 
         if isinstance(command_data, Command):
             if bash_state.bash_command_mode.allowed_commands == "none":

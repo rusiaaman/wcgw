@@ -179,7 +179,7 @@ async def bash_command(command: CommandWithUUID) -> str:
     await clients[user_id](
         Mdata(
             data=BashCommand(
-                action=command.action, wait_for_seconds=command.wait_for_seconds
+                action_json=command.action_json, wait_for_seconds=command.wait_for_seconds
             ),
             user_id=user_id,
         )
