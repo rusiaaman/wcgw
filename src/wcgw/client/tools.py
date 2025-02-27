@@ -20,11 +20,11 @@ from typing import (
     TypeVar,
 )
 
+import rich
 from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 from pydantic import BaseModel, TypeAdapter, ValidationError
-import rich
 from syntax_checker import check_syntax
 
 from wcgw.client.bash_state.bash_state import get_status
@@ -803,20 +803,39 @@ def read_file(
 
 if __name__ == "__main__":
     with BashState(
-        rich.console.Console(style="blue", highlight=False, markup=False), "", None, None, None, None, True, None
+        rich.console.Console(style="blue", highlight=False, markup=False),
+        "",
+        None,
+        None,
+        None,
+        None,
+        True,
+        None,
     ) as BASH_STATE:
-        print(get_tool_output(Context(BASH_STATE, BASH_STATE.console), 
-                              Initialize(type="first_call", any_workspace_path="",
-                                         initial_files_to_read=[], task_id_to_resume="", mode_name='wcgw', code_writer_config=None),
-                              default_enc,
-                              0,
-                              lambda x, y: ("", 0),
-                              None,
-                              ))
-        print(get_tool_output(Context(BASH_STATE, BASH_STATE.console), 
-                              BashCommand(action_json=Command(command="ls")),
-                              default_enc,
-                              0,
-                              lambda x, y: ("", 0),
-                              None,
-                              ))
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                Initialize(
+                    type="first_call",
+                    any_workspace_path="",
+                    initial_files_to_read=[],
+                    task_id_to_resume="",
+                    mode_name="wcgw",
+                    code_writer_config=None,
+                ),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                None,
+            )
+        )
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                BashCommand(action_json=Command(command="pwd")),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                None,
+            )
+        )

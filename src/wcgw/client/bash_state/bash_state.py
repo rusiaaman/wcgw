@@ -78,7 +78,9 @@ def get_tmpdir() -> str:
 
 def check_if_screen_command_available() -> bool:
     try:
-        subprocess.run(["which", "screen"], capture_output=True, check=True, timeout=0.2)
+        subprocess.run(
+            ["which", "screen"], capture_output=True, check=True, timeout=0.2
+        )
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
@@ -137,7 +139,7 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
 
 def start_shell(
     is_restricted_mode: bool, initial_dir: str, console: Console, over_screen: bool
-) -> tuple[pexpect.spawn, str]:  # type: ignore[type-arg]
+) -> tuple["pexpect.spawn[str]", str]:
     cmd = "/bin/bash"
     if is_restricted_mode:
         cmd += " -r"
@@ -205,12 +207,17 @@ def render_terminal_output(text: str) -> list[str]:
     stream.feed(text)
     # Filter out empty lines
     dsp = screen.display[::-1]
-    for i, line in enumerate(dsp):
+    for start_i, line in enumerate(dsp):
         if line.strip():
             break
     else:
-        i = len(dsp)
-    lines = screen.display[: len(dsp) - i]
+        start_i = len(dsp)
+    end_i = len(dsp) - 1
+    while end_i > start_i:
+        if dsp[end_i].strip():
+            break
+        end_i -= 1
+    lines = screen.display[len(dsp) - end_i - 1 : len(dsp) - start_i]
     return lines
 
 
@@ -232,6 +239,7 @@ class BashState:
         use_screen: bool,
         whitelist_for_overwrite: Optional[set[str]] = None,
     ) -> None:
+        self._last_command: str = ""
         self.console = console
         self._cwd = working_dir or os.getcwd()
         self._bash_command_mode: BashCommandMode = bash_command_mode or BashCommandMode(
@@ -253,13 +261,17 @@ class BashState:
         output = self._shell.expect(pattern, timeout)
         return output
 
-    def send(self, s: str | bytes) -> int:
+    def send(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
+        if set_as_command is not None:
+            self._last_command = set_as_command
         output = self._shell.send(s)
         return output
 
-    def sendline(self, s: str | bytes) -> int:
+    def sendline(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
+        if set_as_command is not None:
+            self._last_command = set_as_command
         output = self._shell.sendline(s)
         return output
 
@@ -273,7 +285,10 @@ class BashState:
 
     @property
     def before(self) -> Optional[str]:
-        return self._shell.before
+        before = self._shell.before
+        if before and before.startswith(self._last_command):
+            return before[len(self._last_command) :]
+        return before
 
     def run_bg_expect_thread(self) -> None:
         """
@@ -333,11 +348,11 @@ class BashState:
     def ensure_env_and_bg_jobs(self) -> Optional[int]:
         quick_timeout = 0.2 if not self.over_screen else 1
         # First reset the prompt in case venv was sourced or other reasons.
-        self.sendline(PROMPT_STATEMENT)
+        self.sendline(PROMPT_STATEMENT, set_as_command=PROMPT_STATEMENT)
         self.expect(PROMPT_CONST, timeout=quick_timeout)
         # Reset echo also if it was enabled
         command = "jobs | wc -l"
-        self.sendline(command)
+        self.sendline(command, set_as_command=command)
         before = ""
         counts = 0
         while not _is_int(before):  # Consume all previous output
@@ -365,6 +380,7 @@ class BashState:
 
     def _init_shell(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
+        self._last_command = ""
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
         try:
@@ -404,6 +420,7 @@ class BashState:
     def set_repl(self) -> None:
         self._state = "repl"
         self._pending_output = ""
+        self._last_command = ""
 
     @property
     def state(self) -> BASH_CLF_OUTPUT:
@@ -420,7 +437,7 @@ class BashState:
         return PROMPT_CONST
 
     def update_cwd(self) -> str:
-        self.sendline("pwd")
+        self.sendline("pwd", set_as_command="pwd")
         self.expect(PROMPT_CONST, timeout=0.2)
         before_val = self.before
         if not isinstance(before_val, str):
@@ -580,7 +597,10 @@ def is_status_check(arg: BashCommand) -> bool:
             isinstance(arg.action_json, SendSpecials)
             and arg.action_json.send_specials == ["Enter"]
         )
-        or (isinstance(arg.action_json, SendAscii) and arg.action_json.send_ascii == [10])
+        or (
+            isinstance(arg.action_json, SendAscii)
+            and arg.action_json.send_ascii == [10]
+        )
     )
 
 
@@ -632,8 +652,8 @@ def _execute_bash(
                 )
 
             for i in range(0, len(command), 128):
-                bash_state.send(command[i : i + 128])
-            bash_state.send(bash_state.linesep)
+                bash_state.send(command[i : i + 128], set_as_command=None)
+            bash_state.send(bash_state.linesep, set_as_command=command)
 
         elif isinstance(command_data, StatusCheck):
             bash_state.console.print("Checking status")
@@ -646,8 +666,10 @@ def _execute_bash(
 
             bash_state.console.print(f"Interact text: {command_data.send_text}")
             for i in range(0, len(command_data.send_text), 128):
-                bash_state.send(command_data.send_text[i : i + 128])
-            bash_state.send(bash_state.linesep)
+                bash_state.send(
+                    command_data.send_text[i : i + 128], set_as_command=None
+                )
+            bash_state.send(bash_state.linesep, set_as_command=None)
 
         elif isinstance(command_data, SendSpecials):
             if not command_data.send_specials:
@@ -658,15 +680,15 @@ def _execute_bash(
             )
             for char in command_data.send_specials:
                 if char == "Key-up":
-                    bash_state.send("\033[A")
+                    bash_state.send("\033[A", set_as_command=None)
                 elif char == "Key-down":
-                    bash_state.send("\033[B")
+                    bash_state.send("\033[B", set_as_command=None)
                 elif char == "Key-left":
-                    bash_state.send("\033[D")
+                    bash_state.send("\033[D", set_as_command=None)
                 elif char == "Key-right":
-                    bash_state.send("\033[C")
+                    bash_state.send("\033[C", set_as_command=None)
                 elif char == "Enter":
-                    bash_state.send("\n")
+                    bash_state.send("\n", set_as_command=None)
                 elif char == "Ctrl-c":
                     bash_state.sendintr()
                     is_interrupt = True
@@ -674,7 +696,7 @@ def _execute_bash(
                     bash_state.sendintr()
                     is_interrupt = True
                 elif char == "Ctrl-z":
-                    bash_state.send("\x1a")
+                    bash_state.send("\x1a", set_as_command=None)
                 else:
                     raise Exception(f"Unknown special character: {char}")
 
@@ -686,7 +708,7 @@ def _execute_bash(
                 f"Sending ASCII sequence: {command_data.send_ascii}"
             )
             for ascii_char in command_data.send_ascii:
-                bash_state.send(chr(ascii_char))
+                bash_state.send(chr(ascii_char), set_as_command=None)
                 if ascii_char == 3:
                     is_interrupt = True
         else:
