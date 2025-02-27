@@ -505,8 +505,8 @@ class BashState:
 
 
 WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
-1. Get its output using `send_ascii: [10] or send_specials: ["Enter"]`
-2. Use `send_ascii` or `send_specials` to give inputs to the running program, don't use `BashCommand` OR
+1. Get its output using status check.
+2. Use `send_ascii` or `send_specials` to give inputs to the running program OR
 3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`
 4. Interrupt and run the process in background by re-running it using screen
 """
@@ -747,9 +747,9 @@ def _execute_bash(
                 incremental_text = (
                     incremental_text
                     + """---
-    ----
-    Failure interrupting.
-    You may want to try Ctrl-c again or program specific exit interactive commands.
+----
+Failure interrupting.
+You may want to try Ctrl-c again or program specific exit interactive commands.
     """
                 )
 
