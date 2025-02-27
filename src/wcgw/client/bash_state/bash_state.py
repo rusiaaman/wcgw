@@ -78,7 +78,7 @@ def get_tmpdir() -> str:
 
 def check_if_screen_command_available() -> bool:
     try:
-        subprocess.run(["screen", "-v"], capture_output=True, check=True, timeout=0.2)
+        subprocess.run(["which", "screen"], capture_output=True, check=True, timeout=0.2)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
