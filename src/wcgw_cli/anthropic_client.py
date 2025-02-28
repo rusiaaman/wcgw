@@ -227,17 +227,6 @@ def loop(
             mode="wcgw",
         )
 
-        with open(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "wcgw",
-                "client",
-                "diff-instructions.txt",
-            )
-        ) as f:
-            system += f.read()
-
         if history:
             if (
                 (last_msg := history[-1])["role"] == "user"

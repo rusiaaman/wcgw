@@ -207,17 +207,12 @@ def render_terminal_output(text: str) -> list[str]:
     stream.feed(text)
     # Filter out empty lines
     dsp = screen.display[::-1]
-    for start_i, line in enumerate(dsp):
+    for i, line in enumerate(dsp):
         if line.strip():
             break
     else:
-        start_i = len(dsp)
-    end_i = len(dsp) - 1
-    while end_i > start_i:
-        if dsp[end_i].strip():
-            break
-        end_i -= 1
-    lines = screen.display[len(dsp) - end_i - 1 : len(dsp) - start_i]
+        i = len(dsp)
+    lines = screen.display[: len(dsp) - i]
     return lines
 
 
@@ -555,6 +550,11 @@ def _incremental_text(text: str, last_pending_output: str) -> str:
     # text = render_terminal_output(text[-100_000:])
     text = text[-100_000:]
 
+    if not last_pending_output:
+        # This is the first call. We need to offset the position where this program
+        # is being rendered for the new screen versions
+        # Caveat: no difference in output between a program with leading whitespace and one without.
+        return rstrip(render_terminal_output(text)).lstrip()
     last_rendered_lines = render_terminal_output(last_pending_output)
     last_pending_output_rendered = "\n".join(last_rendered_lines)
     if not last_rendered_lines:
