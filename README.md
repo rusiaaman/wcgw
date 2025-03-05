@@ -176,6 +176,32 @@ Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
 
+
+## Using mcp server over docker
+
+First build the docker image `docker build -t wcgw https://github.com/rusiaaman/wcgw.git`
+
+Then you can update `/Users/username/Library/Application Support/Claude/claude_desktop_config.json` to have
+```
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--mount",
+        "type=bind,src=/Users/username/Desktop,dst=/workspace/Desktop",
+        "wcgw",
+      ]
+    }
+  }
+}
+```
+
+
+
 ## [Optional] Local shell access with openai API key or anthropic API key
 
 ### Openai
@@ -227,3 +253,4 @@ The server provides the following MCP tools:
   - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[])
 
 All tools support absolute paths and include built-in protections against common errors. See the [MCP specification](https://modelcontextprotocol.io/) for detailed protocol information.
+
