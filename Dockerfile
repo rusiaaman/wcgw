@@ -8,17 +8,30 @@ WORKDIR /app
 # Copy the project's pyproject.toml and lock file for dependency installation
 COPY pyproject.toml /app/
 COPY uv.lock /app/
+COPY README.md /app/
 
 # Enable bytecode compilation and set link mode to copy for dependencies
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
+
+# Install dependencies including git
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev --no-editable
 
 # Copy the entire project into the container
-COPY . /app
+COPY src /app/src
+
+# Check if src/mcp_wcgw_fork is empty and clone the repository if needed
+RUN if [ ! -d "/app/src/mcp_wcgw_fork" ] || [ -z "$(ls -A /app/src/mcp_wcgw_fork)" ]; then \
+    mkdir -p /app/src/mcp_wcgw_fork && \
+    git clone https://github.com/rusiaaman/python-sdk.git /app/src/mcp_wcgw_fork && \
+    echo "Repository cloned successfully"; \
+    else \
+    echo "src/mcp_wcgw_fork already exists and is not empty"; \
+    fi
 
 # Install the project
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -27,12 +40,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Use a smaller image to run the application
 FROM python:3.12-slim-bookworm
 
+RUN apt-get update && apt-get install -y screen && rm -rf /var/lib/apt/lists/*
+
 # Set the working directory in the container
-WORKDIR /app
+WORKDIR /workspace
 
 # Copy the installed application from the previous stage
-COPY --from=uv /root/.local /root/.local
 COPY --from=uv --chown=app:app /app/.venv /app/.venv
+# Copy the cloned repository if it exists
+COPY --from=uv --chown=app:app /app/src/mcp_wcgw_fork /app/src/mcp_wcgw_fork
 
 # Add the virtual environment to the PATH
 ENV PATH="/app/.venv/bin:$PATH"
