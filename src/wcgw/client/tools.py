@@ -458,6 +458,9 @@ def write_file(
         syntax_errors = check.description
 
         if syntax_errors:
+            if extension in {"tsx", "ts"}:
+                syntax_errors += "\nNote: Ignore if 'tagged template literals' are used, they may raise false positive errors in tree-sitter."
+
             context_for_errors = get_context_for_errors(
                 check.errors, writefile.file_content, max_tokens
             )
@@ -554,11 +557,13 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) 
             context_for_errors = get_context_for_errors(
                 check.errors, apply_diff_to, max_tokens
             )
+            if extension in {"tsx", "ts"}:
+                syntax_errors += "\nNote: Ignore if 'tagged template literals' are used, they may raise false positive errors in tree-sitter."
 
             context.console.print(f"W: Syntax errors encountered: {syntax_errors}")
             return f"""{comments}
 ---
-Tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
+Warning: tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
 Syntax errors:
 {syntax_errors}
 
@@ -803,7 +808,7 @@ def read_file(
             rest = save_out_of_context(
                 default_enc.decoder(tokens[max_tokens:]), Path(file_path).suffix
             )
-            content += f"\n(...truncated)\n---\nI've saved the continuation in a new file. Please read: `{rest}`"
+            content += f"\n(...truncated)\n---\nI've saved the continuation in a new file. You may want to read: `{rest}`"
             truncated = True
     return content, truncated, tokens_counts
 
