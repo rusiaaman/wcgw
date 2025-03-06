@@ -6,6 +6,7 @@ from ..types_ import (
     BashCommand,
     ContextSave,
     FileEdit,
+    FileWriting,
     Initialize,
     ReadFiles,
     ReadImage,
@@ -65,26 +66,20 @@ TOOL_PROMPTS = [
 """,
     ),
     Prompts(
-        inputSchema=WriteIfEmpty.model_json_schema(),
-        name="WriteIfEmpty",
-        description="""
-- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
-- Provide absolute path only.
-- For editing existing files, use FileEdit instead of this tool.
-""",
-    ),
-    Prompts(
         inputSchema=ReadImage.model_json_schema(),
         name="ReadImage",
         description="Read an image from the shell.",
     ),
     Prompts(
-        inputSchema=FileEdit.model_json_schema(),
-        name="FileEdit",
+        inputSchema=FileWriting.model_json_schema(),
+        name="FileWriting",
         description="""
-- Use absolute path only.
-- Use SEARCH/REPLACE blocks to edit the file.
-- If the edit fails due to block not matching, please retry with correct block till it matches. Re-read the file to ensure you've all the lines correct.
+- Writes or edits a file based on the percentage of changes.
+- Use absolute path only (~ allowed).
+- First write down percentage of lines to be changed in the file (100 if it doesn't exist, or 0-100) in percentage_to_change
+- If percentage_to_change > 50, provide full file content in file_content_or_search_replace_blocks
+- If percentage_to_change <= 50, file_content_or_search_replace_blocks should be search/replace blocks.
+
 """
         + diffinstructions,
     ),

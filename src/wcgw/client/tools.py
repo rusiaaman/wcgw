@@ -36,6 +36,7 @@ from ..types_ import (
     Console,
     ContextSave,
     FileEdit,
+    FileWriting,
     Initialize,
     Modes,
     ModesConfig,
@@ -575,10 +576,51 @@ Syntax errors:
     return comments
 
 
+def file_writing(
+    file_writing_args: FileWriting,
+    max_tokens: Optional[int],
+    context: Context,
+) -> str:
+    """
+    Write or edit a file based on percentage of changes.
+    If percentage_changed > 50%, treat content as direct file content.
+    Otherwise, treat content as search/replace blocks.
+    """
+    # Expand the path before checking if it's absolute
+    path_ = expand_user(file_writing_args.file_path)
+    if not os.path.isabs(path_):
+        return f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}"
+
+    
+    # If file doesn't exist, always use direct file_content mode
+    if not file_writing_args.file_content_or_search_replace_blocks.lstrip().startswith("<<<<<<< SEARCH"):
+        # Use direct content mode (same as WriteIfEmpty)
+        return write_file(
+            WriteIfEmpty(
+                file_path=path_,
+                file_content=file_writing_args.file_content_or_search_replace_blocks
+            ),
+            False,
+            max_tokens,
+            context
+        )
+    else:
+        # File exists and percentage <= 50, use search/replace mode
+        return do_diff_edit(
+            FileEdit(
+                file_path=path_,
+                file_edit_using_search_replace_blocks=file_writing_args.file_content_or_search_replace_blocks
+            ),
+            max_tokens,
+            context
+        )
+
+
 TOOLS = (
     BashCommand
     | WriteIfEmpty
     | FileEdit
+    | FileWriting
     | ReadImage
     | ReadFiles
     | Initialize
@@ -598,6 +640,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return WriteIfEmpty
     elif name == "FileEdit":
         return FileEdit
+    elif name == "FileWriting":
+        return FileWriting
     elif name == "ReadImage":
         return ReadImage
     elif name == "ReadFiles":
@@ -667,6 +711,12 @@ def get_tool_output(
             raise Exception("Initialize tool not called yet.")
 
         output = do_diff_edit(arg, max_tokens, context), 0.0
+    elif isinstance(arg, FileWriting):
+        context.console.print("Calling file writing tool")
+        if not INITIALIZED:
+            raise Exception("Initialize tool not called yet.")
+
+        output = file_writing(arg, max_tokens, context), 0.0
     elif isinstance(arg, ReadImage):
         context.console.print("Calling read image tool")
         output = read_image_from_shell(arg.file_path, context), 0.0

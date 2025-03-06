@@ -4,7 +4,7 @@ Instructions for editing files.
 
 Only edit the files using the following SEARCH/REPLACE blocks.
 ```
-file_edit_using_search_replace_blocks="""
+file_content_or_search_replace_blocks="""
 <<<<<<< SEARCH
 def hello():
     "print a greeting"
