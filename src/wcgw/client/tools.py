@@ -197,7 +197,10 @@ def initialize(
     if read_files_:
         if folder_to_start:
             read_files_ = [
-                os.path.join(folder_to_start, f) if not os.path.isabs(f) else f
+                # Expand the path before checking if it's absolute
+                os.path.join(folder_to_start, f)
+                if not os.path.isabs(expand_user(f))
+                else expand_user(f)
                 for f in read_files_
             ]
         initial_files = read_files(read_files_, max_tokens, context)
@@ -364,9 +367,10 @@ def truncate_if_over(content: str, max_tokens: Optional[int]) -> str:
 
 
 def read_image_from_shell(file_path: str, context: Context) -> ImageData:
-    # Expand the path
+    # Expand the path before checking if it's absolute
     file_path = expand_user(file_path)
 
+    # If not absolute after expansion, join with current working directory
     if not os.path.isabs(file_path):
         file_path = os.path.join(context.bash_state.cwd, file_path)
 
@@ -402,10 +406,10 @@ def write_file(
     max_tokens: Optional[int],
     context: Context,
 ) -> str:
-    if not os.path.isabs(writefile.file_path):
+    # Expand the path before checking if it's absolute
+    path_ = expand_user(writefile.file_path)
+    if not os.path.isabs(path_):
         return f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}"
-    else:
-        path_ = expand_user(writefile.file_path)
 
     error_on_exist_ = (
         error_on_exist and path_ not in context.bash_state.whitelist_for_overwrite
@@ -504,12 +508,12 @@ def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) -
 def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) -> str:
     context.console.log(f"Editing file: {fedit.file_path}")
 
-    if not os.path.isabs(fedit.file_path):
+    # Expand the path before checking if it's absolute
+    path_ = expand_user(fedit.file_path)
+    if not os.path.isabs(path_):
         raise Exception(
             f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}"
         )
-    else:
-        path_ = expand_user(fedit.file_path)
 
     # Validate using file_edit_mode
     allowed_globs = context.bash_state.file_edit_mode.allowed_globs
@@ -700,9 +704,12 @@ def get_tool_output(
         context.console.print("Calling task memory tool")
         relevant_files = []
         warnings = ""
+        # Expand user in project root path
         arg.project_root_path = os.path.expanduser(arg.project_root_path)
         for fglob in arg.relevant_file_globs:
+            # Expand user in glob pattern before checking if it's absolute
             fglob = expand_user(fglob)
+            # If not absolute after expansion, join with project root path
             if not os.path.isabs(fglob) and arg.project_root_path:
                 fglob = os.path.join(arg.project_root_path, fglob)
             globs = glob.glob(fglob, recursive=True)
