@@ -21,6 +21,7 @@ from wcgw.types_ import (
     Command,
     Console,
     FileEdit,
+    FileWriting,
     SendAscii,
     SendSpecials,
     SendText,

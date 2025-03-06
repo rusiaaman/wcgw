@@ -1,5 +1,4 @@
 import asyncio
-import os
 import threading
 import time
 from importlib import metadata
@@ -282,7 +281,7 @@ async def context_save(context_save_data: ContextSaveWithUUID) -> str:
     raise fastapi.HTTPException(status_code=500, detail="Timeout error")
 
 
-app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
+app.mount("/static", StaticFiles(directory="static"))
 
 
 def run() -> None:
