@@ -122,7 +122,7 @@ class FileEdit(BaseModel):
     file_edit_using_search_replace_blocks: str
 
 
-class FileWriting(BaseModel):
+class FileWriteOrEdit(BaseModel):
     file_path: str
     percentage_to_change: int  # 0.0 to 100.0
     file_content_or_search_replace_blocks: str
@@ -146,7 +146,7 @@ class Mdata(PydanticBaseModel):
         BashCommand
         | WriteIfEmpty
         | FileEdit
-        | FileWriting
+        | FileWriteOrEdit
         | str
         | ReadFiles
         | Initialize

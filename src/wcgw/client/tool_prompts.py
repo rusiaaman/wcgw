@@ -6,7 +6,7 @@ from ..types_ import (
     BashCommand,
     ContextSave,
     FileEdit,
-    FileWriting,
+    FileWriteOrEdit,
     Initialize,
     ReadFiles,
     ReadImage,
@@ -74,12 +74,13 @@ TOOL_PROMPTS = [
         description="Read an image from the shell.",
     ),
     Prompts(
-        inputSchema=FileWriting.model_json_schema(),
-        name="FileWriting",
+        inputSchema=FileWriteOrEdit.model_json_schema(),
+        name="FileWriteOrEdit",
         description="""
 - Writes or edits a file based on the percentage of changes.
 - Use absolute path only (~ allowed).
-- First write down percentage of lines to be changed in the file (100 if it doesn't exist, or 0-100) in percentage_to_change
+- First write down percentage of lines that need to be replaced in the file (between 0-100) in percentage_to_change
+- percentage_to_change should be low if mostly new code is to be added. It should be high if a lot of things are to be replaced.
 - If percentage_to_change > 50, provide full file content in file_content_or_search_replace_blocks
 - If percentage_to_change <= 50, file_content_or_search_replace_blocks should be search/replace blocks.
 
