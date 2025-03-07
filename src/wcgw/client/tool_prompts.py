@@ -63,7 +63,9 @@ TOOL_PROMPTS = [
         description="""
 - Read full file content of one or more files.
 - Provide absolute paths only (~ allowed)
-- For getting line number ranges use `/path/to/file:1-10` for lines 1-10. You can drop start or end like `/path/to/file:1-` or `/path/to/file:-10` 
+- Only if the task requires line numbers understanding:
+    - You may populate "show_line_numbers_reason" with your reason, by default null/empty means no line numbers are shown.
+    - You may extract a range of lines. E.g., `/path/to/file:1-10` for lines 1-10. You can drop start or end like `/path/to/file:1-` or `/path/to/file:-10` 
 """,
     ),
     Prompts(

@@ -726,7 +726,7 @@ def get_tool_output(
             arg.file_paths, 
             max_tokens, 
             context,
-            arg.show_line_numbers
+            bool(arg.show_line_numbers_reason)
         ), 0.0
     elif isinstance(arg, Initialize):
         context.console.print("Calling initial info tool")
@@ -988,7 +988,7 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                ReadFiles(file_paths=[os.path.dirname(__file__) + "/../../../README.md"], show_line_numbers=True),
+                ReadFiles(file_paths=[os.path.dirname(__file__) + "/../../../README.md"], show_line_numbers_reason="true"),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
