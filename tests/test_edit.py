@@ -165,7 +165,7 @@ def hello():
     )
 
     assert len(outputs) == 1
-    assert "Tree-sitter reported syntax errors" in outputs[0]
+    assert "Warning: tree-sitter reported syntax errors" in outputs[0]
 
     # Verify the change
     with open(test_file) as f:
