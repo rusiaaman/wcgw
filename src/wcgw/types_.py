@@ -114,6 +114,7 @@ class WriteIfEmpty(BaseModel):
 
 class ReadFiles(BaseModel):
     file_paths: list[str]
+    show_line_numbers: bool = False
 
 
 class FileEdit(BaseModel):

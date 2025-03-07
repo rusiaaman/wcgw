@@ -108,10 +108,9 @@ async def test_handle_list_tools():
     required_tools = {
         "Initialize",
         "BashCommand",
-        "ReadFiles",
-        "WriteIfEmpty",
+        "ReadFiles", 
         "ReadImage",
-        "FileEdit",
+        "FileWriting",
         "ContextSave",
     }
     assert required_tools.issubset(

@@ -722,7 +722,12 @@ def get_tool_output(
         output = read_image_from_shell(arg.file_path, context), 0.0
     elif isinstance(arg, ReadFiles):
         context.console.print("Calling read file tool")
-        output = read_files(arg.file_paths, max_tokens, context), 0.0
+        output = read_files(
+            arg.file_paths, 
+            max_tokens, 
+            context,
+            arg.show_line_numbers
+        ), 0.0
     elif isinstance(arg, Initialize):
         context.console.print("Calling initial info tool")
         if arg.type == "user_asked_mode_change" or arg.type == "reset_shell":
@@ -800,12 +805,20 @@ curr_cost = 0.0
 
 
 def read_files(
-    file_paths: list[str], max_tokens: Optional[int], context: Context
+    file_paths: list[str], 
+    max_tokens: Optional[int], 
+    context: Context,
+    show_line_numbers: bool = False
 ) -> str:
     message = ""
     for i, file in enumerate(file_paths):
         try:
-            content, truncated, tokens = read_file(file, max_tokens, context)
+            content, truncated, tokens = read_file(
+                file, 
+                max_tokens, 
+                context,
+                show_line_numbers
+            )
         except Exception as e:
             message += f"\n{file}: {str(e)}\n"
             continue
@@ -827,10 +840,46 @@ def read_files(
 
 
 def read_file(
-    file_path: str, max_tokens: Optional[int], context: Context
+    file_path: str, 
+    max_tokens: Optional[int], 
+    context: Context,
+    show_line_numbers: bool = False
 ) -> tuple[str, bool, int]:
     context.console.print(f"Reading file: {file_path}")
-
+    
+    # Parse line ranges from file path
+    start_line_num = None
+    end_line_num = None
+    
+    if ':' in file_path:
+        file_parts = file_path.split(':', 1)
+        path_part = file_parts[0]
+        
+        # Check if there are line numbers specified
+        if len(file_parts) > 1 and file_parts[1]:
+            line_range = file_parts[1]
+            if '-' in line_range:
+                line_parts = line_range.split('-', 1)
+                
+                # Parse start line number
+                if line_parts[0]:
+                    try:
+                        start_line_num = int(line_parts[0])
+                    except ValueError:
+                        # If we can't parse it, ignore the line number
+                        pass
+                
+                # Parse end line number
+                if len(line_parts) > 1 and line_parts[1]:
+                    try:
+                        end_line_num = int(line_parts[1])
+                    except ValueError:
+                        # If we can't parse it, ignore the line number
+                        pass
+        
+        # Update file_path to just the file part without line numbers
+        file_path = path_part
+    
     # Expand the path before checking if it's absolute
     file_path = expand_user(file_path)
 
@@ -845,20 +894,54 @@ def read_file(
     if not path.exists():
         raise ValueError(f"Error: file {file_path} does not exist")
 
+    # Read all lines of the file
     with path.open("r") as f:
-        content = f.read(10_000_000)
-
+        all_lines = f.readlines(10_000_000)
+    
+    # Apply line range filtering if specified
+    start_idx = 0
+    if start_line_num is not None:
+        # Convert 1-indexed line number to 0-indexed
+        start_idx = max(0, start_line_num - 1)
+    
+    end_idx = len(all_lines)
+    if end_line_num is not None:
+        # end_line_num is inclusive, so we use min to ensure it's within bounds
+        end_idx = min(len(all_lines), end_line_num)
+    
+    filtered_lines = all_lines[start_idx:end_idx]
+    
+    # Create content with or without line numbers
+    if show_line_numbers:
+        content_lines = []
+        for i, line in enumerate(filtered_lines, start=start_idx + 1):
+            content_lines.append(f"{i} {line}")
+        content = "".join(content_lines)
+    else:
+        content = "".join(filtered_lines)
+    
     truncated = False
     tokens_counts = 0
+    
+    # Handle token limit if specified
     if max_tokens is not None:
         tokens = default_enc.encoder(content)
         tokens_counts = len(tokens)
+        
         if len(tokens) > max_tokens:
-            content = default_enc.decoder(tokens[:max_tokens])
-            rest = save_out_of_context(
-                default_enc.decoder(tokens[max_tokens:]), Path(file_path).suffix
-            )
-            content += f"\n(...truncated)\n---\nI've saved the continuation in a new file. You may want to read: `{rest}`"
+            # Truncate at token boundary first
+            truncated_tokens = tokens[:max_tokens]
+            truncated_content = default_enc.decoder(truncated_tokens)
+            
+            # Count how many lines we kept
+            line_count = truncated_content.count('\n')
+                
+            # Calculate the last line number shown
+            last_line_shown = start_idx + line_count
+            
+            content = truncated_content
+            # Add informative message about truncation
+            content += f"\n(...truncated) Only showing till line number {last_line_shown} due to the file size, please continue reading from {last_line_shown + 1} if required"
             truncated = True
     return content, truncated, tokens_counts
 
@@ -900,4 +983,16 @@ if __name__ == "__main__":
                 lambda x, y: ("", 0),
                 None,
             )
+        )
+
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                ReadFiles(file_paths=[os.path.dirname(__file__) + "/../../../README.md"], show_line_numbers=True),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                50,
+                
+            )[0][0]
         )
