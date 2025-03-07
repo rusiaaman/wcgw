@@ -36,7 +36,7 @@ from ..types_ import (
     Console,
     ContextSave,
     FileEdit,
-    FileWriting,
+    FileWriteOrEdit,
     Initialize,
     Modes,
     ModesConfig,
@@ -423,20 +423,13 @@ def write_file(
     ):
         return f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
 
-    add_overwrite_warning = ""
     if (error_on_exist or error_on_exist_) and os.path.exists(path_):
         content = Path(path_).read_text().strip()
         if content:
-            content = truncate_if_over(content, max_tokens)
-
             if error_on_exist_:
                 return (
-                    f"Error: can't write to existing file {path_}, use other functions to edit the file"
-                    + f"\nHere's the existing content:\n```\n{content}\n```"
+                    f"Error: you need to read existing file {path_} at least once before it can be overwritten"
                 )
-            else:
-                add_overwrite_warning = content
-
     # Since we've already errored once, add this to whitelist
     context.bash_state.add_to_whitelist_for_overwrite(path_)
 
@@ -479,14 +472,6 @@ Syntax errors:
     except Exception:
         pass
 
-    if add_overwrite_warning:
-        warnings.append(
-            "\n---\nWarning: a file already existed and it's now overwritten. Was it a mistake? If yes please revert your action."
-            "\n---\n"
-            + "Here's the previous content:\n```\n"
-            + add_overwrite_warning
-            + "\n```"
-        )
 
     return "Success" + "".join(warnings)
 
@@ -577,7 +562,7 @@ Syntax errors:
 
 
 def file_writing(
-    file_writing_args: FileWriting,
+    file_writing_args: FileWriteOrEdit,
     max_tokens: Optional[int],
     context: Context,
 ) -> str:
@@ -600,7 +585,7 @@ def file_writing(
                 file_path=path_,
                 file_content=file_writing_args.file_content_or_search_replace_blocks
             ),
-            False,
+            True,
             max_tokens,
             context
         )
@@ -620,7 +605,7 @@ TOOLS = (
     BashCommand
     | WriteIfEmpty
     | FileEdit
-    | FileWriting
+    | FileWriteOrEdit
     | ReadImage
     | ReadFiles
     | Initialize
@@ -640,8 +625,8 @@ def which_tool_name(name: str) -> Type[TOOLS]:
         return WriteIfEmpty
     elif name == "FileEdit":
         return FileEdit
-    elif name == "FileWriting":
-        return FileWriting
+    elif name == "FileWriteOrEdit":
+        return FileWriteOrEdit
     elif name == "ReadImage":
         return ReadImage
     elif name == "ReadFiles":
@@ -711,7 +696,7 @@ def get_tool_output(
             raise Exception("Initialize tool not called yet.")
 
         output = do_diff_edit(arg, max_tokens, context), 0.0
-    elif isinstance(arg, FileWriting):
+    elif isinstance(arg, FileWriteOrEdit):
         context.console.print("Calling file writing tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")

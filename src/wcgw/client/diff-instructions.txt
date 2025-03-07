@@ -1,17 +1,41 @@
 
 Instructions for editing files.
+# Example
+## Input file
+```
+import numpy as np
+from impls import impl1, impl2
 
+def hello():
+    "print a greeting"
 
-Only edit the files using the following SEARCH/REPLACE blocks.
+    print("hello")
+
+def call_hello():
+    "call hello"
+
+    hello()
+    print("Called")
+    impl1()
+    hello()
+    impl2()
+
+```
+## Edit format on the input file
 ```
 file_content_or_search_replace_blocks="""
+<<<<<<< SEARCH
+from impls import impl1, impl2
+=======
+from impls import impl1, impl2
+from hello import hello as hello_renamed
+>>>>>>> REPLACE
 <<<<<<< SEARCH
 def hello():
     "print a greeting"
 
     print("hello")
 =======
-from hello import hello as hello_renamed
 >>>>>>> REPLACE
 <<<<<<< SEARCH
 def call_hello():
@@ -37,22 +61,14 @@ def call_hello_renamed():
 ```
 
 # *SEARCH/REPLACE block* Rules:
-
-Every *SEARCH/REPLACE block* must use this format:
-1. The start of match block: <<<<<<< SEARCH
-2. A contiguous chunk of lines to do exact match for in the existing source code
-3. The dividing line: =======
-4. The lines to replace into the source code
-5. The end of the replace block: >>>>>>> REPLACE
-
 Every "<<<<<<< SEARCH" section must *EXACTLY MATCH* the existing file content, character for character, including all comments, docstrings, whitespaces, etc.
 
 Including multiple unique *SEARCH/REPLACE* blocks if needed.
-Include enough lines in each SEARCH section to uniquely match each set of lines that need to change.
+Include enough and only enough lines in each SEARCH section to uniquely match each set of lines that need to change.
 
 Keep *SEARCH/REPLACE* blocks concise.
 Break large *SEARCH/REPLACE* blocks into a series of smaller blocks that each change a small portion of the file.
-Include just the changing lines, and a few surrounding lines if needed for uniqueness.
-Do not include long runs of unchanging lines in *SEARCH/REPLACE* blocks.
+Include just the changing lines, and a few surrounding lines (2-3 lines) if needed for uniqueness.
+Other than for uniqueness, avoid including those lines which do not change in search (and replace) blocks. Target 2-3 non trivial extra lines per block.
 
 Preserve leading spaces and indentations in both SEARCH and REPLACE blocks.
