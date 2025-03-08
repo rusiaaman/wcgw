@@ -12,7 +12,7 @@ Empowering chat applications to code, build and run on your local machine.
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
 [![smithery badge](https://smithery.ai/badge/wcgw)](https://smithery.ai/server/wcgw)
-[![Reddit](https://img.shields.io/badge/Reddit-r%wcgw_mcp-red)](https://www.reddit.com/r/wcgw_mcp/)
+[![Reddit](https://img.shields.io/badge/Reddit-r%2Fwcgw_mcp-red)](https://www.reddit.com/r/wcgw_mcp/)
 
 ## Updates
 
