@@ -20,8 +20,7 @@ from wcgw.client.tools import (
 from wcgw.types_ import (
     Command,
     Console,
-    FileEdit,
-    FileWriting,
+    FileWriteOrEdit,
     SendAscii,
     SendSpecials,
     SendText,
@@ -392,7 +391,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
 
     # Test writing a file
     test_file = os.path.join(temp_dir, "test.txt")
-    write_args = WriteIfEmpty(file_path=test_file, file_content="test content\n")
+    write_args = FileWriteOrEdit(file_path=test_file, percentage_to_change=100, file_content_or_search_replace_blocks="test content\n")
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -413,13 +412,13 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     with open(test_file2, "w") as f:
         f.write("existing content\n")
     # Test writing to an existing file without reading it first (should warn)
-    write_args = WriteIfEmpty(file_path=test_file2, file_content="new content\n")
+    write_args = FileWriteOrEdit(file_path=test_file2, percentage_to_change=100, file_content_or_search_replace_blocks="new content\n")
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert len(outputs) == 1
     assert (
-        "Error: can't write to existing file" in outputs[0]
+        "Error: you need to read existing " in outputs[0]
     )  # Should fail with exception
 
     # Test writing after reading the file (should succeed with warning)
@@ -428,14 +427,13 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
 
-    write_args = WriteIfEmpty(
-        file_path=test_file2, file_content="new content after read\n"
+    write_args = FileWriteOrEdit(
+        file_path=test_file2, percentage_to_change=100, file_content_or_search_replace_blocks="new content after read\n"
     )
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
     assert len(outputs) == 1
-    assert "Warning: a file already existed" in outputs[0]
     assert "Success" in outputs[0]
 
     # Verify the new content was written
@@ -735,8 +733,7 @@ def test_which_tool_name() -> None:
     """Test the which_tool_name function."""
     # Test each tool type
     assert which_tool_name("BashCommand") == BashCommand
-    assert which_tool_name("WriteIfEmpty") == WriteIfEmpty
-    assert which_tool_name("FileEdit") == FileEdit
+    assert which_tool_name("FileWriteOrEdit") == FileWriteOrEdit
     assert which_tool_name("ReadImage") == ReadImage
     assert which_tool_name("ReadFiles") == ReadFiles
     assert which_tool_name("Initialize") == Initialize
@@ -770,8 +767,8 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
     assert "Error" in outputs[0]
 
     # Test writing to non-existent directory
-    write_args = WriteIfEmpty(
-        file_path=os.path.join(temp_dir, "nonexistent", "test.txt"), file_content="test"
+    write_args = FileWriteOrEdit(
+        file_path=os.path.join(temp_dir, "nonexistent", "test.txt"), file_content_or_search_replace_blocks="test", percentage_to_change=100
     )
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None

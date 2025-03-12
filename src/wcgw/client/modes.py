@@ -55,38 +55,38 @@ You are now running in "code_writer" mode.
 """
 
     path_prompt = """
-    - You are allowed to run FileEdit in the provided repository only.
+    - You are allowed to edit files in the provided repository only.
     """
 
     if allowed_file_edit_globs != "all":
         if allowed_file_edit_globs:
             path_prompt = f"""
-    - You are allowed to run FileEdit for files matching only the following globs: {", ".join(allowed_file_edit_globs)}
+    - You are allowed to edit files for files matching only the following globs: {", ".join(allowed_file_edit_globs)}
 """
         else:
             path_prompt = """
-    - You are not allowed to run FileEdit.
+    - You are not allowed to edit files.
 """
     base += path_prompt
 
     path_prompt = """
-    - You are allowed to run WriteIfEmpty in the provided repository only.
+    - You are allowed to write files in the provided repository only.
     """
 
     if all_write_new_globs != "all":
         if all_write_new_globs:
             path_prompt = f"""
-    - You are allowed to run WriteIfEmpty files matching only the following globs: {", ".join(allowed_file_edit_globs)}
+    - You are allowed to write files files matching only the following globs: {", ".join(allowed_file_edit_globs)}
 """
         else:
             path_prompt = """
-    - You are not allowed to run WriteIfEmpty.
+    - You are not allowed to write files.
 """
     base += path_prompt
 
     run_command_common = """
     - Do not use Ctrl-c interrupt commands without asking the user, because often the programs don't show any update but they still are running.
-    - Do not use echo to write multi-line files, always use FileEdit tool to update a code.
+    - Do not use echo to write multi-line files, always use FileWriteOrEdit tool to update a code.
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - You should use the provided bash execution, reading and writing file tools to complete objective.
     - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)

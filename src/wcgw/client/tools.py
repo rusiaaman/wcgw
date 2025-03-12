@@ -49,7 +49,7 @@ from .bash_state.bash_state import (
     execute_bash,
 )
 from .encoder import EncoderDecoder, get_default_encoder
-from .file_ops.search_replace import search_replace_edit
+from .file_ops.search_replace import DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER, search_replace_edit
 from .memory import load_memory, save_memory
 from .modes import (
     ARCHITECT_PROMPT,
@@ -560,6 +560,18 @@ Syntax errors:
 
     return comments
 
+def _is_edit(content: str, percentage: int) -> bool:
+    lines = content.lstrip().split('\n')
+    if not lines:
+        return False
+    line = lines[0]
+    if SEARCH_MARKER.match(line):
+        return True
+    if percentage <= 50:
+        for line in lines:
+            if SEARCH_MARKER.match(line) or DIVIDER_MARKER.match(line) or REPLACE_MARKER.match(line):
+                return True
+    return False
 
 def file_writing(
     file_writing_args: FileWriteOrEdit,
@@ -578,7 +590,9 @@ def file_writing(
 
     
     # If file doesn't exist, always use direct file_content mode
-    if not file_writing_args.file_content_or_search_replace_blocks.lstrip().startswith("<<<<<<< SEARCH"):
+    content = file_writing_args.file_content_or_search_replace_blocks
+
+    if not _is_edit(content, file_writing_args.percentage_to_change):
         # Use direct content mode (same as WriteIfEmpty)
         return write_file(
             WriteIfEmpty(
@@ -603,8 +617,6 @@ def file_writing(
 
 TOOLS = (
     BashCommand
-    | WriteIfEmpty
-    | FileEdit
     | FileWriteOrEdit
     | ReadImage
     | ReadFiles
@@ -621,10 +633,6 @@ def which_tool(args: str) -> TOOLS:
 def which_tool_name(name: str) -> Type[TOOLS]:
     if name == "BashCommand":
         return BashCommand
-    elif name == "WriteIfEmpty":
-        return WriteIfEmpty
-    elif name == "FileEdit":
-        return FileEdit
     elif name == "FileWriteOrEdit":
         return FileWriteOrEdit
     elif name == "ReadImage":
