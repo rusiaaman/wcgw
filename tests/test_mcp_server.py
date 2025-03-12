@@ -110,7 +110,7 @@ async def test_handle_list_tools():
         "BashCommand",
         "ReadFiles", 
         "ReadImage",
-        "FileWriting",
+        "FileWriteOrEdit",
         "ContextSave",
     }
     assert required_tools.issubset(

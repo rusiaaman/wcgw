@@ -9,7 +9,7 @@ from wcgw.client.file_ops.diff_edit import SearchReplaceMatchError
 from wcgw.client.file_ops.search_replace import SearchReplaceSyntaxError
 from wcgw.client.tools import (
     Context,
-    FileEdit,
+    FileWriteOrEdit,
     Initialize,
     default_enc,
     get_tool_output,
@@ -59,7 +59,7 @@ def context(temp_dir: str) -> Generator[Context, None, None]:
 
 
 def test_file_edit(context: Context, temp_dir: str) -> None:
-    """Test the FileEdit tool."""
+    """Test the FileWriteOrEdit tool."""
     # First initialize
     init_args = Initialize(
         any_workspace_path=temp_dir,
@@ -77,9 +77,10 @@ def test_file_edit(context: Context, temp_dir: str) -> None:
         f.write("def hello():\n    print('hello')\n")
 
     # Test editing the file
-    edit_args = FileEdit(
+    edit_args = FileWriteOrEdit(
         file_path=test_file,
-        file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+        percentage_to_change=10,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('hello')
 =======
@@ -100,9 +101,10 @@ def hello():
     assert "hello world" in content
 
     # Test indentation match
-    edit_args = FileEdit(
+    edit_args = FileWriteOrEdit(
         file_path=test_file,
-        file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+        percentage_to_change=100,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
   def hello():
     print('hello world')     
 =======
@@ -124,9 +126,10 @@ def hello():
     assert "print('ok')" in content
 
     # Test no match with partial
-    edit_args = FileEdit(
+    edit_args = FileWriteOrEdit(
         file_path=test_file,
-        file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+        percentage_to_change=50,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
   def hello():
     print('no match')  
 =======
@@ -148,9 +151,10 @@ def hello():
         assert "print('ok')" in content
 
     # Test syntax error
-    edit_args = FileEdit(
+    edit_args = FileWriteOrEdit(
         file_path=test_file,
-        file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+        percentage_to_change=10,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
 
 def hello():
     print('ok')
@@ -173,9 +177,10 @@ def hello():
     assert "print('ok\")" in content
 
     with pytest.raises(SearchReplaceSyntaxError) as e:
-        edit_args = FileEdit(
+        edit_args = FileWriteOrEdit(
             file_path=test_file,
-            file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+            percentage_to_change=50,
+            file_content_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('ok')
 =======
@@ -191,9 +196,10 @@ def hello():
         )
 
     with pytest.raises(SearchReplaceSyntaxError) as e:
-        edit_args = FileEdit(
+        edit_args = FileWriteOrEdit(
             file_path=test_file,
-            file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+            percentage_to_change=10,
+            file_content_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('ok')
 =======
@@ -217,9 +223,10 @@ def hello():
 """)
 
     with pytest.raises(SearchReplaceMatchError) as e:
-        edit_args = FileEdit(
+        edit_args = FileWriteOrEdit(
             file_path=test_file,
-            file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+            percentage_to_change=1,
+            file_content_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('ok')
 =======
@@ -234,9 +241,10 @@ def hello():
         )
 
     # Grounding should pass even when duplicate found
-    edit_args = FileEdit(
+    edit_args = FileWriteOrEdit(
         file_path=test_file,
-        file_edit_using_search_replace_blocks="""<<<<<<< SEARCH
+        percentage_to_change=10,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
 # Comment
 =======
 # New Comment

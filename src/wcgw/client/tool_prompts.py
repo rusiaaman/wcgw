@@ -5,12 +5,10 @@ from typing import Any
 from ..types_ import (
     BashCommand,
     ContextSave,
-    FileEdit,
     FileWriteOrEdit,
     Initialize,
     ReadFiles,
     ReadImage,
-    WriteIfEmpty,
 )
 
 with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:
