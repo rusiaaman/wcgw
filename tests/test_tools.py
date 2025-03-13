@@ -12,7 +12,6 @@ from wcgw.client.tools import (
     Initialize,
     ReadFiles,
     ReadImage,
-    WriteIfEmpty,
     default_enc,
     get_tool_output,
     which_tool_name,
@@ -408,6 +407,19 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     assert len(outputs) == 1
     assert "test content" in outputs[0]
 
+    # Simulate external modification of the file
+    with open(test_file, "w") as f:
+        f.write("modified content\n")
+
+    # Attempt to write again
+    write_args = FileWriteOrEdit(file_path=test_file, percentage_to_change=100, file_content_or_search_replace_blocks="new content\n")
+    outputs, _ = get_tool_output(
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    # Verify the error message
+    assert "Error: the file has changed since last read." in outputs[0]
+    
     test_file2 = os.path.join(temp_dir, "test2.txt")
     with open(test_file2, "w") as f:
         f.write("existing content\n")

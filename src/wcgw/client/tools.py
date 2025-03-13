@@ -7,6 +7,7 @@ import os
 import subprocess
 import traceback
 from dataclasses import dataclass
+from hashlib import sha256
 from os.path import expanduser
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -425,6 +426,14 @@ def write_file(
         error_on_exist and path_ not in context.bash_state.whitelist_for_overwrite
     )
 
+    if error_on_exist and path_ in context.bash_state.whitelist_for_overwrite:
+        # Ensure hash has not changed
+        if os.path.exists(path_):
+            with open(path_, "rb") as f:
+                curr_hash = sha256(f.read()).hexdigest()
+                if curr_hash != context.bash_state.whitelist_for_overwrite[path_]:
+                    error_on_exist_ = True
+
     # Validate using write_if_empty_mode after checking whitelist
     allowed_globs = context.bash_state.write_if_empty_mode.allowed_globs
     if allowed_globs != "all" and not any(
@@ -439,12 +448,14 @@ def write_file(
         content = Path(path_).read_text().strip()
         if content:
             if error_on_exist_:
+                msg = f"Error: you need to read existing file {path_} at least once before it can be overwritten.\n\n"
+                if path_ in context.bash_state.whitelist_for_overwrite:
+                    msg = "Error: the file has changed since last read. \n\n"
                 # Show the existing file content by using read_file
                 file_content, _, _, _ = read_file(path_, max_tokens, context, False)
-                return (
-                    f"Error: you need to read existing file {path_} at least once before it can be overwritten.\n\n"
-                    f"Here's the existing file:\n```\n{file_content}\n```"
-                ), [path_]  # Return the file path since we've effectively read it
+                return (msg + f"Here's the existing file:\n```\n{file_content}\n```"), [
+                    path_
+                ]  # Return the file path since we've effectively read it
     # No need to add to whitelist here - will be handled by get_tool_output
 
     path = Path(path_)
