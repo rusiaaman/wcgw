@@ -6,11 +6,13 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import (
     Any,
     Literal,
     Optional,
     ParamSpec,
+    Sequence,
     TypeVar,
 )
 
@@ -232,7 +234,7 @@ class BashState:
         write_if_empty_mode: Optional[WriteIfEmptyMode],
         mode: Optional[Modes],
         use_screen: bool,
-        whitelist_for_overwrite: Optional[set[str]] = None,
+        whitelist_for_overwrite: Optional[dict[str, str]] = None,
     ) -> None:
         self._last_command: str = ""
         self.console = console
@@ -245,7 +247,9 @@ class BashState:
             write_if_empty_mode or WriteIfEmptyMode("all")
         )
         self._mode = mode or "wcgw"
-        self._whitelist_for_overwrite: set[str] = whitelist_for_overwrite or set()
+        self._whitelist_for_overwrite: dict[str, str] = (
+            whitelist_for_overwrite or dict()
+        )
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
         self._use_screen = use_screen
@@ -454,20 +458,21 @@ class BashState:
             "bash_command_mode": self._bash_command_mode.serialize(),
             "file_edit_mode": self._file_edit_mode.serialize(),
             "write_if_empty_mode": self._write_if_empty_mode.serialize(),
-            "whitelist_for_overwrite": list(self._whitelist_for_overwrite),
+            "whitelist_for_overwrite": self._whitelist_for_overwrite,
             "mode": self._mode,
         }
 
     @staticmethod
     def parse_state(
         state: dict[str, Any],
-    ) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes, list[str]]:
+    ) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes, dict[str, str]]:
+        wl = state["whitelist_for_overwrite"]
         return (
             BashCommandMode.deserialize(state["bash_command_mode"]),
             FileEditMode.deserialize(state["file_edit_mode"]),
             WriteIfEmptyMode.deserialize(state["write_if_empty_mode"]),
             state["mode"],
-            state["whitelist_for_overwrite"],
+            wl if isinstance(wl, dict) else {k: "" for k in wl},
         )
 
     def load_state(
@@ -476,7 +481,7 @@ class BashState:
         file_edit_mode: FileEditMode,
         write_if_empty_mode: WriteIfEmptyMode,
         mode: Modes,
-        whitelist_for_overwrite: list[str],
+        whitelist_for_overwrite: dict[str, str],
         cwd: str,
     ) -> None:
         """Create a new BashState instance from a serialized state dictionary"""
@@ -484,7 +489,7 @@ class BashState:
         self._cwd = cwd or self._cwd
         self._file_edit_mode = file_edit_mode
         self._write_if_empty_mode = write_if_empty_mode
-        self._whitelist_for_overwrite = set(whitelist_for_overwrite)
+        self._whitelist_for_overwrite = dict(whitelist_for_overwrite)
         self._mode = mode
         self.reset_shell()
 
@@ -505,11 +510,15 @@ class BashState:
         return "Not pending"
 
     @property
-    def whitelist_for_overwrite(self) -> set[str]:
+    def whitelist_for_overwrite(self) -> dict[str, str]:
         return self._whitelist_for_overwrite
 
-    def add_to_whitelist_for_overwrite(self, file_path: str) -> None:
-        self._whitelist_for_overwrite.add(file_path)
+    def add_to_whitelist_for_overwrite(self, file_paths: Sequence[str]) -> None:
+        for file_path in file_paths:
+            with open(file_path, "br") as f:
+                self._whitelist_for_overwrite[str(file_path)] = sha256(
+                    f.read()
+                ).hexdigest()
 
     @property
     def pending_output(self) -> str:
