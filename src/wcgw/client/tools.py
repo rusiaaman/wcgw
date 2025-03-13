@@ -49,7 +49,12 @@ from .bash_state.bash_state import (
     execute_bash,
 )
 from .encoder import EncoderDecoder, get_default_encoder
-from .file_ops.search_replace import DIVIDER_MARKER, REPLACE_MARKER, SEARCH_MARKER, search_replace_edit
+from .file_ops.search_replace import (
+    DIVIDER_MARKER,
+    REPLACE_MARKER,
+    SEARCH_MARKER,
+    search_replace_edit,
+)
 from .memory import load_memory, save_memory
 from .modes import (
     ARCHITECT_PROMPT,
@@ -93,7 +98,7 @@ def initialize(
     task_id_to_resume: str,
     max_tokens: Optional[int],
     mode: ModesConfig,
-) -> tuple[str, Context]:
+) -> tuple[str, Context, list[str]]:  # Updated to return file paths
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
     repo_context = ""
@@ -158,7 +163,7 @@ def initialize(
                     parsed_state[1],
                     parsed_state[2],
                     parsed_state[3],
-                    parsed_state[4] + list(context.bash_state.whitelist_for_overwrite),
+                    {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
                     str(folder_to_start) if folder_to_start else "",
                 )
             else:
@@ -168,7 +173,7 @@ def initialize(
                     state[1],
                     state[2],
                     state[3],
-                    parsed_state[4] + list(context.bash_state.whitelist_for_overwrite),
+                    {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
                     str(folder_to_start) if folder_to_start else "",
                 )
         except ValueError:
@@ -184,7 +189,7 @@ def initialize(
             state[1],
             state[2],
             state[3],
-            list(context.bash_state.whitelist_for_overwrite),
+            dict(context.bash_state.whitelist_for_overwrite),
             str(folder_to_start) if folder_to_start else "",
         )
         if type == "first_call" or mode_changed:
@@ -195,6 +200,7 @@ def initialize(
     del mode
 
     initial_files_context = ""
+    initial_paths: list[str] = []
     if read_files_:
         if folder_to_start:
             read_files_ = [
@@ -204,7 +210,7 @@ def initialize(
                 else expand_user(f)
                 for f in read_files_
             ]
-        initial_files = read_files(read_files_, max_tokens, context)
+        initial_files, initial_paths = read_files(read_files_, max_tokens, context)
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
     uname_sysname = os.uname().sysname
@@ -229,7 +235,7 @@ Initialized in directory (also cwd): {context.bash_state.cwd}
 
     global INITIALIZED
     INITIALIZED = True
-    return output, context
+    return output, context, initial_paths
 
 
 def is_mode_change(mode_config: ModesConfig, bash_state: BashState) -> bool:
@@ -268,7 +274,7 @@ def reset_wcgw(
             file_edit_mode,
             write_if_empty_mode,
             mode,
-            list(context.bash_state.whitelist_for_overwrite),
+            dict(context.bash_state.whitelist_for_overwrite),
             starting_directory,
         )
         mode_prompt = get_mode_prompt(context)
@@ -292,7 +298,7 @@ def reset_wcgw(
             file_edit_mode,
             write_if_empty_mode,
             mode,
-            list(context.bash_state.whitelist_for_overwrite),
+            dict(context.bash_state.whitelist_for_overwrite),
             starting_directory,
         )
     INITIALIZED = True
@@ -406,11 +412,14 @@ def write_file(
     error_on_exist: bool,
     max_tokens: Optional[int],
     context: Context,
-) -> str:
+) -> tuple[str, list[str]]:  # Updated to return message and file paths
     # Expand the path before checking if it's absolute
     path_ = expand_user(writefile.file_path)
     if not os.path.isabs(path_):
-        return f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}"
+        return (
+            f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}",
+            [],
+        )
 
     error_on_exist_ = (
         error_on_exist and path_ not in context.bash_state.whitelist_for_overwrite
@@ -421,17 +430,22 @@ def write_file(
     if allowed_globs != "all" and not any(
         fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
     ):
-        return f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
+        return (
+            f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}",
+            [],
+        )
 
     if (error_on_exist or error_on_exist_) and os.path.exists(path_):
         content = Path(path_).read_text().strip()
         if content:
             if error_on_exist_:
+                # Show the existing file content by using read_file
+                file_content, _, _, _ = read_file(path_, max_tokens, context, False)
                 return (
-                    f"Error: you need to read existing file {path_} at least once before it can be overwritten"
-                )
-    # Since we've already errored once, add this to whitelist
-    context.bash_state.add_to_whitelist_for_overwrite(path_)
+                    f"Error: you need to read existing file {path_} at least once before it can be overwritten.\n\n"
+                    f"Here's the existing file:\n```\n{file_content}\n```"
+                ), [path_]  # Return the file path since we've effectively read it
+    # No need to add to whitelist here - will be handled by get_tool_output
 
     path = Path(path_)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -440,7 +454,7 @@ def write_file(
         with path.open("w") as f:
             f.write(writefile.file_content)
     except OSError as e:
-        return f"Error: {e}"
+        return f"Error: {e}", []
 
     extension = Path(path_).suffix.lstrip(".")
 
@@ -472,11 +486,14 @@ Syntax errors:
     except Exception:
         pass
 
+    return "Success" + "".join(warnings), [
+        path_
+    ]  # Return the file path along with success message
 
-    return "Success" + "".join(warnings)
 
-
-def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) -> str:
+def do_diff_edit(
+    fedit: FileEdit, max_tokens: Optional[int], context: Context
+) -> tuple[str, list[str]]:
     try:
         return _do_diff_edit(fedit, max_tokens, context)
     except Exception as e:
@@ -494,7 +511,9 @@ def do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) -
         raise e
 
 
-def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) -> str:
+def _do_diff_edit(
+    fedit: FileEdit, max_tokens: Optional[int], context: Context
+) -> tuple[str, list[str]]:
     context.console.log(f"Editing file: {fedit.file_path}")
 
     # Expand the path before checking if it's absolute
@@ -513,8 +532,7 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) 
             f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
         )
 
-    # The LLM is now aware that the file exists
-    context.bash_state.add_to_whitelist_for_overwrite(path_)
+    # No need to add to whitelist here - will be handled by get_tool_output
 
     if not os.path.exists(path_):
         raise Exception(f"Error: file {path_} does not exist")
@@ -547,21 +565,25 @@ def _do_diff_edit(fedit: FileEdit, max_tokens: Optional[int], context: Context) 
                 syntax_errors += "\nNote: Ignore if 'tagged template literals' are used, they may raise false positive errors in tree-sitter."
 
             context.console.print(f"W: Syntax errors encountered: {syntax_errors}")
-            return f"""{comments}
+            return (
+                f"""{comments}
 ---
 Warning: tree-sitter reported syntax errors, please re-read the file and fix if there are any errors.
 Syntax errors:
 {syntax_errors}
 
 {context_for_errors}
-"""
+""",
+                [path_],
+            )  # Return the file path along with the warning message
     except Exception:
         pass
 
-    return comments
+    return comments, [path_]  # Return the file path along with the edit comments
+
 
 def _is_edit(content: str, percentage: int) -> bool:
-    lines = content.lstrip().split('\n')
+    lines = content.lstrip().split("\n")
     if not lines:
         return False
     line = lines[0]
@@ -569,15 +591,20 @@ def _is_edit(content: str, percentage: int) -> bool:
         return True
     if percentage <= 50:
         for line in lines:
-            if SEARCH_MARKER.match(line) or DIVIDER_MARKER.match(line) or REPLACE_MARKER.match(line):
+            if (
+                SEARCH_MARKER.match(line)
+                or DIVIDER_MARKER.match(line)
+                or REPLACE_MARKER.match(line)
+            ):
                 return True
     return False
+
 
 def file_writing(
     file_writing_args: FileWriteOrEdit,
     max_tokens: Optional[int],
     context: Context,
-) -> str:
+) -> tuple[str, list[str]]:  # Updated to return message and file paths
     """
     Write or edit a file based on percentage of changes.
     If percentage_changed > 50%, treat content as direct file content.
@@ -586,43 +613,40 @@ def file_writing(
     # Expand the path before checking if it's absolute
     path_ = expand_user(file_writing_args.file_path)
     if not os.path.isabs(path_):
-        return f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}"
+        return (
+            f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}",
+            [],
+        )
 
-    
     # If file doesn't exist, always use direct file_content mode
     content = file_writing_args.file_content_or_search_replace_blocks
 
     if not _is_edit(content, file_writing_args.percentage_to_change):
         # Use direct content mode (same as WriteIfEmpty)
-        return write_file(
+        result, paths = write_file(
             WriteIfEmpty(
                 file_path=path_,
-                file_content=file_writing_args.file_content_or_search_replace_blocks
+                file_content=file_writing_args.file_content_or_search_replace_blocks,
             ),
             True,
             max_tokens,
-            context
+            context,
         )
+        return result, paths
     else:
         # File exists and percentage <= 50, use search/replace mode
-        return do_diff_edit(
+        result, paths = do_diff_edit(
             FileEdit(
                 file_path=path_,
-                file_edit_using_search_replace_blocks=file_writing_args.file_content_or_search_replace_blocks
+                file_edit_using_search_replace_blocks=file_writing_args.file_content_or_search_replace_blocks,
             ),
             max_tokens,
-            context
+            context,
         )
+        return result, paths
 
 
-TOOLS = (
-    BashCommand
-    | FileWriteOrEdit
-    | ReadImage
-    | ReadFiles
-    | Initialize
-    | ContextSave
-)
+TOOLS = BashCommand | FileWriteOrEdit | ReadImage | ReadFiles | Initialize | ContextSave
 
 
 def which_tool(args: str) -> TOOLS:
@@ -684,43 +708,55 @@ def get_tool_output(
     output: tuple[str | ImageData, float]
     TOOL_CALLS.append(arg)
 
+    # Initialize an empty list to track file paths used by the tool
+    new_file_paths_read_for_whitelist: list[str] = []
+
     if isinstance(arg, BashCommand):
         context.console.print("Calling execute bash tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = execute_bash(
+        output_str, cost = execute_bash(
             context.bash_state, enc, arg, max_tokens, arg.wait_for_seconds
         )
+        output = output_str, cost
     elif isinstance(arg, WriteIfEmpty):
         context.console.print("Calling write file tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = write_file(arg, True, max_tokens, context), 0
+        result, write_paths = write_file(arg, True, max_tokens, context)
+        output = result, 0
+        new_file_paths_read_for_whitelist.extend(write_paths)
     elif isinstance(arg, FileEdit):
         context.console.print("Calling full file edit tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = do_diff_edit(arg, max_tokens, context), 0.0
+        result, edit_paths = do_diff_edit(arg, max_tokens, context)
+        output = result, 0.0
+        new_file_paths_read_for_whitelist.extend(edit_paths)
     elif isinstance(arg, FileWriteOrEdit):
         context.console.print("Calling file writing tool")
         if not INITIALIZED:
             raise Exception("Initialize tool not called yet.")
 
-        output = file_writing(arg, max_tokens, context), 0.0
+        result, write_edit_paths = file_writing(arg, max_tokens, context)
+        output = result, 0.0
+        new_file_paths_read_for_whitelist.extend(write_edit_paths)
     elif isinstance(arg, ReadImage):
         context.console.print("Calling read image tool")
-        output = read_image_from_shell(arg.file_path, context), 0.0
+        path = expand_user(arg.file_path)
+        image_data = read_image_from_shell(arg.file_path, context)
+        output = image_data, 0.0
+        new_file_paths_read_for_whitelist.append(path)
     elif isinstance(arg, ReadFiles):
         context.console.print("Calling read file tool")
-        output = read_files(
-            arg.file_paths, 
-            max_tokens, 
-            context,
-            bool(arg.show_line_numbers_reason)
-        ), 0.0
+        result, read_paths = read_files(
+            arg.file_paths, max_tokens, context, bool(arg.show_line_numbers_reason)
+        )
+        output = result, 0.0
+        new_file_paths_read_for_whitelist.extend(read_paths)
     elif isinstance(arg, Initialize):
         context.console.print("Calling initial info tool")
         if arg.type == "user_asked_mode_change" or arg.type == "reset_shell":
@@ -742,7 +778,7 @@ def get_tool_output(
                 0.0,
             )
         else:
-            output_, context = initialize(
+            output_, context, init_paths = initialize(
                 arg.type,
                 context,
                 arg.any_workspace_path,
@@ -752,6 +788,9 @@ def get_tool_output(
                 arg.mode,
             )
             output = output_, 0.0
+            new_file_paths_read_for_whitelist.extend(
+                init_paths
+            )  # Add paths from initialize
 
     elif isinstance(arg, ContextSave):
         context.console.print("Calling task memory tool")
@@ -769,7 +808,7 @@ def get_tool_output(
             relevant_files.extend(globs[:1000])
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
-        relevant_files_data = read_files(relevant_files[:10_000], None, context)
+        relevant_files_data, _ = read_files(relevant_files[:10_000], None, context)
         save_path = save_memory(
             arg, relevant_files_data, context.bash_state.serialize()
         )
@@ -784,6 +823,12 @@ def get_tool_output(
         output = output_, 0.0
     else:
         raise ValueError(f"Unknown tool: {arg}")
+
+    if new_file_paths_read_for_whitelist:  # Only add to whitelist if we have paths
+        context.bash_state.add_to_whitelist_for_overwrite(
+            new_file_paths_read_for_whitelist
+        )
+
     if isinstance(output[0], str):
         context.console.print(str(output[0]))
     else:
@@ -798,20 +843,19 @@ curr_cost = 0.0
 
 
 def read_files(
-    file_paths: list[str], 
-    max_tokens: Optional[int], 
+    file_paths: list[str],
+    max_tokens: Optional[int],
     context: Context,
-    show_line_numbers: bool = False
-) -> str:
+    show_line_numbers: bool = False,
+) -> tuple[str, list[str]]:  # Updated to return a tuple with message and file paths
     message = ""
+    successful_paths = []  # Track successfully read file paths
     for i, file in enumerate(file_paths):
         try:
-            content, truncated, tokens = read_file(
-                file, 
-                max_tokens, 
-                context,
-                show_line_numbers
+            content, truncated, tokens, path = read_file(
+                file, max_tokens, context, show_line_numbers
             )
+            successful_paths.append(path)  # Add successfully read file path
         except Exception as e:
             message += f"\n{file}: {str(e)}\n"
             continue
@@ -829,31 +873,31 @@ def read_files(
         else:
             message += "```"
 
-    return message
+    return message, successful_paths
 
 
 def read_file(
-    file_path: str, 
-    max_tokens: Optional[int], 
+    file_path: str,
+    max_tokens: Optional[int],
     context: Context,
-    show_line_numbers: bool = False
-) -> tuple[str, bool, int]:
+    show_line_numbers: bool = False,
+) -> tuple[str, bool, int, str]:  # Added str to return the file path
     context.console.print(f"Reading file: {file_path}")
-    
+
     # Parse line ranges from file path
     start_line_num = None
     end_line_num = None
-    
-    if ':' in file_path:
-        file_parts = file_path.split(':', 1)
+
+    if ":" in file_path:
+        file_parts = file_path.split(":", 1)
         path_part = file_parts[0]
-        
+
         # Check if there are line numbers specified
         if len(file_parts) > 1 and file_parts[1]:
             line_range = file_parts[1]
-            if '-' in line_range:
-                line_parts = line_range.split('-', 1)
-                
+            if "-" in line_range:
+                line_parts = line_range.split("-", 1)
+
                 # Parse start line number
                 if line_parts[0]:
                     try:
@@ -861,7 +905,7 @@ def read_file(
                     except ValueError:
                         # If we can't parse it, ignore the line number
                         pass
-                
+
                 # Parse end line number
                 if len(line_parts) > 1 and line_parts[1]:
                     try:
@@ -869,10 +913,10 @@ def read_file(
                     except ValueError:
                         # If we can't parse it, ignore the line number
                         pass
-        
+
         # Update file_path to just the file part without line numbers
         file_path = path_part
-    
+
     # Expand the path before checking if it's absolute
     file_path = expand_user(file_path)
 
@@ -881,8 +925,6 @@ def read_file(
             f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}"
         )
 
-    context.bash_state.add_to_whitelist_for_overwrite(file_path)
-
     path = Path(file_path)
     if not path.exists():
         raise ValueError(f"Error: file {file_path} does not exist")
@@ -890,20 +932,20 @@ def read_file(
     # Read all lines of the file
     with path.open("r") as f:
         all_lines = f.readlines(10_000_000)
-    
+
     # Apply line range filtering if specified
     start_idx = 0
     if start_line_num is not None:
         # Convert 1-indexed line number to 0-indexed
         start_idx = max(0, start_line_num - 1)
-    
+
     end_idx = len(all_lines)
     if end_line_num is not None:
         # end_line_num is inclusive, so we use min to ensure it's within bounds
         end_idx = min(len(all_lines), end_line_num)
-    
+
     filtered_lines = all_lines[start_idx:end_idx]
-    
+
     # Create content with or without line numbers
     if show_line_numbers:
         content_lines = []
@@ -912,31 +954,31 @@ def read_file(
         content = "".join(content_lines)
     else:
         content = "".join(filtered_lines)
-    
+
     truncated = False
     tokens_counts = 0
-    
+
     # Handle token limit if specified
     if max_tokens is not None:
         tokens = default_enc.encoder(content)
         tokens_counts = len(tokens)
-        
+
         if len(tokens) > max_tokens:
             # Truncate at token boundary first
             truncated_tokens = tokens[:max_tokens]
             truncated_content = default_enc.decoder(truncated_tokens)
-            
+
             # Count how many lines we kept
-            line_count = truncated_content.count('\n')
-                
+            line_count = truncated_content.count("\n")
+
             # Calculate the last line number shown
             last_line_shown = start_idx + line_count
-            
+
             content = truncated_content
             # Add informative message about truncation
             content += f"\n(...truncated) Only showing till line number {last_line_shown} due to the file size, please continue reading from {last_line_shown + 1} if required"
             truncated = True
-    return content, truncated, tokens_counts
+    return content, truncated, tokens_counts, file_path
 
 
 if __name__ == "__main__":
@@ -981,11 +1023,13 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                ReadFiles(file_paths=[os.path.dirname(__file__) + "/../../../README.md"], show_line_numbers_reason="true"),
+                ReadFiles(
+                    file_paths=[os.path.dirname(__file__) + "/../../../README.md"],
+                    show_line_numbers_reason="true",
+                ),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
                 50,
-                
             )[0][0]
         )
