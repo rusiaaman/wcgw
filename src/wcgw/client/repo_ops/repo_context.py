@@ -1,11 +1,12 @@
 import os
 from collections import deque
 from pathlib import Path  # Still needed for other parts
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 from pygit2 import GIT_SORT_TIME, GitError, Repository  # type: ignore[attr-defined]
 
 from .display_tree import DirectoryTree
+from .file_stats import load_workspace_stats
 from .path_prob import FastPathAnalyzer
 
 curr_folder = Path(__file__).parent
@@ -149,12 +150,13 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> List[str]:
     return recent_files
 
 
-def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
+def get_repo_context(file_or_repo_path: str, max_files: int) -> Tuple[str, Path]:
     file_or_repo_path_ = Path(file_or_repo_path).absolute()
 
     repo = find_ancestor_with_git(file_or_repo_path_)
     recent_git_files: List[str] = []
 
+    # Determine the context directory
     if repo is not None:
         context_dir = Path(repo.path).parent
         # Get recent git files - get at least 50 or the max_files count, whichever is larger
@@ -165,6 +167,9 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
             context_dir = file_or_repo_path_.parent
         else:
             context_dir = file_or_repo_path_
+
+    # Load workspace stats from the context directory
+    workspace_stats = load_workspace_stats(str(context_dir))
 
     all_files = get_all_files_max_depth(str(context_dir), 10, repo)
 
@@ -179,32 +184,71 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
 
     # Start with recent git files, then add other important files
     top_files = []
-    
-    # Add recent git files first - these should be prioritized
+
+    # If we have workspace stats, prioritize the most active files first
+    active_files = []
+    if workspace_stats is not None:
+        # Get files with activity score (weighted count of operations)
+        scored_files = []
+        for file_path, file_stats in workspace_stats.files.items():
+            try:
+                # Convert to relative path if possible
+                if str(context_dir) in file_path:
+                    rel_path = os.path.relpath(file_path, str(context_dir))
+                else:
+                    rel_path = file_path
+
+                # Calculate activity score - weight reads more for this functionality
+                activity_score = (
+                    file_stats.read_count * 2
+                    + (file_stats.edit_count)
+                    + (file_stats.write_count)
+                )
+
+                # Only include files that still exist
+                if rel_path in all_files or os.path.exists(file_path):
+                    scored_files.append((rel_path, activity_score))
+            except (ValueError, OSError):
+                # Skip files that cause path resolution errors
+                continue
+
+        # Sort by activity score (highest first) and get top 5
+        active_files = [
+            f for f, _ in sorted(scored_files, key=lambda x: x[1], reverse=True)[:5]
+        ]
+
+        # Add active files first
+        for file in active_files:
+            if file not in top_files and file in all_files:
+                top_files.append(file)
+
+    # Add recent git files next - these should be prioritized
     for file in recent_git_files:
         if file not in top_files and file in all_files:
             top_files.append(file)
-    
+
     # Use statistical sorting for the remaining files, but respect max_files limit
     # and ensure we don't add duplicates
     if len(top_files) < max_files:
-        remaining_slots = max_files - len(top_files)
-        
         # Only add statistically important files that aren't already in top_files
         for file in sorted_files:
             if file not in top_files and len(top_files) < max_files:
                 top_files.append(file)
-                
+
     # If we have too many files (more than max_files), prioritize the most recent ones
     if len(top_files) > max_files:
         # Keep all recent git files first, up to max_files
         git_files_to_keep = min(len(recent_git_files), max_files)
-        recent_git_files_in_top = [f for f in top_files if f in recent_git_files][:git_files_to_keep]
-        
+        recent_git_files_in_top = [f for f in top_files if f in recent_git_files][
+            :git_files_to_keep
+        ]
+
         # Fill remaining slots with statistically important files
         remaining_slots = max_files - len(recent_git_files_in_top)
-        stat_files = [f for f in top_files if f not in recent_git_files][:remaining_slots]
-        
+        stat_files = [f for f in top_files if f not in recent_git_files][
+            :remaining_slots
+        ]
+
         # Combine them, recent files first
         top_files = recent_git_files_in_top + stat_files
 

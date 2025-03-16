@@ -32,6 +32,11 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from syntax_checker import check_syntax
 
 from wcgw.client.bash_state.bash_state import get_status
+from wcgw.client.repo_ops.file_stats import (
+    FileStats,
+    load_workspace_stats,
+    save_workspace_stats,
+)
 
 from ..types_ import (
     BashCommand,
@@ -139,6 +144,7 @@ def initialize(
                 if not read_files_:
                     read_files_ = [any_workspace_path]
                 any_workspace_path = os.path.dirname(any_workspace_path)
+            # Let get_repo_context handle loading the workspace stats
             repo_context, folder_to_start = get_repo_context(any_workspace_path, 50)
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
@@ -161,6 +167,9 @@ def initialize(
     if loaded_state is not None:
         try:
             parsed_state = BashState.parse_state(loaded_state)
+            workspace_root = (
+                str(folder_to_start) if folder_to_start else parsed_state[5]
+            )
             if mode == "wcgw":
                 context.bash_state.load_state(
                     parsed_state[0],
@@ -168,7 +177,8 @@ def initialize(
                     parsed_state[2],
                     parsed_state[3],
                     {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
-                    str(folder_to_start) if folder_to_start else "",
+                    str(folder_to_start) if folder_to_start else workspace_root,
+                    workspace_root,
                 )
             else:
                 state = modes_to_state(mode)
@@ -178,7 +188,8 @@ def initialize(
                     state[2],
                     state[3],
                     {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
-                    str(folder_to_start) if folder_to_start else "",
+                    str(folder_to_start) if folder_to_start else workspace_root,
+                    workspace_root,
                 )
         except ValueError:
             context.console.print(traceback.format_exc())
@@ -188,12 +199,14 @@ def initialize(
     else:
         mode_changed = is_mode_change(mode, context.bash_state)
         state = modes_to_state(mode)
+        # Use the provided workspace path as the workspace root
         context.bash_state.load_state(
             state[0],
             state[1],
             state[2],
             state[3],
             dict(context.bash_state.whitelist_for_overwrite),
+            str(folder_to_start) if folder_to_start else "",
             str(folder_to_start) if folder_to_start else "",
         )
         if type == "first_call" or mode_changed:
@@ -282,6 +295,7 @@ def reset_wcgw(
             mode,
             dict(context.bash_state.whitelist_for_overwrite),
             starting_directory,
+            starting_directory,
         )
         mode_prompt = get_mode_prompt(context)
         INITIALIZED = True
@@ -305,6 +319,7 @@ def reset_wcgw(
             write_if_empty_mode,
             mode,
             dict(context.bash_state.whitelist_for_overwrite),
+            starting_directory,
             starting_directory,
         )
     INITIALIZED = True
@@ -423,6 +438,16 @@ def write_file(
 ]:  # Updated to return message and file paths with line ranges
     # Expand the path before checking if it's absolute
     path_ = expand_user(writefile.file_path)
+
+    workspace_path = context.bash_state.workspace_root
+    stats = load_workspace_stats(workspace_path)
+
+    if path_ not in stats.files:
+        stats.files[path_] = FileStats()
+
+    stats.files[path_].increment_write()
+    save_workspace_stats(workspace_path, stats)
+
     if not os.path.isabs(path_):
         return (
             f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}",
@@ -603,10 +628,20 @@ def _do_diff_edit(
 
     # Expand the path before checking if it's absolute
     path_ = expand_user(fedit.file_path)
+
     if not os.path.isabs(path_):
         raise Exception(
             f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}"
         )
+
+    workspace_path = context.bash_state.workspace_root
+    stats = load_workspace_stats(workspace_path)
+
+    if path_ not in stats.files:
+        stats.files[path_] = FileStats()
+
+    stats.files[path_].increment_edit()
+    save_workspace_stats(workspace_path, stats)
 
     # Validate using file_edit_mode
     allowed_globs = context.bash_state.file_edit_mode.allowed_globs
@@ -984,6 +1019,19 @@ def read_files(
         str, List[Tuple[int, int]]
     ] = {}  # Map file paths to line ranges
 
+    workspace_path = context.bash_state.workspace_root
+    stats = load_workspace_stats(workspace_path)
+
+    for path_ in file_paths:
+        path_ = expand_user(path_)
+        if not os.path.isabs(path_):
+            continue
+        if path_ not in stats.files:
+            stats.files[path_] = FileStats()
+
+        stats.files[path_].increment_read()
+    save_workspace_stats(workspace_path, stats)
+
     for i, file in enumerate(file_paths):
         try:
             # Use line numbers from parameters if provided
@@ -1023,7 +1071,6 @@ def read_files(
             break
         else:
             message += "```"
-
     return message, file_ranges_dict
 
 

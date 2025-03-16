@@ -241,6 +241,8 @@ class BashState:
         self._last_command: str = ""
         self.console = console
         self._cwd = working_dir or os.getcwd()
+        # Store the workspace root separately from the current working directory
+        self._workspace_root = working_dir or os.getcwd()
         self._bash_command_mode: BashCommandMode = bash_command_mode or BashCommandMode(
             "normal_mode", "all"
         )
@@ -434,6 +436,15 @@ class BashState:
         return self._cwd
 
     @property
+    def workspace_root(self) -> str:
+        """Return the workspace root directory."""
+        return self._workspace_root
+
+    def set_workspace_root(self, workspace_root: str) -> None:
+        """Set the workspace root directory."""
+        self._workspace_root = workspace_root
+
+    @property
     def prompt(self) -> str:
         return PROMPT_CONST
 
@@ -464,6 +475,7 @@ class BashState:
                 k: v.serialize() for k, v in self._whitelist_for_overwrite.items()
             },
             "mode": self._mode,
+            "workspace_root": self._workspace_root,
         }
 
     @staticmethod
@@ -475,6 +487,7 @@ class BashState:
         WriteIfEmptyMode,
         Modes,
         dict[str, "FileWhitelistData"],
+        str,
     ]:
         whitelist_state = state["whitelist_for_overwrite"]
         # Convert serialized whitelist data back to FileWhitelistData objects
@@ -490,7 +503,7 @@ class BashState:
                     whitelist_dict[file_path] = FileWhitelistData(
                         file_hash=data if isinstance(data, str) else "",
                         line_ranges_read=[(1, 1000000)],  # Assume entire file was read
-                        total_lines=1000000
+                        total_lines=1000000,
                     )
         else:
             # Handle really old format if needed
@@ -507,6 +520,7 @@ class BashState:
             WriteIfEmptyMode.deserialize(state["write_if_empty_mode"]),
             state["mode"],
             whitelist_dict,
+            state.get("workspace_root", ""),
         )
 
     def load_state(
@@ -517,10 +531,12 @@ class BashState:
         mode: Modes,
         whitelist_for_overwrite: dict[str, "FileWhitelistData"],
         cwd: str,
+        workspace_root: str,
     ) -> None:
         """Create a new BashState instance from a serialized state dictionary"""
         self._bash_command_mode = bash_command_mode
         self._cwd = cwd or self._cwd
+        self._workspace_root = workspace_root or cwd or self._workspace_root
         self._file_edit_mode = file_edit_mode
         self._write_if_empty_mode = write_if_empty_mode
         self._whitelist_for_overwrite = dict(whitelist_for_overwrite)
@@ -612,25 +628,25 @@ class FileWhitelistData:
     def is_read_enough(self) -> bool:
         """Check if enough of the file has been read (>=99%)"""
         return self.get_percentage_read() >= 99
-        
+
     def get_unread_ranges(self) -> List[Tuple[int, int]]:
         """Return a list of line ranges (start, end) that haven't been read yet.
-        
+
         Returns line ranges as tuples of (start_line, end_line) in 1-indexed format.
         If the whole file has been read, returns an empty list.
         """
         if self.total_lines == 0:
             return []
-            
+
         # First collect all lines that have been read
         lines_read: set[int] = set()
         for start, end in self.line_ranges_read:
             lines_read.update(range(start, end + 1))
-            
+
         # Generate unread ranges from the gaps
         unread_ranges: List[Tuple[int, int]] = []
         start_range = None
-        
+
         for i in range(1, self.total_lines + 1):
             if i not in lines_read:
                 if start_range is None:
@@ -639,11 +655,11 @@ class FileWhitelistData:
                 # End of an unread range
                 unread_ranges.append((start_range, i - 1))
                 start_range = None
-                
+
         # Don't forget the last range if it extends to the end of the file
         if start_range is not None:
             unread_ranges.append((start_range, self.total_lines))
-            
+
         return unread_ranges
 
     def add_range(self, start: int, end: int) -> None:
