@@ -33,7 +33,7 @@ def test_file():
 @pytest.fixture
 def context():
     """Create a context with BashState for testing."""
-    bash_state = BashState(
+    with BashState(
         console=MockConsole(),
         working_dir="",
         bash_command_mode=None,
@@ -41,8 +41,8 @@ def context():
         write_if_empty_mode=None,
         mode=None,
         use_screen=False,
-    )
-    return Context(bash_state=bash_state, console=MockConsole())
+    ) as bash_state:
+        return Context(bash_state=bash_state, console=MockConsole())
 
 
 def test_read_file_tracks_line_ranges(test_file, context):
@@ -103,7 +103,7 @@ def test_whitelist_data_tracking(test_file):
 
     # Test is_read_enough
     assert not whitelist_data.is_read_enough()
-    
+
     # Test get_unread_ranges
     unread_ranges = whitelist_data.get_unread_ranges()
     # We've read lines 1-5, 7-9, and 10-15, so we're missing 6 and 16-20

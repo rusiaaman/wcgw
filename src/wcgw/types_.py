@@ -1,7 +1,8 @@
 import os
-from typing import Any, Literal, Optional, Protocol, Sequence, Union, List
+from typing import Any, List, Literal, Optional, Protocol, Sequence, Union
 
-from pydantic import BaseModel as PydanticBaseModel, PrivateAttr
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import PrivateAttr
 
 
 class NoExtraArgs(PydanticBaseModel):
@@ -117,44 +118,44 @@ class ReadFiles(BaseModel):
     show_line_numbers_reason: Optional[str] = None
     _start_line_nums: List[Optional[int]] = PrivateAttr(default_factory=lambda: [])
     _end_line_nums: List[Optional[int]] = PrivateAttr(default_factory=lambda: [])
-    
+
     @property
     def start_line_nums(self) -> List[Optional[int]]:
         """Get the start line numbers."""
         return self._start_line_nums
-    
+
     @property
     def end_line_nums(self) -> List[Optional[int]]:
         """Get the end line numbers."""
         return self._end_line_nums
-    
+
     def model_post_init(self, __context: Any) -> None:
         # Parse file paths for line ranges and store them in private attributes
         self._start_line_nums = []
         self._end_line_nums = []
-        
+
         # Create new file_paths list without line ranges
         clean_file_paths = []
-        
+
         for file_path in self.file_paths:
             start_line_num = None
             end_line_num = None
             path_part = file_path
-            
+
             # Check if the path ends with a line range pattern
             # We're looking for patterns at the very end of the path like:
             #  - file.py:10      (specific line)
             #  - file.py:10-20   (line range)
             #  - file.py:10-     (from line 10 to end)
             #  - file.py:-20     (from start to line 20)
-            
+
             # Split by the last colon
             if ":" in file_path:
                 parts = file_path.rsplit(":", 1)
                 if len(parts) == 2:
                     potential_path = parts[0]
                     line_spec = parts[1]
-                    
+
                     # Check if it's a valid line range format
                     if line_spec.isdigit():
                         # Format: file.py:10
@@ -164,11 +165,11 @@ class ReadFiles(BaseModel):
                         except ValueError:
                             # Keep the original path if conversion fails
                             pass
-                    
+
                     elif "-" in line_spec:
                         # Could be file.py:10-20, file.py:10-, or file.py:-20
                         line_parts = line_spec.split("-", 1)
-                        
+
                         if not line_parts[0] and line_parts[1].isdigit():
                             # Format: file.py:-20
                             try:
@@ -177,30 +178,30 @@ class ReadFiles(BaseModel):
                             except ValueError:
                                 # Keep original path
                                 pass
-                        
+
                         elif line_parts[0].isdigit():
                             # Format: file.py:10-20 or file.py:10-
                             try:
                                 start_line_num = int(line_parts[0])
-                                
+
                                 if line_parts[1].isdigit():
                                     # file.py:10-20
                                     end_line_num = int(line_parts[1])
-                                
+
                                 # In both cases, update the path
                                 path_part = potential_path
                             except ValueError:
                                 # Keep original path
                                 pass
-            
+
             # Add clean path and corresponding line numbers
             clean_file_paths.append(path_part)
             self._start_line_nums.append(start_line_num)
             self._end_line_nums.append(end_line_num)
-        
+
         # Update file_paths with clean paths
         self.file_paths = clean_file_paths
-        
+
         return super().model_post_init(__context)
 
 
@@ -229,13 +230,4 @@ class Console(Protocol):
 
 
 class Mdata(PydanticBaseModel):
-    data: (
-        BashCommand
-        | WriteIfEmpty
-        | FileEdit
-        | FileWriteOrEdit
-        | str
-        | ReadFiles
-        | Initialize
-        | ContextSave
-    )
+    data: BashCommand | FileWriteOrEdit | str | ReadFiles | Initialize | ContextSave
