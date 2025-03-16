@@ -13,6 +13,10 @@ Empowering chat applications to code, build and run on your local machine.
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
 [![Reddit](https://img.shields.io/badge/Reddit-r%2Fwcgw_mcp-red)](https://www.reddit.com/r/wcgw_mcp/)
 
+## Demo
+
+![Workflow Demo](static/workflow-demo.gif)
+
 ## Updates
 
 - [16 Feb 2025] You can now attach to the working terminal that the AI uses. See the "attach-to-terminal" section below.
