@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 from typing import Generator
 
@@ -769,6 +770,58 @@ def test_which_tool_name() -> None:
     with pytest.raises(ValueError) as exc_info:
         which_tool_name("UnknownTool")
     assert "Unknown tool name: UnknownTool" in str(exc_info.value)
+
+
+def test_git_recent_files(context: Context, temp_dir: str) -> None:
+    """Test git repository recent files feature with 100 files in batches of 20."""
+    # Initialize a git repository
+    os.chdir(temp_dir)
+    subprocess.run(["git", "init"], check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], check=True)
+
+    # Create 100 files in 5 batches of 20 files each
+    all_files = []
+    for batch in range(20):
+        batch_files = []
+        # Create 5 files per batch
+        for i in range(5):
+            file_num = batch * 5 + i + 1
+            file_name = f"file{file_num:03d}.txt"
+            batch_files.append(file_name)
+            with open(os.path.join(temp_dir, file_name), "w") as f:
+                f.write(f"Content for {file_name}")
+            subprocess.run(["git", "add", file_name], check=True)
+
+        # Commit this batch
+        subprocess.run(["git", "commit", "-m", f"Add batch {batch + 1}"], check=True)
+        all_files.extend(batch_files)
+
+    recent_files = all_files[-10:]
+
+    # Initialize with the git repository
+    init_args = Initialize(
+        type="first_call",
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+    )
+
+    outputs, _ = get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+
+    # Check that the output contains files from the more recent commits
+    repo_structure = outputs[0]
+
+    # All 10 recent files should be in structure
+    for file in recent_files:
+        assert file in repo_structure
 
 
 def test_error_cases(context: Context, temp_dir: str) -> None:

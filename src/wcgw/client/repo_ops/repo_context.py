@@ -1,9 +1,9 @@
 import os
 from collections import deque
 from pathlib import Path  # Still needed for other parts
-from typing import Optional
+from typing import List, Optional, Set
 
-from pygit2 import GitError, Repository
+from pygit2 import GIT_SORT_TIME, GitError, Repository  # type: ignore[attr-defined]
 
 from .display_tree import DirectoryTree
 from .path_prob import FastPathAnalyzer
@@ -82,13 +82,84 @@ def get_all_files_max_depth(
     return all_files
 
 
+def get_recent_git_files(repo: Repository, count: int = 10) -> List[str]:
+    """
+    Get the most recently modified files from git history
+
+    Args:
+        repo: The git repository
+        count: Number of recent files to return
+
+    Returns:
+        List of relative paths to recently modified files
+    """
+    if repo is None:
+        return []
+
+    # Track seen files to avoid duplicates
+    seen_files: Set[str] = set()
+    recent_files: List[str] = []
+
+    # Check if the repository has commits
+    try:
+        repo.head
+    except (KeyError, ValueError, GitError):
+        # No commits in repository or other error
+        return []
+
+    try:
+        # Get the HEAD reference and walk through recent commits
+        head = repo.head
+        for commit in repo.walk(head.target, GIT_SORT_TIME):
+            # Skip merge commits which have multiple parents
+            if len(commit.parents) > 1:
+                continue
+
+            # If we have a parent, get the diff between the commit and its parent
+            if commit.parents:
+                parent = commit.parents[0]
+                diff = repo.diff(parent, commit)  # type: ignore[attr-defined]
+            else:
+                # For the first commit, get the diff against an empty tree
+                diff = commit.tree.diff_to_tree(context_lines=0)
+
+            # Process each changed file in the diff
+            for patch in diff:
+                file_path = patch.delta.new_file.path
+
+                # Skip if we've already seen this file or if the file was deleted
+                repo_path_parent = Path(repo.path).parent
+                if (
+                    file_path in seen_files
+                    or not (repo_path_parent / file_path).exists()
+                ):
+                    continue
+
+                seen_files.add(file_path)
+                recent_files.append(file_path)
+
+                # If we have enough files, stop
+                if len(recent_files) >= count:
+                    return recent_files
+
+    except Exception:
+        # Handle git errors gracefully
+        pass
+
+    return recent_files
+
+
 def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
     file_or_repo_path_ = Path(file_or_repo_path).absolute()
 
     repo = find_ancestor_with_git(file_or_repo_path_)
+    recent_git_files: List[str] = []
 
     if repo is not None:
         context_dir = Path(repo.path).parent
+        # Get recent git files - get at least 50 or the max_files count, whichever is larger
+        recent_files_count = max(50, max_files)
+        recent_git_files = get_recent_git_files(repo, recent_files_count)
     else:
         if file_or_repo_path_.is_file():
             context_dir = file_or_repo_path_.parent
@@ -106,7 +177,36 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
         path for path, _ in sorted(path_with_scores, key=lambda x: x[1], reverse=True)
     ]
 
-    top_files = sorted_files[:max_files]
+    # Start with recent git files, then add other important files
+    top_files = []
+    
+    # Add recent git files first - these should be prioritized
+    for file in recent_git_files:
+        if file not in top_files and file in all_files:
+            top_files.append(file)
+    
+    # Use statistical sorting for the remaining files, but respect max_files limit
+    # and ensure we don't add duplicates
+    if len(top_files) < max_files:
+        remaining_slots = max_files - len(top_files)
+        
+        # Only add statistically important files that aren't already in top_files
+        for file in sorted_files:
+            if file not in top_files and len(top_files) < max_files:
+                top_files.append(file)
+                
+    # If we have too many files (more than max_files), prioritize the most recent ones
+    if len(top_files) > max_files:
+        # Keep all recent git files first, up to max_files
+        git_files_to_keep = min(len(recent_git_files), max_files)
+        recent_git_files_in_top = [f for f in top_files if f in recent_git_files][:git_files_to_keep]
+        
+        # Fill remaining slots with statistically important files
+        remaining_slots = max_files - len(recent_git_files_in_top)
+        stat_files = [f for f in top_files if f not in recent_git_files][:remaining_slots]
+        
+        # Combine them, recent files first
+        top_files = recent_git_files_in_top + stat_files
 
     directory_printer = DirectoryTree(context_dir, max_files=max_files)
     for file in top_files:
@@ -127,7 +227,7 @@ if __name__ == "__main__":
     # Profile using cProfile for overall function statistics
     profiler = cProfile.Profile()
     profiler.enable()
-    result = get_repo_context(folder, 200)[0]
+    result = get_repo_context(folder, 50)[0]
     profiler.disable()
 
     # Print cProfile stats
@@ -139,7 +239,7 @@ if __name__ == "__main__":
     # Profile using line_profiler for line-by-line statistics
     lp = LineProfiler()
     lp_wrapper = lp(get_repo_context)
-    lp_wrapper(folder, 200)
+    lp_wrapper(folder, 50)
 
     print("\n=== Line-by-line profiling ===")
     lp.print_stats()
