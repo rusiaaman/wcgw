@@ -9,10 +9,12 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import (
     Any,
+    Dict,
+    List,
     Literal,
     Optional,
     ParamSpec,
-    Sequence,
+    Tuple,
     TypeVar,
 )
 
@@ -234,7 +236,7 @@ class BashState:
         write_if_empty_mode: Optional[WriteIfEmptyMode],
         mode: Optional[Modes],
         use_screen: bool,
-        whitelist_for_overwrite: Optional[dict[str, str]] = None,
+        whitelist_for_overwrite: Optional[dict[str, "FileWhitelistData"]] = None,
     ) -> None:
         self._last_command: str = ""
         self.console = console
@@ -247,8 +249,8 @@ class BashState:
             write_if_empty_mode or WriteIfEmptyMode("all")
         )
         self._mode = mode or "wcgw"
-        self._whitelist_for_overwrite: dict[str, str] = (
-            whitelist_for_overwrite or dict()
+        self._whitelist_for_overwrite: dict[str, FileWhitelistData] = (
+            whitelist_for_overwrite or {}
         )
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
@@ -458,21 +460,53 @@ class BashState:
             "bash_command_mode": self._bash_command_mode.serialize(),
             "file_edit_mode": self._file_edit_mode.serialize(),
             "write_if_empty_mode": self._write_if_empty_mode.serialize(),
-            "whitelist_for_overwrite": self._whitelist_for_overwrite,
+            "whitelist_for_overwrite": {
+                k: v.serialize() for k, v in self._whitelist_for_overwrite.items()
+            },
             "mode": self._mode,
         }
 
     @staticmethod
     def parse_state(
         state: dict[str, Any],
-    ) -> tuple[BashCommandMode, FileEditMode, WriteIfEmptyMode, Modes, dict[str, str]]:
-        wl = state["whitelist_for_overwrite"]
+    ) -> tuple[
+        BashCommandMode,
+        FileEditMode,
+        WriteIfEmptyMode,
+        Modes,
+        dict[str, "FileWhitelistData"],
+    ]:
+        whitelist_state = state["whitelist_for_overwrite"]
+        # Convert serialized whitelist data back to FileWhitelistData objects
+        whitelist_dict = {}
+        if isinstance(whitelist_state, dict):
+            for file_path, data in whitelist_state.items():
+                if isinstance(data, dict) and "file_hash" in data:
+                    # New format
+                    whitelist_dict[file_path] = FileWhitelistData.deserialize(data)
+                else:
+                    # Legacy format (just a hash string)
+                    # Try to get line count from file if it exists, otherwise use a large default
+                    whitelist_dict[file_path] = FileWhitelistData(
+                        file_hash=data if isinstance(data, str) else "",
+                        line_ranges_read=[(1, 1000000)],  # Assume entire file was read
+                        total_lines=1000000
+                    )
+        else:
+            # Handle really old format if needed
+            whitelist_dict = {
+                k: FileWhitelistData(
+                    file_hash="", line_ranges_read=[(1, 1000000)], total_lines=1000000
+                )
+                for k in whitelist_state
+            }
+
         return (
             BashCommandMode.deserialize(state["bash_command_mode"]),
             FileEditMode.deserialize(state["file_edit_mode"]),
             WriteIfEmptyMode.deserialize(state["write_if_empty_mode"]),
             state["mode"],
-            wl if isinstance(wl, dict) else {k: "" for k in wl},
+            whitelist_dict,
         )
 
     def load_state(
@@ -481,7 +515,7 @@ class BashState:
         file_edit_mode: FileEditMode,
         write_if_empty_mode: WriteIfEmptyMode,
         mode: Modes,
-        whitelist_for_overwrite: dict[str, str],
+        whitelist_for_overwrite: dict[str, "FileWhitelistData"],
         cwd: str,
     ) -> None:
         """Create a new BashState instance from a serialized state dictionary"""
@@ -510,19 +544,130 @@ class BashState:
         return "Not pending"
 
     @property
-    def whitelist_for_overwrite(self) -> dict[str, str]:
+    def whitelist_for_overwrite(self) -> dict[str, "FileWhitelistData"]:
         return self._whitelist_for_overwrite
 
-    def add_to_whitelist_for_overwrite(self, file_paths: Sequence[str]) -> None:
-        for file_path in file_paths:
-            with open(file_path, "br") as f:
-                self._whitelist_for_overwrite[str(file_path)] = sha256(
-                    f.read()
-                ).hexdigest()
+    def add_to_whitelist_for_overwrite(
+        self, file_paths_with_ranges: Dict[str, List[Tuple[int, int]]]
+    ) -> None:
+        """
+        Add files to the whitelist for overwrite.
+
+        Args:
+            file_paths_with_ranges: Dictionary mapping file paths to sequences of
+                               (start_line, end_line) tuples representing
+                               the ranges that have been read.
+        """
+        for file_path, ranges in file_paths_with_ranges.items():
+            # Read the file to get its hash and count lines
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+                file_hash = sha256(file_content).hexdigest()
+                total_lines = file_content.count(b"\n") + 1
+
+            # Update or create whitelist entry
+            if file_path in self._whitelist_for_overwrite:
+                # Update existing entry
+                whitelist_data = self._whitelist_for_overwrite[file_path]
+                whitelist_data.file_hash = file_hash
+                whitelist_data.total_lines = total_lines
+                for range_start, range_end in ranges:
+                    whitelist_data.add_range(range_start, range_end)
+            else:
+                # Create new entry
+                self._whitelist_for_overwrite[file_path] = FileWhitelistData(
+                    file_hash=file_hash,
+                    line_ranges_read=list(ranges),
+                    total_lines=total_lines,
+                )
 
     @property
     def pending_output(self) -> str:
         return self._pending_output
+
+
+@dataclass
+class FileWhitelistData:
+    """Data about a file that has been read and can be modified."""
+
+    file_hash: str
+    # List of line ranges that have been read (inclusive start, inclusive end)
+    # E.g., [(1, 10), (20, 30)] means lines 1-10 and 20-30 have been read
+    line_ranges_read: List[Tuple[int, int]]
+    # Total number of lines in the file
+    total_lines: int
+
+    def get_percentage_read(self) -> float:
+        """Calculate percentage of file read based on line ranges."""
+        if self.total_lines == 0:
+            return 100.0
+
+        # Count unique lines read
+        lines_read: set[int] = set()
+        for start, end in self.line_ranges_read:
+            lines_read.update(range(start, end + 1))
+
+        return (len(lines_read) / self.total_lines) * 100.0
+
+    def is_read_enough(self) -> bool:
+        """Check if enough of the file has been read (>=99%)"""
+        return self.get_percentage_read() >= 99
+        
+    def get_unread_ranges(self) -> List[Tuple[int, int]]:
+        """Return a list of line ranges (start, end) that haven't been read yet.
+        
+        Returns line ranges as tuples of (start_line, end_line) in 1-indexed format.
+        If the whole file has been read, returns an empty list.
+        """
+        if self.total_lines == 0:
+            return []
+            
+        # First collect all lines that have been read
+        lines_read: set[int] = set()
+        for start, end in self.line_ranges_read:
+            lines_read.update(range(start, end + 1))
+            
+        # Generate unread ranges from the gaps
+        unread_ranges: List[Tuple[int, int]] = []
+        start_range = None
+        
+        for i in range(1, self.total_lines + 1):
+            if i not in lines_read:
+                if start_range is None:
+                    start_range = i
+            elif start_range is not None:
+                # End of an unread range
+                unread_ranges.append((start_range, i - 1))
+                start_range = None
+                
+        # Don't forget the last range if it extends to the end of the file
+        if start_range is not None:
+            unread_ranges.append((start_range, self.total_lines))
+            
+        return unread_ranges
+
+    def add_range(self, start: int, end: int) -> None:
+        """Add a new range of lines that have been read."""
+        # Merge with existing ranges if possible
+        self.line_ranges_read.append((start, end))
+        # Could add range merging logic here for optimization
+
+    def serialize(self) -> Dict[str, Any]:
+        """Convert to a serializable dictionary."""
+        return {
+            "file_hash": self.file_hash,
+            "line_ranges_read": self.line_ranges_read,
+            "total_lines": self.total_lines,
+        }
+
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> "FileWhitelistData":
+        """Create from a serialized dictionary."""
+        return cls(
+            file_hash=data.get("file_hash", ""),
+            line_ranges_read=data.get("line_ranges_read", []),
+            total_lines=data.get("total_lines", 0),
+        )
 
 
 WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
