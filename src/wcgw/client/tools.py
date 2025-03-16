@@ -763,8 +763,14 @@ def get_tool_output(
         new_file_paths_read_for_whitelist.append(path)
     elif isinstance(arg, ReadFiles):
         context.console.print("Calling read file tool")
+        # Access line numbers through properties
         result, read_paths = read_files(
-            arg.file_paths, max_tokens, context, bool(arg.show_line_numbers_reason)
+            arg.file_paths, 
+            max_tokens, 
+            context, 
+            bool(arg.show_line_numbers_reason),
+            arg.start_line_nums,
+            arg.end_line_nums
         )
         output = result, 0.0
         new_file_paths_read_for_whitelist.extend(read_paths)
@@ -858,13 +864,21 @@ def read_files(
     max_tokens: Optional[int],
     context: Context,
     show_line_numbers: bool = False,
+    start_line_nums: Optional[list[Optional[int]]] = None,
+    end_line_nums: Optional[list[Optional[int]]] = None,
 ) -> tuple[str, list[str]]:  # Updated to return a tuple with message and file paths
     message = ""
     successful_paths = []  # Track successfully read file paths
     for i, file in enumerate(file_paths):
         try:
+            # Use line numbers from parameters if provided
+            start_line_num = None if start_line_nums is None else start_line_nums[i]
+            end_line_num = None if end_line_nums is None else end_line_nums[i]
+            
+            # For backward compatibility, we still need to extract line numbers from path
+            # if they weren't provided as parameters
             content, truncated, tokens, path = read_file(
-                file, max_tokens, context, show_line_numbers
+                file, max_tokens, context, show_line_numbers, start_line_num, end_line_num
             )
             successful_paths.append(path)  # Add successfully read file path
         except Exception as e:
@@ -892,41 +906,12 @@ def read_file(
     max_tokens: Optional[int],
     context: Context,
     show_line_numbers: bool = False,
+    start_line_num: Optional[int] = None,
+    end_line_num: Optional[int] = None,
 ) -> tuple[str, bool, int, str]:  # Added str to return the file path
     context.console.print(f"Reading file: {file_path}")
-
-    # Parse line ranges from file path
-    start_line_num = None
-    end_line_num = None
-
-    if ":" in file_path:
-        file_parts = file_path.split(":", 1)
-        path_part = file_parts[0]
-
-        # Check if there are line numbers specified
-        if len(file_parts) > 1 and file_parts[1]:
-            line_range = file_parts[1]
-            if "-" in line_range:
-                line_parts = line_range.split("-", 1)
-
-                # Parse start line number
-                if line_parts[0]:
-                    try:
-                        start_line_num = int(line_parts[0])
-                    except ValueError:
-                        # If we can't parse it, ignore the line number
-                        pass
-
-                # Parse end line number
-                if len(line_parts) > 1 and line_parts[1]:
-                    try:
-                        end_line_num = int(line_parts[1])
-                    except ValueError:
-                        # If we can't parse it, ignore the line number
-                        pass
-
-        # Update file_path to just the file part without line numbers
-        file_path = path_part
+    
+    # Line numbers are now passed as parameters, no need to parse from path
 
     # Expand the path before checking if it's absolute
     file_path = expand_user(file_path)
