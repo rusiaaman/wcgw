@@ -2,8 +2,8 @@
 
 Empowering chat applications to code, build and run on your local machine.
 
-- Claude - An MCP server on claude desktop for autonomous shell and coding agent. (mac only)
-- Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux or mac)
+- Claude - An MCP server on claude desktop for autonomous shell and coding agent. (mac, linux, windows on wsl)
+- Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux, mac, windows on wsl)
 
 ⚠️ Warning: do not allow BashCommand tool without reviewing the command, it may result in data loss.
 
@@ -11,7 +11,6 @@ Empowering chat applications to code, build and run on your local machine.
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
-[![smithery badge](https://smithery.ai/badge/wcgw)](https://smithery.ai/server/wcgw)
 [![Reddit](https://img.shields.io/badge/Reddit-r%2Fwcgw_mcp-red)](https://www.reddit.com/r/wcgw_mcp/)
 
 ## Updates
@@ -25,7 +24,6 @@ Empowering chat applications to code, build and run on your local machine.
 - [29 Dec 2024] Syntax checking on file writing and edits is now stable. Made `initialize` tool call useful; sending smart repo structure to claude if any repo is referenced. Large file handling is also now improved.
 
 - [9 Dec 2024] [Vscode extension to paste context on Claude app](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw)
-
 
 ## 🚀 Highlights
 
@@ -69,6 +67,8 @@ Empowering chat applications to code, build and run on your local machine.
 
 ## Claude setup (using mcp)
 
+### Mac and linux
+
 First install `uv` using homebrew `brew install uv`
 
 (**Important:** use homebrew to install uv. Otherwise make sure `uv` is present in a global location like /usr/bin/)
@@ -104,18 +104,33 @@ _If there's an error in setting up_
 - Try using `uv` version `0.6.0` for which this tool was tested.
 - Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
 
-### Alternative configuration using smithery (npx required)
+### Windows on wsl
 
-You need to first install uv using homebrew. `brew install uv`
+This mcp server works only on wsl on windows.
 
-Then to configure wcgw for Claude Desktop automatically via [Smithery](https://smithery.ai/server/wcgw):
+To set it up, [install uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-```bash
-npx -y @smithery/cli install wcgw --client claude
+Then add or update the claude config file `%APPDATA%\Claude\claude_desktop_config.json` with the following
+
+```json
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "wsl.exe",
+      "args": [
+        "uv",
+        "tool",
+        "run",
+        "--from",
+        "wcgw@latest",
+        "--python",
+        "3.12",
+        "wcgw_mcp"
+      ]
+    }
+  }
+}
 ```
-
-_If there's an error in setting up_
-- Try removing ~/.cache/uv folder
 
 ### Usage
 
@@ -147,6 +162,7 @@ There are three built-in modes. You may ask Claude to run in one of the modes, l
 Note: in code-writer mode either all commands are allowed or none are allowed for now. If you give a list of allowed commands, Claude is instructed to run only those commands, but no actual check happens. (WIP)
 
 #### Attach to the working terminal to investigate
+
 If you've `screen` command installed, wcgw runs on a screen instance automatically. If you've started wcgw mcp server, you can list the screen sessions:
 
 `screen -ls`
@@ -157,7 +173,7 @@ You can then attach to the session using `screen -x 93358.wcgw.235521`
 
 You may interrupt any running command safely.
 
-You can interact with the terminal but beware that the AI might be running in parallel and it may conflict with what you're doing. It's recommended to keep your interactions to minimum. 
+You can interact with the terminal but beware that the AI might be running in parallel and it may conflict with what you're doing. It's recommended to keep your interactions to minimum.
 
 You shouldn't exit the session using `exit `or Ctrl-d, instead you should use `ctrl+a+d` to safely detach without destroying the screen session.
 
@@ -177,12 +193,12 @@ Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
 
-
 ## Using mcp server over docker
 
 First build the docker image `docker build -t wcgw https://github.com/rusiaaman/wcgw.git`
 
 Then you can update `/Users/username/Library/Application Support/Claude/claude_desktop_config.json` to have
+
 ```
 {
   "mcpServers": {
@@ -200,8 +216,6 @@ Then you can update `/Users/username/Library/Application Support/Claude/claude_d
   }
 }
 ```
-
-
 
 ## [Optional] Local shell access with openai API key or anthropic API key
 
@@ -254,4 +268,3 @@ The server provides the following MCP tools:
   - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[])
 
 All tools support absolute paths and include built-in protections against common errors. See the [MCP specification](https://modelcontextprotocol.io/) for detailed protocol information.
-
