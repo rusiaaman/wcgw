@@ -986,8 +986,9 @@ def read_file(
             last_line_shown = start_idx + line_count
 
             content = truncated_content
-            # Add informative message about truncation
-            content += f"\n(...truncated) Only showing till line number {last_line_shown} due to the file size, please continue reading from {last_line_shown + 1} if required"
+            # Add informative message about truncation with total line count
+            total_lines = len(all_lines)
+            content += f"\n(...truncated) Only showing till line number {last_line_shown} of {total_lines} total lines due to the toke limit, please continue reading from {last_line_shown + 1} if required"
             truncated = True
     return content, truncated, tokens_counts, file_path
 
