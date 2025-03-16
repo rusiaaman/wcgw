@@ -390,7 +390,11 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
 
     # Test writing a file
     test_file = os.path.join(temp_dir, "test.txt")
-    write_args = FileWriteOrEdit(file_path=test_file, percentage_to_change=100, file_content_or_search_replace_blocks="test content\n")
+    write_args = FileWriteOrEdit(
+        file_path=test_file,
+        percentage_to_change=100,
+        file_content_or_search_replace_blocks="test content\n",
+    )
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -412,19 +416,27 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         f.write("modified content\n")
 
     # Attempt to write again
-    write_args = FileWriteOrEdit(file_path=test_file, percentage_to_change=100, file_content_or_search_replace_blocks="new content\n")
+    write_args = FileWriteOrEdit(
+        file_path=test_file,
+        percentage_to_change=100,
+        file_content_or_search_replace_blocks="new content\n",
+    )
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
 
     # Verify the error message
     assert "Error: the file has changed since last read." in outputs[0]
-    
+
     test_file2 = os.path.join(temp_dir, "test2.txt")
     with open(test_file2, "w") as f:
         f.write("existing content\n")
     # Test writing to an existing file without reading it first (should warn)
-    write_args = FileWriteOrEdit(file_path=test_file2, percentage_to_change=100, file_content_or_search_replace_blocks="new content\n")
+    write_args = FileWriteOrEdit(
+        file_path=test_file2,
+        percentage_to_change=100,
+        file_content_or_search_replace_blocks="new content\n",
+    )
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
     )
@@ -440,7 +452,9 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     )
 
     write_args = FileWriteOrEdit(
-        file_path=test_file2, percentage_to_change=100, file_content_or_search_replace_blocks="new content after read\n"
+        file_path=test_file2,
+        percentage_to_change=100,
+        file_content_or_search_replace_blocks="new content after read\n",
     )
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
@@ -780,7 +794,9 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
 
     # Test writing to non-existent directory
     write_args = FileWriteOrEdit(
-        file_path=os.path.join(temp_dir, "nonexistent", "test.txt"), file_content_or_search_replace_blocks="test", percentage_to_change=100
+        file_path=os.path.join(temp_dir, "nonexistent", "test.txt"),
+        file_content_or_search_replace_blocks="test",
+        percentage_to_change=100,
     )
     outputs, _ = get_tool_output(
         context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None

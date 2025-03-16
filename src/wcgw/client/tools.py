@@ -14,9 +14,12 @@ from tempfile import NamedTemporaryFile
 from typing import (
     Any,
     Callable,
+    Dict,
+    List,
     Literal,
     Optional,
     ParamSpec,
+    Tuple,
     Type,
     TypeVar,
 )
@@ -99,7 +102,7 @@ def initialize(
     task_id_to_resume: str,
     max_tokens: Optional[int],
     mode: ModesConfig,
-) -> tuple[str, Context, list[str]]:  # Updated to return file paths
+) -> tuple[str, Context, Dict[str, List[Tuple[int, int]]]]:
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
     repo_context = ""
@@ -201,7 +204,7 @@ def initialize(
     del mode
 
     initial_files_context = ""
-    initial_paths: list[str] = []
+    initial_paths_with_ranges: Dict[str, List[Tuple[int, int]]] = {}
     if read_files_:
         if folder_to_start:
             read_files_ = [
@@ -211,7 +214,9 @@ def initialize(
                 else expand_user(f)
                 for f in read_files_
             ]
-        initial_files, initial_paths = read_files(read_files_, max_tokens, context)
+        initial_files, initial_paths_with_ranges = read_files(
+            read_files_, max_tokens, context
+        )
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
     uname_sysname = os.uname().sysname
@@ -236,7 +241,7 @@ Initialized in directory (also cwd): {context.bash_state.cwd}
 
     global INITIALIZED
     INITIALIZED = True
-    return output, context, initial_paths
+    return output, context, initial_paths_with_ranges
 
 
 def is_mode_change(mode_config: ModesConfig, bash_state: BashState) -> bool:
@@ -413,13 +418,15 @@ def write_file(
     error_on_exist: bool,
     max_tokens: Optional[int],
     context: Context,
-) -> tuple[str, list[str]]:  # Updated to return message and file paths
+) -> tuple[
+    str, Dict[str, List[Tuple[int, int]]]
+]:  # Updated to return message and file paths with line ranges
     # Expand the path before checking if it's absolute
     path_ = expand_user(writefile.file_path)
     if not os.path.isabs(path_):
         return (
             f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}",
-            [],
+            {},  # Return empty dict instead of empty list for type consistency
         )
 
     error_on_exist_ = (
@@ -430,8 +437,15 @@ def write_file(
         # Ensure hash has not changed
         if os.path.exists(path_):
             with open(path_, "rb") as f:
-                curr_hash = sha256(f.read()).hexdigest()
-                if curr_hash != context.bash_state.whitelist_for_overwrite[path_]:
+                file_content = f.read()
+                curr_hash = sha256(file_content).hexdigest()
+
+                whitelist_data = context.bash_state.whitelist_for_overwrite[path_]
+
+                # If we haven't fully read the file or hash has changed, require re-reading
+                if curr_hash != whitelist_data.file_hash:
+                    error_on_exist_ = True
+                elif not whitelist_data.is_read_enough():
                     error_on_exist_ = True
 
     # Validate using write_if_empty_mode after checking whitelist
@@ -441,21 +455,78 @@ def write_file(
     ):
         return (
             f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}",
-            [],
+            {},  # Empty dict instead of empty list
         )
 
     if (error_on_exist or error_on_exist_) and os.path.exists(path_):
         content = Path(path_).read_text().strip()
         if content:
             if error_on_exist_:
-                msg = f"Error: you need to read existing file {path_} at least once before it can be overwritten.\n\n"
-                if path_ in context.bash_state.whitelist_for_overwrite:
-                    msg = "Error: the file has changed since last read. \n\n"
-                # Show the existing file content by using read_file
-                file_content, _, _, _ = read_file(path_, max_tokens, context, False)
-                return (msg + f"Here's the existing file:\n```\n{file_content}\n```"), [
-                    path_
-                ]  # Return the file path since we've effectively read it
+                file_ranges = []
+
+                if path_ not in context.bash_state.whitelist_for_overwrite:
+                    # File hasn't been read at all
+                    msg = f"Error: you need to read existing file {path_} at least once before it can be overwritten.\n\n"
+                    # Read the entire file
+                    file_content_str, _, _, _, line_range = read_file(
+                        path_, max_tokens, context, False
+                    )
+                    file_ranges = [line_range]
+
+                    return (
+                        (
+                            msg
+                            + f"Here's the existing file:\n```\n{file_content_str}\n```"
+                        ),
+                        {path_: file_ranges},
+                    )
+
+                whitelist_data = context.bash_state.whitelist_for_overwrite[path_]
+
+                if curr_hash != whitelist_data.file_hash:
+                    msg = "Error: the file has changed since last read.\n\n"
+                    # Read the entire file again
+                    file_content_str, _, _, _, line_range = read_file(
+                        path_, max_tokens, context, False
+                    )
+                    file_ranges = [line_range]
+
+                    return (
+                        (
+                            msg
+                            + f"Here's the existing file:\n```\n{file_content_str}\n```"
+                        ),
+                        {path_: file_ranges},
+                    )
+                else:
+                    # The file hasn't changed, but we haven't read enough of it
+                    unread_ranges = whitelist_data.get_unread_ranges()
+                    # Format the ranges as a string for display
+                    ranges_str = ", ".join(
+                        [f"{start}-{end}" for start, end in unread_ranges]
+                    )
+                    msg = f"Error: you need to read more of the file before it can be overwritten.\nUnread line ranges: {ranges_str}\n\n"
+
+                    # Read just the unread ranges
+                    file_content_parts = []
+                    for start, end in unread_ranges:
+                        range_content, _, _, _, line_range = read_file(
+                            path_, max_tokens, context, False, start, end
+                        )
+                        file_content_parts.append(
+                            f"Lines {start}-{end}:\n```\n{range_content}\n```"
+                        )
+                        file_ranges.append(line_range)
+
+                    file_content_str = "\n\n".join(file_content_parts)
+
+                    return (
+                        (
+                            msg
+                            + f"Here are the unread parts of the file:\n\n{file_content_str}\n"
+                        ),
+                        {path_: file_ranges},
+                    )
     # No need to add to whitelist here - will be handled by get_tool_output
 
     path = Path(path_)
@@ -465,7 +536,7 @@ def write_file(
         with path.open("w") as f:
             f.write(writefile.file_content)
     except OSError as e:
-        return f"Error: {e}", []
+        return f"Error: {e}", {}
 
     extension = Path(path_).suffix.lstrip(".")
 
@@ -497,14 +568,17 @@ Syntax errors:
     except Exception:
         pass
 
-    return "Success" + "".join(warnings), [
-        path_
-    ]  # Return the file path along with success message
+    # Count the lines directly from the content we're writing
+    total_lines = writefile.file_content.count("\n") + 1
+
+    return "Success" + "".join(warnings), {
+        path_: [(1, total_lines)]
+    }  # Return the file path with line range along with success message
 
 
 def do_diff_edit(
     fedit: FileEdit, max_tokens: Optional[int], context: Context
-) -> tuple[str, list[str]]:
+) -> tuple[str, Dict[str, List[Tuple[int, int]]]]:
     try:
         return _do_diff_edit(fedit, max_tokens, context)
     except Exception as e:
@@ -524,7 +598,7 @@ def do_diff_edit(
 
 def _do_diff_edit(
     fedit: FileEdit, max_tokens: Optional[int], context: Context
-) -> tuple[str, list[str]]:
+) -> tuple[str, Dict[str, List[Tuple[int, int]]]]:
     context.console.log(f"Editing file: {fedit.file_path}")
 
     # Expand the path before checking if it's absolute
@@ -560,6 +634,9 @@ def _do_diff_edit(
         lines, apply_diff_to, context.console.log
     )
 
+    # Count the lines just once - after the edit but before writing
+    total_lines = apply_diff_to.count("\n") + 1
+
     with open(path_, "w") as f:
         f.write(apply_diff_to)
 
@@ -576,6 +653,7 @@ def _do_diff_edit(
                 syntax_errors += "\nNote: Ignore if 'tagged template literals' are used, they may raise false positive errors in tree-sitter."
 
             context.console.print(f"W: Syntax errors encountered: {syntax_errors}")
+
             return (
                 f"""{comments}
 ---
@@ -585,12 +663,14 @@ Syntax errors:
 
 {context_for_errors}
 """,
-                [path_],
-            )  # Return the file path along with the warning message
+                {path_: [(1, total_lines)]},
+            )  # Return the file path with line range along with the warning message
     except Exception:
         pass
 
-    return comments, [path_]  # Return the file path along with the edit comments
+    return comments, {
+        path_: [(1, total_lines)]
+    }  # Return the file path with line range along with the edit comments
 
 
 def _is_edit(content: str, percentage: int) -> bool:
@@ -615,7 +695,9 @@ def file_writing(
     file_writing_args: FileWriteOrEdit,
     max_tokens: Optional[int],
     context: Context,
-) -> tuple[str, list[str]]:  # Updated to return message and file paths
+) -> tuple[
+    str, Dict[str, List[Tuple[int, int]]]
+]:  # Updated to return message and file paths with line ranges
     """
     Write or edit a file based on percentage of changes.
     If percentage_changed > 50%, treat content as direct file content.
@@ -626,7 +708,7 @@ def file_writing(
     if not os.path.isabs(path_):
         return (
             f"Failure: file_path should be absolute path, current working directory is {context.bash_state.cwd}",
-            [],
+            {},  # Return empty dict instead of empty list for type consistency
         )
 
     # If file doesn't exist, always use direct file_content mode
@@ -719,8 +801,8 @@ def get_tool_output(
     output: tuple[str | ImageData, float]
     TOOL_CALLS.append(arg)
 
-    # Initialize an empty list to track file paths used by the tool
-    new_file_paths_read_for_whitelist: list[str] = []
+    # Initialize a dictionary to track file paths and line ranges
+    file_paths_with_ranges: Dict[str, List[Tuple[int, int]]] = {}
 
     if isinstance(arg, BashCommand):
         context.console.print("Calling execute bash tool")
@@ -738,7 +820,12 @@ def get_tool_output(
 
         result, write_paths = write_file(arg, True, max_tokens, context)
         output = result, 0
-        new_file_paths_read_for_whitelist.extend(write_paths)
+        # Add write paths with their ranges to our tracking dictionary
+        for path, ranges in write_paths.items():
+            if path in file_paths_with_ranges:
+                file_paths_with_ranges[path].extend(ranges)
+            else:
+                file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, FileEdit):
         context.console.print("Calling full file edit tool")
         if not INITIALIZED:
@@ -746,7 +833,12 @@ def get_tool_output(
 
         result, edit_paths = do_diff_edit(arg, max_tokens, context)
         output = result, 0.0
-        new_file_paths_read_for_whitelist.extend(edit_paths)
+        # Add edit paths with their ranges to our tracking dictionary
+        for path, ranges in edit_paths.items():
+            if path in file_paths_with_ranges:
+                file_paths_with_ranges[path].extend(ranges)
+            else:
+                file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, FileWriteOrEdit):
         context.console.print("Calling file writing tool")
         if not INITIALIZED:
@@ -754,26 +846,36 @@ def get_tool_output(
 
         result, write_edit_paths = file_writing(arg, max_tokens, context)
         output = result, 0.0
-        new_file_paths_read_for_whitelist.extend(write_edit_paths)
+        # Add write/edit paths with their ranges to our tracking dictionary
+        for path, ranges in write_edit_paths.items():
+            if path in file_paths_with_ranges:
+                file_paths_with_ranges[path].extend(ranges)
+            else:
+                file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, ReadImage):
         context.console.print("Calling read image tool")
         path = expand_user(arg.file_path)
         image_data = read_image_from_shell(arg.file_path, context)
         output = image_data, 0.0
-        new_file_paths_read_for_whitelist.append(path)
     elif isinstance(arg, ReadFiles):
         context.console.print("Calling read file tool")
         # Access line numbers through properties
-        result, read_paths = read_files(
-            arg.file_paths, 
-            max_tokens, 
-            context, 
+        result, file_ranges_dict = read_files(
+            arg.file_paths,
+            max_tokens,
+            context,
             bool(arg.show_line_numbers_reason),
             arg.start_line_nums,
-            arg.end_line_nums
+            arg.end_line_nums,
         )
         output = result, 0.0
-        new_file_paths_read_for_whitelist.extend(read_paths)
+
+        # Merge the new file ranges into our tracking dictionary
+        for path, ranges in file_ranges_dict.items():
+            if path in file_paths_with_ranges:
+                file_paths_with_ranges[path].extend(ranges)
+            else:
+                file_paths_with_ranges[path] = ranges
     elif isinstance(arg, Initialize):
         context.console.print("Calling initial info tool")
         if arg.type == "user_asked_mode_change" or arg.type == "reset_shell":
@@ -805,9 +907,13 @@ def get_tool_output(
                 arg.mode,
             )
             output = output_, 0.0
-            new_file_paths_read_for_whitelist.extend(
-                init_paths
-            )  # Add paths from initialize
+            # Since init_paths is already a dictionary mapping file paths to line ranges,
+            # we just need to merge it with our tracking dictionary
+            for path, ranges in init_paths.items():
+                if path not in file_paths_with_ranges and os.path.exists(path):
+                    file_paths_with_ranges[path] = ranges
+                elif path in file_paths_with_ranges:
+                    file_paths_with_ranges[path].extend(ranges)
 
     elif isinstance(arg, ContextSave):
         context.console.print("Calling task memory tool")
@@ -841,10 +947,8 @@ def get_tool_output(
     else:
         raise ValueError(f"Unknown tool: {arg}")
 
-    if new_file_paths_read_for_whitelist:  # Only add to whitelist if we have paths
-        context.bash_state.add_to_whitelist_for_overwrite(
-            new_file_paths_read_for_whitelist
-        )
+    if file_paths_with_ranges:  # Only add to whitelist if we have paths
+        context.bash_state.add_to_whitelist_for_overwrite(file_paths_with_ranges)
 
     if isinstance(output[0], str):
         context.console.print(str(output[0]))
@@ -859,6 +963,12 @@ default_enc = get_default_encoder()
 curr_cost = 0.0
 
 
+def range_format(start_line_num: Optional[int], end_line_num: Optional[int]) -> str:
+    st = "" if not start_line_num else str(start_line_num)
+    end = "" if not end_line_num else str(end_line_num)
+    return f":{st}-{end}"
+
+
 def read_files(
     file_paths: list[str],
     max_tokens: Optional[int],
@@ -866,21 +976,36 @@ def read_files(
     show_line_numbers: bool = False,
     start_line_nums: Optional[list[Optional[int]]] = None,
     end_line_nums: Optional[list[Optional[int]]] = None,
-) -> tuple[str, list[str]]:  # Updated to return a tuple with message and file paths
+) -> tuple[
+    str, Dict[str, List[Tuple[int, int]]]
+]:  # Updated to return file paths with ranges
     message = ""
-    successful_paths = []  # Track successfully read file paths
+    file_ranges_dict: Dict[
+        str, List[Tuple[int, int]]
+    ] = {}  # Map file paths to line ranges
+
     for i, file in enumerate(file_paths):
         try:
             # Use line numbers from parameters if provided
             start_line_num = None if start_line_nums is None else start_line_nums[i]
             end_line_num = None if end_line_nums is None else end_line_nums[i]
-            
+
             # For backward compatibility, we still need to extract line numbers from path
             # if they weren't provided as parameters
-            content, truncated, tokens, path = read_file(
-                file, max_tokens, context, show_line_numbers, start_line_num, end_line_num
+            content, truncated, tokens, path, line_range = read_file(
+                file,
+                max_tokens,
+                context,
+                show_line_numbers,
+                start_line_num,
+                end_line_num,
             )
-            successful_paths.append(path)  # Add successfully read file path
+
+            # Add file path with line range to dictionary
+            if path in file_ranges_dict:
+                file_ranges_dict[path].append(line_range)
+            else:
+                file_ranges_dict[path] = [line_range]
         except Exception as e:
             message += f"\n{file}: {str(e)}\n"
             continue
@@ -888,7 +1013,8 @@ def read_files(
         if max_tokens:
             max_tokens = max_tokens - tokens
 
-        message += f"\n``` {file}\n{content}\n"
+        range_formatted = range_format(start_line_num, end_line_num)
+        message += f"{file}{range_formatted}\n```\n{content}\n"
 
         if truncated or (max_tokens and max_tokens <= 0):
             not_reading = file_paths[i + 1 :]
@@ -898,7 +1024,7 @@ def read_files(
         else:
             message += "```"
 
-    return message, successful_paths
+    return message, file_ranges_dict
 
 
 def read_file(
@@ -908,9 +1034,9 @@ def read_file(
     show_line_numbers: bool = False,
     start_line_num: Optional[int] = None,
     end_line_num: Optional[int] = None,
-) -> tuple[str, bool, int, str]:  # Added str to return the file path
+) -> tuple[str, bool, int, str, Tuple[int, int]]:
     context.console.print(f"Reading file: {file_path}")
-    
+
     # Line numbers are now passed as parameters, no need to parse from path
 
     # Expand the path before checking if it's absolute
@@ -929,6 +1055,13 @@ def read_file(
     with path.open("r") as f:
         all_lines = f.readlines(10_000_000)
 
+        if all_lines[-1].endswith("\n"):
+            # Special handling of line counts because readlines doesn't consider last empty line as a separate line
+            all_lines[-1] = all_lines[-1][:-1]
+            all_lines.append("")
+
+    total_lines = len(all_lines)
+
     # Apply line range filtering if specified
     start_idx = 0
     if start_line_num is not None:
@@ -939,6 +1072,10 @@ def read_file(
     if end_line_num is not None:
         # end_line_num is inclusive, so we use min to ensure it's within bounds
         end_idx = min(len(all_lines), end_line_num)
+
+    # Convert back to 1-indexed line numbers for tracking
+    effective_start = start_line_num if start_line_num is not None else 1
+    effective_end = end_line_num if end_line_num is not None else total_lines
 
     filtered_lines = all_lines[start_idx:end_idx]
 
@@ -967,7 +1104,7 @@ def read_file(
             # Count how many lines we kept
             line_count = truncated_content.count("\n")
 
-            # Calculate the last line number shown
+            # Calculate the last line number shown (1-indexed)
             last_line_shown = start_idx + line_count
 
             content = truncated_content
@@ -975,7 +1112,18 @@ def read_file(
             total_lines = len(all_lines)
             content += f"\n(...truncated) Only showing till line number {last_line_shown} of {total_lines} total lines due to the toke limit, please continue reading from {last_line_shown + 1} if required"
             truncated = True
-    return content, truncated, tokens_counts, file_path
+
+            # Update effective_end if truncated
+            effective_end = last_line_shown
+
+    # Return the content along with the effective line range that was read
+    return (
+        content,
+        truncated,
+        tokens_counts,
+        file_path,
+        (effective_start, effective_end),
+    )
 
 
 if __name__ == "__main__":
