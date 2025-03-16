@@ -2,7 +2,7 @@ import json
 import os
 import re
 import shlex
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, TypeVar
 
 from ..types_ import ContextSave
 
@@ -59,7 +59,10 @@ def save_memory(
     return memory_file_full
 
 
-def load_memory[T](
+T = TypeVar("T")
+
+
+def load_memory(
     task_id: str,
     max_tokens: Optional[int],
     encoder: Callable[[str], list[T]],

@@ -45,11 +45,12 @@ class FileEditOutput:
                     if tol.severity_cat == "WARNING":
                         warnings.add(tol.error_name)
                     elif tol.severity_cat == "ERROR":
+                        search__ = "\n".join(search_)
                         errors.append(f"""
 Got error while processing the following search block:
 ---
 ```
-{"\n".join(search_)}
+{search__}
 ```
 ---
 Error:
