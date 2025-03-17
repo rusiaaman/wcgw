@@ -3,7 +3,8 @@ from collections import deque
 from pathlib import Path  # Still needed for other parts
 from typing import Optional
 
-from pygit2 import GIT_SORT_TIME, GitError, Repository  # type: ignore[attr-defined]
+from pygit2 import GitError, Repository
+from pygit2.enums import SortMode
 
 from .display_tree import DirectoryTree
 from .file_stats import load_workspace_stats
@@ -111,7 +112,7 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
     try:
         # Get the HEAD reference and walk through recent commits
         head = repo.head
-        for commit in repo.walk(head.target, GIT_SORT_TIME):
+        for commit in repo.walk(head.target, SortMode.TOPOLOGICAL | SortMode.TIME):
             # Skip merge commits which have multiple parents
             if len(commit.parents) > 1:
                 continue
@@ -160,7 +161,7 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
     if repo is not None:
         context_dir = Path(repo.path).parent
         # Get recent git files - get at least 50 or the max_files count, whichever is larger
-        recent_files_count = max(50, max_files)
+        recent_files_count = max(10, max_files)
         recent_git_files = get_recent_git_files(repo, recent_files_count)
     else:
         if file_or_repo_path_.is_file():
@@ -235,25 +236,8 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
             if file not in top_files and len(top_files) < max_files:
                 top_files.append(file)
 
-    # If we have too many files (more than max_files), prioritize the most recent ones
-    if len(top_files) > max_files:
-        # Keep all recent git files first, up to max_files
-        git_files_to_keep = min(len(recent_git_files), max_files)
-        recent_git_files_in_top = [f for f in top_files if f in recent_git_files][
-            :git_files_to_keep
-        ]
-
-        # Fill remaining slots with statistically important files
-        remaining_slots = max_files - len(recent_git_files_in_top)
-        stat_files = [f for f in top_files if f not in recent_git_files][
-            :remaining_slots
-        ]
-
-        # Combine them, recent files first
-        top_files = recent_git_files_in_top + stat_files
-
     directory_printer = DirectoryTree(context_dir, max_files=max_files)
-    for file in top_files:
+    for file in top_files[:max_files]:
         directory_printer.expand(file)
 
     return directory_printer.display(), context_dir
