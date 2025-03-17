@@ -1001,6 +1001,8 @@ curr_cost = 0.0
 def range_format(start_line_num: Optional[int], end_line_num: Optional[int]) -> str:
     st = "" if not start_line_num else str(start_line_num)
     end = "" if not end_line_num else str(end_line_num)
+    if not st and not end:
+        return ""
     return f":{st}-{end}"
 
 
@@ -1062,7 +1064,7 @@ def read_files(
             max_tokens = max_tokens - tokens
 
         range_formatted = range_format(start_line_num, end_line_num)
-        message += f"{file}{range_formatted}\n```\n{content}\n"
+        message += f"\n{file}{range_formatted}\n```\n{content}\n"
 
         if truncated or (max_tokens and max_tokens <= 0):
             not_reading = file_paths[i + 1 :]
