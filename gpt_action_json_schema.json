@@ -10,16 +10,16 @@
     }
   ],
   "paths": {
-    "/v1/create_file": {
+    "/v1/file_write_or_edit": {
       "post": {
         "x-openai-isConsequential": false,
-        "summary": "Create File",
-        "operationId": "create_file_v1_create_file_post",
+        "summary": "File Write Or Edit",
+        "operationId": "file_write_or_edit_v1_file_write_or_edit_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WriteIfEmptyWithUUID"
+                "$ref": "#/components/schemas/FileWriteOrEdithUUID"
               }
             }
           },
@@ -32,47 +32,7 @@
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "title": "Response Create File V1 Create File Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/full_file_edit": {
-      "post": {
-        "x-openai-isConsequential": false,
-        "summary": "File Edit Find Replace",
-        "operationId": "file_edit_find_replace_v1_full_file_edit_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FileEditWithUUID"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string",
-                  "title": "Response File Edit Find Replace V1 Full File Edit Post"
+                  "title": "Response File Write Or Edit V1 File Write Or Edit Post"
                 }
               }
             }
@@ -288,10 +248,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "allowed_globs",
-          "allowed_commands"
-        ],
+        "required": ["allowed_globs", "allowed_commands"],
         "title": "CodeWriterMode"
       },
       "Command": {
@@ -303,9 +260,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "command"
-        ],
+        "required": ["command"],
         "title": "Command"
       },
       "CommandWithUUID": {
@@ -328,7 +283,7 @@
                 "$ref": "#/components/schemas/SendAscii"
               }
             ],
-            "title": "ActionJson"
+            "title": "Action Json"
           },
           "wait_for_seconds": {
             "anyOf": [
@@ -349,10 +304,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "action_json",
-          "user_id"
-        ],
+        "required": ["action_json", "user_id"],
         "title": "CommandWithUUID"
       },
       "ContextSaveWithUUID": {
@@ -393,15 +345,19 @@
         ],
         "title": "ContextSaveWithUUID"
       },
-      "FileEditWithUUID": {
+      "FileWriteOrEdithUUID": {
         "properties": {
           "file_path": {
             "type": "string",
             "title": "File Path"
           },
-          "file_edit_using_search_replace_blocks": {
+          "percentage_to_change": {
+            "type": "integer",
+            "title": "Percentage To Change"
+          },
+          "file_content_or_search_replace_blocks": {
             "type": "string",
-            "title": "File Edit Using Search Replace Blocks"
+            "title": "File Content Or Search Replace Blocks"
           },
           "user_id": {
             "type": "string",
@@ -413,10 +369,11 @@
         "type": "object",
         "required": [
           "file_path",
-          "file_edit_using_search_replace_blocks",
+          "percentage_to_change",
+          "file_content_or_search_replace_blocks",
           "user_id"
         ],
-        "title": "FileEditWithUUID"
+        "title": "FileWriteOrEdithUUID"
       },
       "HTTPValidationError": {
         "properties": {
@@ -460,11 +417,7 @@
           },
           "mode_name": {
             "type": "string",
-            "enum": [
-              "wcgw",
-              "architect",
-              "code_writer"
-            ],
+            "enum": ["wcgw", "architect", "code_writer"],
             "title": "Mode Name"
           },
           "code_writer_config": {
@@ -504,6 +457,17 @@
             "type": "array",
             "title": "File Paths"
           },
+          "show_line_numbers_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Show Line Numbers Reason"
+          },
           "user_id": {
             "type": "string",
             "format": "uuid",
@@ -512,10 +476,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "file_paths",
-          "user_id"
-        ],
+        "required": ["file_paths", "user_id"],
         "title": "ReadFileWithUUID"
       },
       "SendAscii": {
@@ -530,9 +491,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "send_ascii"
-        ],
+        "required": ["send_ascii"],
         "title": "SendAscii"
       },
       "SendSpecials": {
@@ -547,8 +506,7 @@
                 "Key-left",
                 "Key-right",
                 "Ctrl-c",
-                "Ctrl-d",
-                "Ctrl-z"
+                "Ctrl-d"
               ]
             },
             "type": "array",
@@ -557,9 +515,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "send_specials"
-        ],
+        "required": ["send_specials"],
         "title": "SendSpecials"
       },
       "SendText": {
@@ -571,9 +527,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "send_text"
-        ],
+        "required": ["send_text"],
         "title": "SendText"
       },
       "StatusCheck": {
@@ -586,9 +540,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "status_check"
-        ],
+        "required": ["status_check"],
         "title": "StatusCheck"
       },
       "ValidationError": {
@@ -617,37 +569,8 @@
           }
         },
         "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError"
-      },
-      "WriteIfEmptyWithUUID": {
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "title": "File Path"
-          },
-          "file_content": {
-            "type": "string",
-            "title": "File Content"
-          },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "User Id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "file_path",
-          "file_content",
-          "user_id"
-        ],
-        "title": "WriteIfEmptyWithUUID"
       }
     }
   }

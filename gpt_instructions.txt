@@ -33,22 +33,23 @@ Instructions for `BashCommand`:
 
 Instructions for `Read Files`
 - Read full file content of one or more files.
-- Provide absolute file paths only
+- Provide absolute paths only (~ allowed)
+- Only if the task requires line numbers understanding:
+    - You may populate "show_line_numbers_reason" with your reason, by default null/empty means no line numbers are shown.
+    - You may extract a range of lines. E.g., `/path/to/file:1-10` for lines 1-10. You can drop start or end like `/path/to/file:1-` or `/path/to/file:-10` 
 
-Instructions for `Write if Empty`
-- Write content to an empty or non-existent file. Provide file path and content. Use this instead of BashCommand for writing new files.
-- Provide absolute file path only.
-- For editing existing files, use FileEdit.
+Instructions for `FileWriteOrEdit`
+- Writes or edits a file based on the percentage of changes.
+- Use absolute path only (~ allowed).
+- First write down percentage of lines that need to be replaced in the file (between 0-100) in percentage_to_change
+- percentage_to_change should be low if mostly new code is to be added. It should be high if a lot of things are to be replaced.
+- If percentage_to_change > 50, provide full file content in file_content_or_search_replace_blocks
+- If percentage_to_change <= 50, file_content_or_search_replace_blocks should be search/replace blocks.
 
 Instructions for `ContextSave`
 - Saves provided description and file contents of all the relevant file paths or globs in a single text file.
   - Provide random unqiue id or whatever user provided.
   - Leave project path as empty string if no project path
-
-Instructions for `FileEdit`:
-    - Use absolute file path only.
-    - Use SEARCH/REPLACE blocks to edit the file.
-        Only edit the files using the following SEARCH/REPLACE blocks.
 
 ```
 <<<<<<< SEARCH

@@ -108,14 +108,14 @@ async def test_handle_list_tools():
     required_tools = {
         "Initialize",
         "BashCommand",
-        "ReadFiles", 
+        "ReadFiles",
         "ReadImage",
         "FileWriteOrEdit",
         "ContextSave",
     }
-    assert required_tools.issubset(
-        tool_names
-    ), f"Missing tools: {required_tools - tool_names}"
+    assert required_tools.issubset(tool_names), (
+        f"Missing tools: {required_tools - tool_names}"
+    )
 
     # Test each tool's schema and description
     for tool in tools:
@@ -152,10 +152,10 @@ async def test_handle_list_tools():
                 "SendAscii",
             }
             assert required_types.issubset(type_refs)
-        elif tool.name == "FileEdit":
+        elif tool.name == "FileWriteOrEdit":
             properties = tool.inputSchema["properties"]
             assert "file_path" in properties
-            assert "file_edit_using_search_replace_blocks" in properties
+            assert "file_content_or_search_replace_blocks" in properties
 
 
 @pytest.mark.asyncio
