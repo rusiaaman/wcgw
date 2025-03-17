@@ -1080,7 +1080,7 @@ def read_file(
     show_line_numbers: bool = False,
     start_line_num: Optional[int] = None,
     end_line_num: Optional[int] = None,
-) -> tuple[str, bool, int, str, Tuple[int, int]]:
+) -> tuple[str, bool, int, str, tuple[int, int]]:
     context.console.print(f"Reading file: {file_path}")
 
     # Line numbers are now passed as parameters, no need to parse from path

@@ -16,23 +16,14 @@ from pydantic import BaseModel
 from ..types_ import (
     BashCommand,
     ContextSave,
-    FileEdit,
+    FileWriteOrEdit,
     Initialize,
     ReadFiles,
-    WriteIfEmpty,
 )
 
 
 class Mdata(BaseModel):
-    data: (
-        BashCommand
-        | WriteIfEmpty
-        | FileEdit
-        | ReadFiles
-        | Initialize
-        | ContextSave
-        | str
-    )
+    data: BashCommand | FileWriteOrEdit | ReadFiles | Initialize | ContextSave | str
     user_id: UUID
 
 
@@ -93,12 +84,12 @@ async def register_websocket(websocket: WebSocket, uuid: UUID) -> None:
         print(f"Client {uuid} disconnected")
 
 
-class WriteIfEmptyWithUUID(WriteIfEmpty):
+class FileWriteOrEdithUUID(FileWriteOrEdit):
     user_id: UUID
 
 
-@app.post("/v1/create_file")
-async def create_file(write_file_data: WriteIfEmptyWithUUID) -> str:
+@app.post("/v1/file_write_or_edit")
+async def file_write_or_edit(write_file_data: FileWriteOrEdithUUID) -> str:
     user_id = write_file_data.user_id
     if user_id not in clients:
         return "Failure: id not found, ask the user to check it."
@@ -112,42 +103,6 @@ async def create_file(write_file_data: WriteIfEmptyWithUUID) -> str:
     gpts[user_id] = put_results
 
     await clients[user_id](Mdata(data=write_file_data, user_id=user_id))
-
-    start_time = time.time()
-    while time.time() - start_time < 30:
-        if results is not None:
-            return results
-        await asyncio.sleep(0.1)
-
-    raise fastapi.HTTPException(status_code=500, detail="Timeout error")
-
-
-class FileEditWithUUID(FileEdit):
-    user_id: UUID
-
-
-@app.post("/v1/full_file_edit")
-async def file_edit_find_replace(
-    file_edit_find_replace: FileEditWithUUID,
-) -> str:
-    user_id = file_edit_find_replace.user_id
-    if user_id not in clients:
-        return "Failure: id not found, ask the user to check it."
-
-    results: Optional[str] = None
-
-    def put_results(result: str) -> None:
-        nonlocal results
-        results = result
-
-    gpts[user_id] = put_results
-
-    await clients[user_id](
-        Mdata(
-            data=file_edit_find_replace,
-            user_id=user_id,
-        )
-    )
 
     start_time = time.time()
     while time.time() - start_time < 30:
@@ -179,7 +134,8 @@ async def bash_command(command: CommandWithUUID) -> str:
     await clients[user_id](
         Mdata(
             data=BashCommand(
-                action_json=command.action_json, wait_for_seconds=command.wait_for_seconds
+                action_json=command.action_json,
+                wait_for_seconds=command.wait_for_seconds,
             ),
             user_id=user_id,
         )
