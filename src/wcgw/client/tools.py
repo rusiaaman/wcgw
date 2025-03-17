@@ -14,12 +14,9 @@ from tempfile import NamedTemporaryFile
 from typing import (
     Any,
     Callable,
-    Dict,
-    List,
     Literal,
     Optional,
     ParamSpec,
-    Tuple,
     Type,
     TypeVar,
 )
@@ -107,7 +104,7 @@ def initialize(
     task_id_to_resume: str,
     max_tokens: Optional[int],
     mode: ModesConfig,
-) -> tuple[str, Context, Dict[str, List[Tuple[int, int]]]]:
+) -> tuple[str, Context, dict[str, list[tuple[int, int]]]]:
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
     repo_context = ""
@@ -217,7 +214,7 @@ def initialize(
     del mode
 
     initial_files_context = ""
-    initial_paths_with_ranges: Dict[str, List[Tuple[int, int]]] = {}
+    initial_paths_with_ranges: dict[str, list[tuple[int, int]]] = {}
     if read_files_:
         if folder_to_start:
             read_files_ = [
@@ -434,7 +431,7 @@ def write_file(
     max_tokens: Optional[int],
     context: Context,
 ) -> tuple[
-    str, Dict[str, List[Tuple[int, int]]]
+    str, dict[str, list[tuple[int, int]]]
 ]:  # Updated to return message and file paths with line ranges
     # Expand the path before checking if it's absolute
     path_ = expand_user(writefile.file_path)
@@ -603,7 +600,7 @@ Syntax errors:
 
 def do_diff_edit(
     fedit: FileEdit, max_tokens: Optional[int], context: Context
-) -> tuple[str, Dict[str, List[Tuple[int, int]]]]:
+) -> tuple[str, dict[str, list[tuple[int, int]]]]:
     try:
         return _do_diff_edit(fedit, max_tokens, context)
     except Exception as e:
@@ -623,7 +620,7 @@ def do_diff_edit(
 
 def _do_diff_edit(
     fedit: FileEdit, max_tokens: Optional[int], context: Context
-) -> tuple[str, Dict[str, List[Tuple[int, int]]]]:
+) -> tuple[str, dict[str, list[tuple[int, int]]]]:
     context.console.log(f"Editing file: {fedit.file_path}")
 
     # Expand the path before checking if it's absolute
@@ -731,7 +728,7 @@ def file_writing(
     max_tokens: Optional[int],
     context: Context,
 ) -> tuple[
-    str, Dict[str, List[Tuple[int, int]]]
+    str, dict[str, list[tuple[int, int]]]
 ]:  # Updated to return message and file paths with line ranges
     """
     Write or edit a file based on percentage of changes.
@@ -837,7 +834,7 @@ def get_tool_output(
     TOOL_CALLS.append(arg)
 
     # Initialize a dictionary to track file paths and line ranges
-    file_paths_with_ranges: Dict[str, List[Tuple[int, int]]] = {}
+    file_paths_with_ranges: dict[str, list[tuple[int, int]]] = {}
 
     if isinstance(arg, BashCommand):
         context.console.print("Calling execute bash tool")
@@ -1014,11 +1011,11 @@ def read_files(
     start_line_nums: Optional[list[Optional[int]]] = None,
     end_line_nums: Optional[list[Optional[int]]] = None,
 ) -> tuple[
-    str, Dict[str, List[Tuple[int, int]]]
+    str, dict[str, list[tuple[int, int]]]
 ]:  # Updated to return file paths with ranges
     message = ""
-    file_ranges_dict: Dict[
-        str, List[Tuple[int, int]]
+    file_ranges_dict: dict[
+        str, list[tuple[int, int]]
     ] = {}  # Map file paths to line ranges
 
     workspace_path = context.bash_state.workspace_root

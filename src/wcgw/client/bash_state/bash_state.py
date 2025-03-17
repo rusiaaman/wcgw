@@ -9,12 +9,9 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import (
     Any,
-    Dict,
-    List,
     Literal,
     Optional,
     ParamSpec,
-    Tuple,
     TypeVar,
 )
 
@@ -564,7 +561,7 @@ class BashState:
         return self._whitelist_for_overwrite
 
     def add_to_whitelist_for_overwrite(
-        self, file_paths_with_ranges: Dict[str, List[Tuple[int, int]]]
+        self, file_paths_with_ranges: dict[str, list[tuple[int, int]]]
     ) -> None:
         """
         Add files to the whitelist for overwrite.
@@ -609,7 +606,7 @@ class FileWhitelistData:
     file_hash: str
     # List of line ranges that have been read (inclusive start, inclusive end)
     # E.g., [(1, 10), (20, 30)] means lines 1-10 and 20-30 have been read
-    line_ranges_read: List[Tuple[int, int]]
+    line_ranges_read: list[tuple[int, int]]
     # Total number of lines in the file
     total_lines: int
 
@@ -629,7 +626,7 @@ class FileWhitelistData:
         """Check if enough of the file has been read (>=99%)"""
         return self.get_percentage_read() >= 99
 
-    def get_unread_ranges(self) -> List[Tuple[int, int]]:
+    def get_unread_ranges(self) -> list[tuple[int, int]]:
         """Return a list of line ranges (start, end) that haven't been read yet.
 
         Returns line ranges as tuples of (start_line, end_line) in 1-indexed format.
@@ -644,7 +641,7 @@ class FileWhitelistData:
             lines_read.update(range(start, end + 1))
 
         # Generate unread ranges from the gaps
-        unread_ranges: List[Tuple[int, int]] = []
+        unread_ranges: list[tuple[int, int]] = []
         start_range = None
 
         for i in range(1, self.total_lines + 1):
@@ -668,7 +665,7 @@ class FileWhitelistData:
         self.line_ranges_read.append((start, end))
         # Could add range merging logic here for optimization
 
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> dict[str, Any]:
         """Convert to a serializable dictionary."""
         return {
             "file_hash": self.file_hash,
@@ -677,7 +674,7 @@ class FileWhitelistData:
         }
 
     @classmethod
-    def deserialize(cls, data: Dict[str, Any]) -> "FileWhitelistData":
+    def deserialize(cls, data: dict[str, Any]) -> "FileWhitelistData":
         """Create from a serialized dictionary."""
         return cls(
             file_hash=data.get("file_hash", ""),

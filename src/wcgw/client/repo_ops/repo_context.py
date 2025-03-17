@@ -1,7 +1,7 @@
 import os
 from collections import deque
 from pathlib import Path  # Still needed for other parts
-from typing import List, Optional, Set, Tuple
+from typing import Optional
 
 from pygit2 import GIT_SORT_TIME, GitError, Repository  # type: ignore[attr-defined]
 
@@ -83,7 +83,7 @@ def get_all_files_max_depth(
     return all_files
 
 
-def get_recent_git_files(repo: Repository, count: int = 10) -> List[str]:
+def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
     """
     Get the most recently modified files from git history
 
@@ -98,8 +98,8 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> List[str]:
         return []
 
     # Track seen files to avoid duplicates
-    seen_files: Set[str] = set()
-    recent_files: List[str] = []
+    seen_files: set[str] = set()
+    recent_files: list[str] = []
 
     # Check if the repository has commits
     try:
@@ -150,11 +150,11 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> List[str]:
     return recent_files
 
 
-def get_repo_context(file_or_repo_path: str, max_files: int) -> Tuple[str, Path]:
+def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
     file_or_repo_path_ = Path(file_or_repo_path).absolute()
 
     repo = find_ancestor_with_git(file_or_repo_path_)
-    recent_git_files: List[str] = []
+    recent_git_files: list[str] = []
 
     # Determine the context directory
     if repo is not None:
