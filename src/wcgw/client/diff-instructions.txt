@@ -23,7 +23,6 @@ def call_hello():
 ```
 ## Edit format on the input file
 ```
-file_content_or_search_replace_blocks="""
 <<<<<<< SEARCH
 from impls import impl1, impl2
 =======
@@ -57,7 +56,6 @@ def call_hello_renamed():
     hello_renamed()
     impl2()
 >>>>>>> REPLACE
-"""
 ```
 
 # *SEARCH/REPLACE block* Rules:
