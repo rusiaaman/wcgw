@@ -95,19 +95,9 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
     Returns:
         List of relative paths to recently modified files
     """
-    if repo is None:
-        return []
-
     # Track seen files to avoid duplicates
     seen_files: set[str] = set()
     recent_files: list[str] = []
-
-    # Check if the repository has commits
-    try:
-        repo.head
-    except (KeyError, ValueError, GitError):
-        # No commits in repository or other error
-        return []
 
     try:
         # Get the HEAD reference and walk through recent commits

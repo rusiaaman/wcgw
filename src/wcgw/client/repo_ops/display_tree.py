@@ -33,13 +33,13 @@ class DirectoryTree:
         abs_path = self.root / rel_path
 
         if not abs_path.exists():
-            raise ValueError(f"Path {rel_path} does not exist")
+            return
 
         if not abs_path.is_file():
-            raise ValueError(f"Path {rel_path} is not a file")
+            return
 
         if not str(abs_path).startswith(str(self.root)):
-            raise ValueError(f"Path {rel_path} is outside root directory")
+            return
 
         self.expanded_files.add(abs_path)
 
