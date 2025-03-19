@@ -108,7 +108,7 @@ def get_stats_path(workspace_path: str) -> str:
 
     # Create directory if it doesn't exist
     xdg_data_dir = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
-    stats_dir = os.path.join(xdg_data_dir, "workspace_stats")
+    stats_dir = os.path.join(xdg_data_dir, "wcgw/workspace_stats")
     os.makedirs(stats_dir, exist_ok=True)
 
     return os.path.join(stats_dir, filename)
