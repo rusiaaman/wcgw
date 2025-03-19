@@ -520,7 +520,7 @@ def write_file(
                     return (
                         (
                             msg
-                            + f"Here's the existing file:\n```\n{file_content_str}\n```\n{truncated}"
+                            + f"Here's the existing file:\n```\n{file_content_str}\n```\n{final_message}"
                         ),
                         {path_: file_ranges},
                     )
@@ -894,7 +894,6 @@ def get_tool_output(
                 file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, ReadImage):
         context.console.print("Calling read image tool")
-        path = expand_user(arg.file_path)
         image_data = read_image_from_shell(arg.file_path, context)
         output = image_data, 0.0
     elif isinstance(arg, ReadFiles):

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import sys
 from typing import Any, Callable, Dict, TypeVar, cast
 
 T = TypeVar("T")  # Type variable for generic functions
@@ -75,7 +76,7 @@ def safe_stats_operation(func: F) -> F:
             return func(*args, **kwargs)
         except Exception as e:
             # Log the error but continue with the operation
-            print(f"Warning: Stats tracking error - {e}")
+            print(f"Warning: Stats tracking error - {e}", file=sys.stderr)
             return None
 
     # This is a workaround for proper typing with decorators
