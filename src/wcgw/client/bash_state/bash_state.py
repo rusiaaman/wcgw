@@ -319,9 +319,11 @@ class BashState:
             self._bg_expect_thread_stop_event = threading.Event()
 
     def cleanup(self) -> None:
-        self.close_bg_expect_thread()
-        self._shell.close(True)
-        cleanup_all_screens_with_name(self._shell_id, self.console)
+        try:
+            self.close_bg_expect_thread()
+            self._shell.close(True)
+        finally:
+            cleanup_all_screens_with_name(self._shell_id, self.console)
 
     def __enter__(self) -> "BashState":
         return self

@@ -923,15 +923,6 @@ wheels = [
 ]
 
 [[package]]
-name = "shell"
-version = "1.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/71/0c/d6270ed3bf86d036c37929443d7f4a7a8af77dbbce11cec7ddce8d8599c5/shell-1.0.1.tar.gz", hash = "sha256:6fbaa88f85de228ddecef33cb1e9037f4959f6f76942b01769e4139a038f6513", size = 4486 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/19/5fc161e830b08bf2b419a04b0105f2dbf095759148d38cd1e99feadc4146/shell-1.0.1-py2.py3-none-any.whl", hash = "sha256:64e3347d1dd2c8f3c3f3df5e6ebe9084d768ae20985aef6793854b9f47d4045a", size = 5389 },
-]
-
-[[package]]
 name = "shellingham"
 version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1193,7 +1184,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "rich" },
     { name = "semantic-version" },
-    { name = "shell" },
     { name = "syntax-checker" },
     { name = "tokenizers" },
     { name = "toml" },
@@ -1229,7 +1219,6 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "rich", specifier = ">=13.8.1" },
     { name = "semantic-version", specifier = ">=2.10.0" },
-    { name = "shell", specifier = ">=1.0.1" },
     { name = "syntax-checker", specifier = ">=0.3.0" },
     { name = "tokenizers", specifier = ">=0.21.0" },
     { name = "toml", specifier = ">=0.10.2" },

@@ -217,7 +217,7 @@ def loop(
         system_console, os.getcwd(), None, None, None, None, True, None
     ) as bash_state:
         context = Context(bash_state, system_console)
-        system, context = initialize(
+        system, context, _ = initialize(
             "first_call",
             context,
             os.getcwd(),
