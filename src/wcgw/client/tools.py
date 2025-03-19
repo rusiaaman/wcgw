@@ -224,7 +224,7 @@ def initialize(
                 else expand_user(f)
                 for f in read_files_
             ]
-        initial_files, initial_paths_with_ranges = read_files(
+        initial_files, initial_paths_with_ranges, _ = read_files(
             read_files_, max_tokens, context
         )
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
@@ -508,15 +508,19 @@ def write_file(
                 if curr_hash != whitelist_data.file_hash:
                     msg = "Error: the file has changed since last read.\n\n"
                     # Read the entire file again
-                    file_content_str, _, _, _, line_range = read_file(
+                    file_content_str, truncated, _, _, line_range = read_file(
                         path_, max_tokens, context, False
                     )
                     file_ranges = [line_range]
 
+                    final_message = ""
+                    if not truncated:
+                        final_message = "You can now safely retry writing immediately considering the above information."
+
                     return (
                         (
                             msg
-                            + f"Here's the existing file:\n```\n{file_content_str}\n```"
+                            + f"Here's the existing file:\n```\n{file_content_str}\n```\n{truncated}"
                         ),
                         {path_: file_ranges},
                     )
@@ -530,24 +534,28 @@ def write_file(
                     msg = f"Error: you need to read more of the file before it can be overwritten.\nUnread line ranges: {ranges_str}\n\n"
 
                     # Read just the unread ranges
-                    file_content_parts = []
+                    paths_: list[str] = []
                     for start, end in unread_ranges:
-                        range_content, _, _, _, line_range = read_file(
-                            path_, max_tokens, context, False, start, end
-                        )
-                        file_content_parts.append(
-                            f"Lines {start}-{end}:\n```\n{range_content}\n```"
-                        )
-                        file_ranges.append(line_range)
+                        paths_.append(path_ + ":" + f"{start}-{end}")
+                    paths_readfiles = ReadFiles(
+                        file_paths=paths_, show_line_numbers_reason=""
+                    )
+                    readfiles, file_ranges_dict, truncated = read_files(
+                        paths_readfiles.file_paths,
+                        max_tokens,
+                        context,
+                        show_line_numbers=False,
+                        start_line_nums=paths_readfiles.start_line_nums,
+                        end_line_nums=paths_readfiles.end_line_nums,
+                    )
 
-                    file_content_str = "\n\n".join(file_content_parts)
+                    final_message = ""
+                    if not truncated:
+                        final_message = "Now that you have read the rest of the file, you can now safely immediately retry writing but consider the new information above."
 
                     return (
-                        (
-                            msg
-                            + f"Here are the unread parts of the file:\n\n{file_content_str}\n"
-                        ),
-                        {path_: file_ranges},
+                        (msg + "\n" + readfiles + "\n" + final_message),
+                        file_ranges_dict,
                     )
     # No need to add to whitelist here - will be handled by get_tool_output
 
@@ -892,7 +900,7 @@ def get_tool_output(
     elif isinstance(arg, ReadFiles):
         context.console.print("Calling read file tool")
         # Access line numbers through properties
-        result, file_ranges_dict = read_files(
+        result, file_ranges_dict, _ = read_files(
             arg.file_paths,
             max_tokens,
             context,
@@ -963,7 +971,7 @@ def get_tool_output(
             relevant_files.extend(globs[:1000])
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
-        relevant_files_data, _ = read_files(relevant_files[:10_000], None, context)
+        relevant_files_data, _, _ = read_files(relevant_files[:10_000], None, context)
         save_path = save_memory(
             arg, relevant_files_data, context.bash_state.serialize()
         )
@@ -1011,7 +1019,7 @@ def read_files(
     start_line_nums: Optional[list[Optional[int]]] = None,
     end_line_nums: Optional[list[Optional[int]]] = None,
 ) -> tuple[
-    str, dict[str, list[tuple[int, int]]]
+    str, dict[str, list[tuple[int, int]]], bool
 ]:  # Updated to return file paths with ranges
     message = ""
     file_ranges_dict: dict[
@@ -1030,7 +1038,7 @@ def read_files(
 
         stats.files[path_].increment_read()
     save_workspace_stats(workspace_path, stats)
-
+    truncated = False
     for i, file in enumerate(file_paths):
         try:
             # Use line numbers from parameters if provided
@@ -1070,7 +1078,7 @@ def read_files(
             break
         else:
             message += "```"
-    return message, file_ranges_dict
+    return message, file_ranges_dict, truncated
 
 
 def read_file(
@@ -1156,7 +1164,7 @@ def read_file(
             content = truncated_content
             # Add informative message about truncation with total line count
             total_lines = len(all_lines)
-            content += f"\n(...truncated) Only showing till line number {last_line_shown} of {total_lines} total lines due to the toke limit, please continue reading from {last_line_shown + 1} if required"
+            content += f"\n(...truncated) Only showing till line number {last_line_shown} of {total_lines} total lines due to the token limit, please continue reading from {last_line_shown + 1} if required"
             truncated = True
 
             # Update effective_end if truncated
@@ -1215,12 +1223,27 @@ if __name__ == "__main__":
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
                 ReadFiles(
-                    file_paths=[os.path.dirname(__file__) + "/../../../README.md"],
+                    file_paths=["/Users/arusia/repos/wcgw/src/wcgw/client/tools.py"],
                     show_line_numbers_reason="true",
                 ),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
-                50,
+                15000,
+            )[0][0]
+        )
+
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                FileWriteOrEdit(
+                    file_path="/Users/arusia/repos/wcgw/src/wcgw/client/tools.py",
+                    file_content_or_search_replace_blocks="""test""",
+                    percentage_to_change=100,
+                ),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                800,
             )[0][0]
         )
