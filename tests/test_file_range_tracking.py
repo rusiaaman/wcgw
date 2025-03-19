@@ -66,7 +66,7 @@ def test_read_files_tracks_multiple_ranges(test_file, context):
 
     try:
         # Read different ranges from both files
-        _, file_ranges = read_files(
+        _, file_ranges, _ = read_files(
             file_paths=[test_file, second_file],
             max_tokens=None,
             context=context,
