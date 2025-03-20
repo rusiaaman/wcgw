@@ -141,7 +141,7 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
     return recent_files
 
 
-def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
+def get_repo_context(file_or_repo_path: str) -> tuple[str, Path]:
     file_or_repo_path_ = Path(file_or_repo_path).absolute()
 
     repo = find_ancestor_with_git(file_or_repo_path_)
@@ -159,10 +159,10 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
         else:
             context_dir = file_or_repo_path_
 
+        all_files = get_all_files_max_depth(str(context_dir), 10, repo)
+
     # Load workspace stats from the context directory
     workspace_stats = load_workspace_stats(str(context_dir))
-
-    all_files = get_all_files_max_depth(str(context_dir), 10, repo)
 
     # Calculate probabilities in batch
     path_scores = PATH_SCORER.calculate_path_probabilities_batch(all_files)

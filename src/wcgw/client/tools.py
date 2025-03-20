@@ -490,15 +490,19 @@ def write_file(
                     # File hasn't been read at all
                     msg = f"Error: you need to read existing file {path_} at least once before it can be overwritten.\n\n"
                     # Read the entire file
-                    file_content_str, _, _, _, line_range = read_file(
+                    file_content_str, truncated, _, _, line_range = read_file(
                         path_, max_tokens, context, False
                     )
                     file_ranges = [line_range]
 
+                    final_message = ""
+                    if not truncated:
+                        final_message = "You can now safely retry writing immediately considering the above information."
+
                     return (
                         (
                             msg
-                            + f"Here's the existing file:\n```\n{file_content_str}\n```"
+                            + f"Here's the existing file:\n```\n{file_content_str}\n{final_message}\n```"
                         ),
                         {path_: file_ranges},
                     )
