@@ -32,7 +32,7 @@ Empowering chat applications to code, build and run on your local machine.
 ## 🚀 Highlights
 
 - ⚡ **Create, Execute, Iterate**: Ask claude to keep running compiler checks till all errors are fixed, or ask it to keep checking for the status of a long running command till it's done.
-- ⚡ **Large file edit**: Supports large file incremental edits to avoid token limit issues. Smartly selects when to do small edits or large rewrite.
+- ⚡ **Large file edit**: Supports large file incremental edits to avoid token limit issues. Smartly selects when to do small edits or large rewrite based on % of change needed.
 - ⚡ **Syntax checking on edits**: Reports feedback to the LLM if its edits have any syntax errors, so that it can redo it.
 - ⚡ **Interactive Command Handling**: Supports interactive commands using arrow keys, interrupt, and ansi escape sequences.
 - ⚡ **File protections**:
