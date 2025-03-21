@@ -2,7 +2,7 @@
 
 Empowering chat applications to code, build and run on your local machine.
 
-- Claude - An MCP server on claude desktop for autonomous shell and coding agent. (mac, linux, windows on wsl)
+- Claude - MCP server with tightly integrated shell and code editing tools.
 - Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux, mac, windows on wsl)
 
 ⚠️ Warning: do not allow BashCommand tool without reviewing the command, it may result in data loss.
