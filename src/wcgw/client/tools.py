@@ -28,7 +28,6 @@ import uuid
 import humanize
 from pydantic import BaseModel, TypeAdapter
 import typer
-from .computer_use import run_computer_tool
 from websockets.sync.client import connect as syncconnect
 
 import os
