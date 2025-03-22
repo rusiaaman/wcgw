@@ -142,7 +142,7 @@ def initialize(
                     read_files_ = [any_workspace_path]
                 any_workspace_path = os.path.dirname(any_workspace_path)
             # Let get_repo_context handle loading the workspace stats
-            repo_context, folder_to_start = get_repo_context(any_workspace_path, 50)
+            repo_context, folder_to_start = get_repo_context(any_workspace_path)
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
 
@@ -239,6 +239,7 @@ def initialize(
 System: {uname_sysname}
 Machine: {uname_machine}
 Initialized in directory (also cwd): {context.bash_state.cwd}
+User home directory: {expanduser("~")}
 
 {repo_context}
 
