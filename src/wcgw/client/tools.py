@@ -41,14 +41,6 @@ import rich
 import pyte
 from dotenv import load_dotenv
 
-import openai
-from openai import OpenAI
-from openai.types.chat import (
-    ChatCompletionMessageParam,
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionMessage,
-    ParsedChatCompletionMessage,
-)
 from nltk.metrics.distance import edit_distance  # type: ignore[import-untyped]
 
 from ..types_ import (
@@ -69,7 +61,6 @@ from ..types_ import (
 
 from .common import CostData, Models, discard_input
 from .sys_utils import command_run
-from .openai_utils import get_input_cost, get_output_cost
 
 console = rich.console.Console(style="magenta", highlight=False, markup=False)
 
@@ -961,7 +952,7 @@ def get_tool_output(
     return [output[0]], output[1]
 
 
-History = list[ChatCompletionMessageParam]
+History = list
 
 default_enc = tiktoken.encoding_for_model("gpt-4o")
 default_model: Models = "gpt-4o-2024-08-06"
