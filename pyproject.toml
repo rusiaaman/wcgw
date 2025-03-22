@@ -17,7 +17,6 @@ dependencies = [
     "semantic-version>=2.10.0",
     "tokenizers>=0.21.0",
     "pygit2>=1.16.0",
-    "syntax-checker>=0.2.9",
 ]
 
 [project.urls]

@@ -26,7 +26,6 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 from pydantic import BaseModel, TypeAdapter, ValidationError
-from syntax_checker import check_syntax
 
 from wcgw.client.bash_state.bash_state import get_status
 from wcgw.client.repo_ops.file_stats import (
