@@ -18,7 +18,8 @@ Empowering chat applications to code, build and run on your local machine.
 ![Workflow Demo](static/workflow-demo.gif)
 
 ## Updates
-- [21 Mar 2025] Improved writing and editing experience for sonnet 3.7
+
+- [24 Mar 2025] Improved writing and editing experience for sonnet 3.7, CLAUDE.md gets loaded automatically.
 
 - [16 Feb 2025] You can now attach to the working terminal that the AI uses. See the "attach-to-terminal" section below.
 
