@@ -100,9 +100,18 @@ def search_replace_edit(
             "No valid search replace blocks found, ensure your SEARCH/REPLACE blocks are formatted correctly"
         )
 
-    edited_content, comments_ = greedy_context_replace(
-        original_lines, [[x] for x in search_replace_blocks], original_lines, set(), 0
-    )
+    outputs = FileEditInput(original_lines, 0, search_replace_blocks, 0).edit_file()
+    best_matches, is_error = FileEditOutput.get_best_match(outputs)
+
+    edited_content, comments_ = best_matches[0].replace_or_throw(3)
+    assert not is_error
+
+    if len(best_matches) > 1:
+        raise SearchReplaceMatchError("""
+The following block matched more than once:
+
+    """)
+
     edited_file = "\n".join(edited_content)
     if not comments_:
         comments = "Edited successfully"
@@ -112,65 +121,3 @@ def search_replace_edit(
             + "\n".join(comments_)
         )
     return edited_file, comments
-
-
-def greedy_context_replace(
-    original_lines: list[str],
-    search_replace_blocks: list[list[tuple[list[str], list[str]]]],
-    running_lines: list[str],
-    running_comments: set[str],
-    current_block_offset: int,
-) -> tuple[list[str], set[str]]:
-    if current_block_offset >= len(search_replace_blocks):
-        return running_lines, running_comments
-    current_blocks = search_replace_blocks[current_block_offset]
-
-    outputs = FileEditInput(running_lines, 0, current_blocks, 0).edit_file()
-    best_matches, is_error = FileEditOutput.get_best_match(outputs)
-
-    if is_error:
-        best_matches[0].replace_or_throw(3)
-        raise Exception("Shouldn't happen")
-
-    if len(best_matches) > 1:
-        # Duplicate found, try to ground using previous blocks.
-        if current_block_offset == 0:
-            matches_ = "\n".join(current_blocks[-1][0])
-            raise SearchReplaceMatchError(f"""
-    The following block matched more than once:
-    ---
-    ```
-    {matches_}
-    ```
-    """)
-
-        else:
-            search_replace_blocks = (
-                search_replace_blocks[: current_block_offset - 1]
-                + [search_replace_blocks[current_block_offset - 1] + current_blocks]
-                + search_replace_blocks[current_block_offset + 1 :]
-            )
-            try:
-                return greedy_context_replace(
-                    original_lines, search_replace_blocks, original_lines, set(), 0
-                )
-            except Exception:
-                ma_more = "\n".join(current_blocks[-1][0])
-                raise Exception(f"""
-        The following block matched more than once:
-        ---
-        ```
-        {ma_more}
-        ```
-        """)
-
-    best_match = best_matches[0]
-    running_lines, comments = best_match.replace_or_throw(3)
-    running_comments = running_comments | comments
-    return greedy_context_replace(
-        original_lines,
-        search_replace_blocks,
-        running_lines,
-        running_comments,
-        current_block_offset + 1,
-    )

@@ -457,3 +457,81 @@ def test_realistic_nonfix_indentation_scenario():
     assert (
         fix_indentation(matched_lines, searched_lines, replaced_lines) == replaced_lines
     )
+
+
+def test_context_based_matching(context: Context, temp_dir: str) -> None:
+    """Test using past and future context to uniquely identify search blocks."""
+    # First initialize
+    init_args = Initialize(
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+        type="first_call",
+    )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    # Create a test file with repeating pattern
+    test_file = os.path.join(temp_dir, "test_context.py")
+    with open(test_file, "w") as f:
+        f.write("A\nB\nC\nB\n")
+
+    # Test case 1: Using future context to uniquely identify a block
+    # The search "A" followed by "B" followed by "C" uniquely determines the first B
+    edit_args = FileWriteOrEdit(
+        file_path=test_file,
+        percentage_to_change=10,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+A
+=======
+A
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+B
+=======
+B_MODIFIED_FIRST
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+C
+=======
+C
+>>>>>>> REPLACE""",
+    )
+    outputs, _ = get_tool_output(
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    # Verify the change - first B should be modified
+    with open(test_file) as f:
+        content = f.read()
+    assert content == "A\nB_MODIFIED_FIRST\nC\nB\n"
+
+    # Test case 2: Using past context to uniquely identify a block
+    # Reset the file
+    with open(test_file, "w") as f:
+        f.write("A\nB\nC\nB\n")
+
+    # The search "C" followed by "B" uniquely determines the second B
+    edit_args = FileWriteOrEdit(
+        file_path=test_file,
+        percentage_to_change=10,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+C
+=======
+C
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+B
+=======
+B_MODIFIED_SECOND
+>>>>>>> REPLACE""",
+    )
+    outputs, _ = get_tool_output(
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    # Verify the change - second B should be modified
+    with open(test_file) as f:
+        content = f.read()
+    assert content == "A\nB\nC\nB_MODIFIED_SECOND\n"

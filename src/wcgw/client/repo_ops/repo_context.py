@@ -141,7 +141,22 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
     return recent_files
 
 
-def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]:
+def calculate_dynamic_file_limit(total_files: int) -> int:
+    # Scale linearly, with minimum and maximum bounds
+    min_files = 50
+    max_files = 400
+
+    if total_files <= min_files:
+        return min_files
+
+    scale_factor = (max_files - min_files) / (30000 - min_files)
+
+    dynamic_limit = min_files + int((total_files - min_files) * scale_factor)
+
+    return min(max_files, dynamic_limit)
+
+
+def get_repo_context(file_or_repo_path: str) -> tuple[str, Path]:
     file_or_repo_path_ = Path(file_or_repo_path).absolute()
 
     repo = find_ancestor_with_git(file_or_repo_path_)
@@ -150,9 +165,6 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
     # Determine the context directory
     if repo is not None:
         context_dir = Path(repo.path).parent
-        # Get recent git files - get at least 50 or the max_files count, whichever is larger
-        recent_files_count = max(10, max_files)
-        recent_git_files = get_recent_git_files(repo, recent_files_count)
     else:
         if file_or_repo_path_.is_file():
             context_dir = file_or_repo_path_.parent
@@ -162,7 +174,18 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
     # Load workspace stats from the context directory
     workspace_stats = load_workspace_stats(str(context_dir))
 
+    # Get all files and calculate dynamic max files limit once
     all_files = get_all_files_max_depth(str(context_dir), 10, repo)
+
+    # For Git repositories, get recent files
+    if repo is not None:
+        dynamic_max_files = calculate_dynamic_file_limit(len(all_files))
+        # Get recent git files - get at least 10 or 20% of dynamic_max_files, whichever is larger
+        recent_files_count = max(10, int(dynamic_max_files * 0.2))
+        recent_git_files = get_recent_git_files(repo, recent_files_count)
+    else:
+        # We don't want dynamic limit for non git folders like /tmp or ~
+        dynamic_max_files = 50
 
     # Calculate probabilities in batch
     path_scores = PATH_SCORER.calculate_path_probabilities_batch(all_files)
@@ -218,16 +241,16 @@ def get_repo_context(file_or_repo_path: str, max_files: int) -> tuple[str, Path]
         if file not in top_files and file in all_files:
             top_files.append(file)
 
-    # Use statistical sorting for the remaining files, but respect max_files limit
+    # Use statistical sorting for the remaining files, but respect dynamic_max_files limit
     # and ensure we don't add duplicates
-    if len(top_files) < max_files:
+    if len(top_files) < dynamic_max_files:
         # Only add statistically important files that aren't already in top_files
         for file in sorted_files:
-            if file not in top_files and len(top_files) < max_files:
+            if file not in top_files and len(top_files) < dynamic_max_files:
                 top_files.append(file)
 
-    directory_printer = DirectoryTree(context_dir, max_files=max_files)
-    for file in top_files[:max_files]:
+    directory_printer = DirectoryTree(context_dir, max_files=dynamic_max_files)
+    for file in top_files[:dynamic_max_files]:
         directory_printer.expand(file)
 
     return directory_printer.display(), context_dir
@@ -245,7 +268,7 @@ if __name__ == "__main__":
     # Profile using cProfile for overall function statistics
     profiler = cProfile.Profile()
     profiler.enable()
-    result = get_repo_context(folder, 50)[0]
+    result = get_repo_context(folder)[0]
     profiler.disable()
 
     # Print cProfile stats
@@ -257,7 +280,7 @@ if __name__ == "__main__":
     # Profile using line_profiler for line-by-line statistics
     lp = LineProfiler()
     lp_wrapper = lp(get_repo_context)
-    lp_wrapper(folder, 50)
+    lp_wrapper(folder)
 
     print("\n=== Line-by-line profiling ===")
     lp.print_stats()

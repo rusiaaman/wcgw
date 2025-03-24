@@ -125,7 +125,6 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
         session_info = line.split()[0].strip()  # e.g., "1234.my_screen"
         if session_info.endswith(f".{name}"):
             sessions_to_kill.append(session_info)
-
     # Now, for every session we found, tell screen to quit it.
     for session in sessions_to_kill:
         try:
@@ -319,11 +318,9 @@ class BashState:
             self._bg_expect_thread_stop_event = threading.Event()
 
     def cleanup(self) -> None:
-        try:
-            self.close_bg_expect_thread()
-            self._shell.close(True)
-        finally:
-            cleanup_all_screens_with_name(self._shell_id, self.console)
+        cleanup_all_screens_with_name(self._shell_id, self.console)
+        self.close_bg_expect_thread()
+        self._shell.close(True)
 
     def __enter__(self) -> "BashState":
         return self
