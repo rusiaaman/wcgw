@@ -100,30 +100,9 @@ def search_replace_edit(
             "No valid search replace blocks found, ensure your SEARCH/REPLACE blocks are formatted correctly"
         )
 
-    outputs = FileEditInput(original_lines, 0, search_replace_blocks, 0).edit_file()
-    best_matches, is_error = FileEditOutput.get_best_match(outputs)
-
-    edited_content, comments_ = best_matches[0].replace_or_throw(3)
-    assert not is_error
-
-    if len(best_matches) > 1:
-        # Find the first block that differs across matches
-        first_diff_block = identify_first_differing_block(best_matches)
-        if first_diff_block is not None:
-            block_content = "\n".join(first_diff_block)
-            raise SearchReplaceMatchError(f"""
-The following block matched more than once:
-```
-{block_content}
-```
-Consider adding more context before and after this block to make the match unique.
-    """)
-        else:
-            raise SearchReplaceMatchError("""
-One of the blocks matched more than once
-
-Consider adding more context before and after all the blocks to make the match unique.
-    """)
+    edited_content, comments_ = edit_with_individual_fallback(
+        original_lines, search_replace_blocks
+    )
 
     edited_file = "\n".join(edited_content)
     if not comments_:
@@ -170,3 +149,47 @@ def identify_first_differing_block(
 
     # If we get here, we couldn't identify a specific differing block
     return None
+
+
+def edit_with_individual_fallback(
+    original_lines: list[str], search_replace_blocks: list[tuple[list[str], list[str]]]
+) -> tuple[list[str], set[str]]:
+    outputs = FileEditInput(original_lines, 0, search_replace_blocks, 0).edit_file()
+    best_matches, is_error = FileEditOutput.get_best_match(outputs)
+
+    try:
+        edited_content, comments_ = best_matches[0].replace_or_throw(3)
+    except SearchReplaceMatchError:
+        if len(search_replace_blocks) > 1:
+            # Try one at a time
+            all_comments = set[str]()
+            running_lines = list(original_lines)
+            for block in search_replace_blocks:
+                running_lines, comments_ = edit_with_individual_fallback(
+                    running_lines, [block]
+                )
+                all_comments |= comments_
+            return running_lines, all_comments
+        raise
+    assert not is_error
+
+    if len(best_matches) > 1:
+        # Find the first block that differs across matches
+        first_diff_block = identify_first_differing_block(best_matches)
+        if first_diff_block is not None:
+            block_content = "\n".join(first_diff_block)
+            raise SearchReplaceMatchError(f"""
+The following block matched more than once:
+```
+{block_content}
+```
+Consider adding more context before and after this block to make the match unique.
+    """)
+        else:
+            raise SearchReplaceMatchError("""
+One of the blocks matched more than once
+
+Consider adding more context before and after all the blocks to make the match unique.
+    """)
+
+    return edited_content, comments_

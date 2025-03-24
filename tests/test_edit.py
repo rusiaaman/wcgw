@@ -535,3 +535,47 @@ B_MODIFIED_SECOND
     with open(test_file) as f:
         content = f.read()
     assert content == "A\nB\nC\nB_MODIFIED_SECOND\n"
+
+
+def test_unordered(context: Context, temp_dir: str) -> None:
+    # First initialize
+    init_args = Initialize(
+        any_workspace_path=temp_dir,
+        initial_files_to_read=[],
+        task_id_to_resume="",
+        mode_name="wcgw",
+        code_writer_config=None,
+        type="first_call",
+    )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+
+    # Create a test file with repeating pattern
+    test_file = os.path.join(temp_dir, "test_context.py")
+    with open(test_file, "w") as f:
+        f.write("A\nB\nC\nB\n")
+
+    # Test case 1: Using future context to uniquely identify a block
+    # The search "A" followed by "B" followed by "C" uniquely determines the first B
+    edit_args = FileWriteOrEdit(
+        file_path=test_file,
+        percentage_to_change=10,
+        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+C
+=======
+CPrime
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+A
+=======
+A_MODIFIED
+>>>>>>> REPLACE
+""",
+    )
+    outputs, _ = get_tool_output(
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+
+    # Verify the change - first B should be modified
+    with open(test_file) as f:
+        content = f.read()
+    assert content == "A_MODIFIED\nB\nCPrime\nB\n"
