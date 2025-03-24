@@ -13,6 +13,7 @@ class SearchReplaceMatchError(Exception):
 ---
 Retry immediately with same "percentage_to_change" using search replace blocks fixing above error.
 """
+        super().__init__(message)
 
 
 @dataclass
