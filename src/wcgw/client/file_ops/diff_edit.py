@@ -7,7 +7,12 @@ TOLERANCE_TYPES = Literal["SILENT", "WARNING", "ERROR"]
 
 
 class SearchReplaceMatchError(Exception):
-    pass
+    def __init__(self, message: str):
+        message = f"""
+{message}
+---
+Retry immediately with same "percentage_to_change" using search replace blocks fixing above error.
+"""
 
 
 @dataclass
@@ -280,7 +285,7 @@ class FileEditInput:
                                         lambda x: x,
                                         "ERROR",
                                         float("inf"),
-                                        "Couldn't find match. Do you mean to match the lines in the following context?\n```"
+                                        "Couldn't find match. Here's the latest snippet from the file which might be relevant for you to consider:\n```"
                                         + sim_context
                                         + "\n```",
                                         int(len(first_block[0]) // sim_sim),

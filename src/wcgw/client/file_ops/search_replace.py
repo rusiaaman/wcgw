@@ -1,5 +1,5 @@
 import re
-from typing import Callable
+from typing import Callable, Optional
 
 from .diff_edit import FileEditInput, FileEditOutput, SearchReplaceMatchError
 
@@ -107,9 +107,22 @@ def search_replace_edit(
     assert not is_error
 
     if len(best_matches) > 1:
-        raise SearchReplaceMatchError("""
+        # Find the first block that differs across matches
+        first_diff_block = identify_first_differing_block(best_matches)
+        if first_diff_block is not None:
+            block_content = "\n".join(first_diff_block)
+            raise SearchReplaceMatchError(f"""
 The following block matched more than once:
+```
+{block_content}
+```
+Consider adding more context before and after this block to make the match unique.
+    """)
+        else:
+            raise SearchReplaceMatchError("""
+One of the blocks matched more than once
 
+Consider adding more context before and after all the blocks to make the match unique.
     """)
 
     edited_file = "\n".join(edited_content)
@@ -121,3 +134,39 @@ The following block matched more than once:
             + "\n".join(comments_)
         )
     return edited_file, comments
+
+
+def identify_first_differing_block(
+    best_matches: list[FileEditOutput],
+) -> Optional[list[str]]:
+    """
+    Identify the first search block that differs across multiple best matches.
+    Returns the search block content that first shows different matches.
+    """
+    if not best_matches or len(best_matches) <= 1:
+        return None
+
+    # First, check if the number of blocks differs (shouldn't happen, but let's be safe)
+    block_counts = [len(match.edited_with_tolerances) for match in best_matches]
+    if not all(count == block_counts[0] for count in block_counts):
+        # If block counts differ, just return the first search block as problematic
+        return (
+            best_matches[0].orig_search_blocks[0]
+            if best_matches[0].orig_search_blocks
+            else None
+        )
+
+    # Go through each block position and see if the slices differ
+    for i in range(min(block_counts)):
+        slices = [match.edited_with_tolerances[i][0] for match in best_matches]
+
+        # Check if we have different slices for this block across matches
+        if any(s.start != slices[0].start or s.stop != slices[0].stop for s in slices):
+            # We found our differing block - return the search block content
+            if i < len(best_matches[0].orig_search_blocks):
+                return best_matches[0].orig_search_blocks[i]
+            else:
+                return None
+
+    # If we get here, we couldn't identify a specific differing block
+    return None
