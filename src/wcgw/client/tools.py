@@ -229,16 +229,16 @@ def initialize(
         )
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
-    # Check for ALIGNMENT.md in the workspace folder on first call
+    # Check for CLAUDE.md in the workspace folder on first call
     alignment_context = ""
     if folder_to_start:
-        alignment_file_path = os.path.join(folder_to_start, "ALIGNMENT.md")
+        alignment_file_path = os.path.join(folder_to_start, "CLAUDE.md")
         if os.path.exists(alignment_file_path):
             try:
-                # Read the ALIGNMENT.md file content
+                # Read the CLAUDE.md file content
                 with open(alignment_file_path, "r") as f:
                     alignment_content = f.read()
-                alignment_context = f"---\n# ALIGNMENT.md - Project alignment guidelines\n```\n{alignment_content}\n```\n---\n\n"
+                alignment_context = f"---\n# CLAUDE.md - Project alignment guidelines\n```\n{alignment_content}\n```\n---\n\n"
             except Exception:
                 # Handle any errors when reading the file
                 alignment_context = ""
