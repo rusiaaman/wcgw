@@ -142,7 +142,7 @@ def initialize(
                     read_files_ = [any_workspace_path]
                 any_workspace_path = os.path.dirname(any_workspace_path)
             # Let get_repo_context handle loading the workspace stats
-            repo_context, folder_to_start = get_repo_context(any_workspace_path, 50)
+            repo_context, folder_to_start = get_repo_context(any_workspace_path)
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
 
@@ -229,6 +229,20 @@ def initialize(
         )
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
+    # Check for ALIGNMENT.md in the workspace folder on first call
+    alignment_context = ""
+    if folder_to_start:
+        alignment_file_path = os.path.join(folder_to_start, "ALIGNMENT.md")
+        if os.path.exists(alignment_file_path):
+            try:
+                # Read the ALIGNMENT.md file content
+                with open(alignment_file_path, "r") as f:
+                    alignment_content = f.read()
+                alignment_context = f"---\n# ALIGNMENT.md - Project alignment guidelines\n```\n{alignment_content}\n```\n---\n\n"
+            except Exception:
+                # Handle any errors when reading the file
+                alignment_context = ""
+
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
 
@@ -239,9 +253,11 @@ def initialize(
 System: {uname_sysname}
 Machine: {uname_machine}
 Initialized in directory (also cwd): {context.bash_state.cwd}
+User home directory: {expanduser("~")}
 
 {repo_context}
 
+{alignment_context}
 {initial_files_context}
 
 ---

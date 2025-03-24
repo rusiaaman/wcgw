@@ -27,7 +27,9 @@ class TolerancesHit(Tolerance):
 class FileEditOutput:
     original_content: list[str]
     orig_search_blocks: list[list[str]]
-    edited_with_tolerances: list[tuple[slice, list[TolerancesHit], list[str]]]
+    edited_with_tolerances: list[
+        tuple[slice, list[TolerancesHit], list[str]]
+    ]  # Need not be equal to orig_search_blocks when early exit
 
     def replace_or_throw(
         self,
@@ -94,8 +96,7 @@ Error:
                     best_score = hit_score
                 elif abs(hit_score - best_score) < 1e-3:
                     best_hits.append(output)
-
-        return best_hits, best_score < 0
+        return best_hits, best_score > 1000
 
 
 def line_process_max_space_tolerance(line: str) -> str:
@@ -205,7 +206,7 @@ class FileEditInput:
                         TolerancesHit(
                             line_process=lambda x: x,
                             severity_cat="ERROR",
-                            score_multiplier=float("-inf"),
+                            score_multiplier=float("inf"),
                             error_name="The blocks couldn't be matched, maybe the sequence of search blocks was incorrect?",
                             count=max(1, len(search_lines)),
                         )
@@ -241,6 +242,7 @@ class FileEditInput:
 
         # search for first block
         first_block = self.search_replace_blocks[self.search_replace_offset]
+        replace_by = first_block[1]
 
         # Try exact match
         matches = match_exact(self.file_lines, self.file_line_offset, first_block[0])
@@ -252,7 +254,6 @@ class FileEditInput:
             matches_with_tolerances = match_with_tolerance(
                 self.file_lines, self.file_line_offset, first_block[0], self.tolerances
             )
-            replace_by = first_block[1]
             if not matches_with_tolerances:
                 # Try with no empty lines
                 matches_with_tolerances = match_with_tolerance_empty_line(
@@ -278,7 +279,7 @@ class FileEditInput:
                                     TolerancesHit(
                                         lambda x: x,
                                         "ERROR",
-                                        -1,
+                                        float("inf"),
                                         "Couldn't find match. Do you mean to match the lines in the following context?\n```"
                                         + sim_context
                                         + "\n```",
@@ -288,51 +289,40 @@ class FileEditInput:
                             )
                         ]
 
-            for match, tolerances in matches_with_tolerances:
-                if any(
-                    tolerance.error_name == REMOVE_INDENTATION
-                    for tolerance in tolerances
-                ):
-                    replace_by = fix_indentation(
-                        self.file_lines[match.start : match.stop],
-                        first_block[0],
-                        replace_by,
-                    )
+        else:
+            matches_with_tolerances = [(match, []) for match in matches]
 
-                file_edit_input = FileEditInput(
-                    self.file_lines,
-                    match.stop,
-                    self.search_replace_blocks,
-                    self.search_replace_offset + 1,
-                    self.tolerances,
+        for match, tolerances in matches_with_tolerances:
+            if any(
+                tolerance.error_name == REMOVE_INDENTATION for tolerance in tolerances
+            ):
+                replace_by = fix_indentation(
+                    self.file_lines[match.start : match.stop],
+                    first_block[0],
+                    replace_by,
                 )
 
+            file_edit_input = FileEditInput(
+                self.file_lines,
+                match.stop,
+                self.search_replace_blocks,
+                self.search_replace_offset + 1,
+                self.tolerances,
+            )
+
+            if any(tolerance.severity_cat == "ERROR" for tolerance in tolerances):
+                # Exit early
+                all_outputs.append(
+                    [
+                        (match, tolerances, replace_by),
+                    ]
+                )
+            else:
                 remaining_output = file_edit_input.edit_file()
                 for rem_output in remaining_output:
                     all_outputs.append(
                         [
                             (match, tolerances, replace_by),
-                            *rem_output.edited_with_tolerances,
-                        ]
-                    )
-        else:
-            for match in matches:
-                file_edit_input = FileEditInput(
-                    self.file_lines,
-                    match.stop,
-                    self.search_replace_blocks,
-                    self.search_replace_offset + 1,
-                    self.tolerances,
-                )
-                remaining_output = file_edit_input.edit_file()
-                for rem_output in remaining_output:
-                    all_outputs.append(
-                        [
-                            (
-                                match,
-                                [],
-                                first_block[1],
-                            ),
                             *rem_output.edited_with_tolerances,
                         ]
                     )
