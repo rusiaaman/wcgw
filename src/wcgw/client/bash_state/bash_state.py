@@ -257,7 +257,12 @@ class BashState:
 
     def expect(self, pattern: Any, timeout: Optional[float] = -1) -> int:
         self.close_bg_expect_thread()
-        output = self._shell.expect(pattern, timeout)
+        try:
+            output = self._shell.expect(pattern, timeout)
+        except pexpect.TIMEOUT:
+            # Edge case: gets raised when the child fd is not ready in some timeout
+            # pexpect/utils.py:143
+            return 1
         return output
 
     def send(self, s: str | bytes, set_as_command: Optional[str]) -> int:
