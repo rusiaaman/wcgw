@@ -2,9 +2,6 @@
 .env
 .wcgw
 
-# Submodules
-**/mcp_wcgw_fork/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
