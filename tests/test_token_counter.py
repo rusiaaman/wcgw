@@ -13,45 +13,59 @@ from wcgw.token_counter import TokenCounter
 class TestTokenCounter(unittest.TestCase):
     """Test the TokenCounter class."""
 
-    @patch('wcgw.token_counter.count_tokens')
-    def test_count_message(self, mock_count_tokens: MagicMock) -> None:
+    def test_count_tokens(self) -> None:
+        """Test the count_tokens method."""
+        # Setup
+        counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
+        
+        # Execute
+        result = counter.count_tokens("Test message")
+        
+        # Assert
+        self.assertGreater(result, 0)  # Should return a positive number of tokens
+
+    def test_count_message(self) -> None:
         """Test counting tokens in a message."""
         # Setup
-        mock_count_tokens.return_value = 10
         counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
-
+        
+        # Mock the count_tokens method
+        counter.count_tokens = MagicMock(return_value=10)
+        
         # Execute
         result = counter.count_message("Test message")
-
+        
         # Assert
-        mock_count_tokens.assert_called_once_with("Test message")
+        counter.count_tokens.assert_called_once_with("Test message")
         self.assertEqual(result, 10)
 
-    @patch('wcgw.token_counter.count_tokens')
-    def test_add_prompt(self, mock_count_tokens: MagicMock) -> None:
+    def test_add_prompt(self) -> None:
         """Test adding prompt tokens."""
         # Setup
-        mock_count_tokens.return_value = 15
         counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
-
+        
+        # Mock the count_message method
+        counter.count_message = MagicMock(return_value=15)
+        
         # Execute
         result = counter.add_prompt("Test prompt")
-
+        
         # Assert
         self.assertEqual(result, 15)
         self.assertEqual(counter.prompt_tokens, 15)
         self.assertEqual(counter.conversation_tokens, 15)
 
-    @patch('wcgw.token_counter.count_tokens')
-    def test_add_completion(self, mock_count_tokens: MagicMock) -> None:
+    def test_add_completion(self) -> None:
         """Test adding completion tokens."""
         # Setup
-        mock_count_tokens.return_value = 25
         counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
-
+        
+        # Mock the count_message method
+        counter.count_message = MagicMock(return_value=25)
+        
         # Execute
         result = counter.add_completion("Test completion")
-
+        
         # Assert
         self.assertEqual(result, 25)
         self.assertEqual(counter.completion_tokens, 25)

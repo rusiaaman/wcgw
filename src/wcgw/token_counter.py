@@ -4,16 +4,7 @@ Token counter module for tracking token usage in Claude conversations
 
 import logging
 from typing import Any
-
-# Fallback to tiktoken, if anthropic_tokenizer not available
-try:
-    from anthropic_tokenizer import count_tokens
-except ImportError:
-    import tiktoken
-    def count_tokens(text: str) -> int:
-        """Count tokens using tiktoken fallback"""
-        enc = tiktoken.get_encoding("cl100k_base")
-        return len(enc.encode(text))
+import tiktoken
 
 class TokenCounter:
     """Track token usage across a conversation"""
@@ -26,6 +17,7 @@ class TokenCounter:
         self.conversation_tokens = 0
         self.prompt_tokens = 0
         self.completion_tokens = 0
+        self._tokenizer = tiktoken.get_encoding("cl100k_base")
 
     def reset(self) -> None:
         """Reset token counters"""
@@ -33,11 +25,17 @@ class TokenCounter:
         self.prompt_tokens = 0
         self.completion_tokens = 0
 
+    def count_tokens(self, text: str) -> int:
+        """Count tokens in a text using tiktoken"""
+        if not text:
+            return 0
+        return len(self._tokenizer.encode(text))
+
     def count_message(self, text: str) -> int:
         """Count tokens in a message"""
         if not text:
             return 0
-        return count_tokens(text)
+        return self.count_tokens(text)
 
     def add_prompt(self, prompt: str) -> int:
         """Count and record prompt tokens"""
