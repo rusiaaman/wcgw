@@ -1,12 +1,9 @@
-"""Tests for the token counter module."""
+"""
+Tests for the token counter module
+"""
 
 import unittest
-from unittest.mock import MagicMock, patch
-import sys
-import os
-
-# Add the src directory to the path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+from unittest.mock import MagicMock
 
 from wcgw.token_counter import TokenCounter
 
@@ -17,10 +14,10 @@ class TestTokenCounter(unittest.TestCase):
         """Test the count_tokens method."""
         # Setup
         counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
-        
+
         # Execute
         result = counter.count_tokens("Test message")
-        
+
         # Assert
         self.assertGreater(result, 0)  # Should return a positive number of tokens
 
@@ -28,13 +25,13 @@ class TestTokenCounter(unittest.TestCase):
         """Test counting tokens in a message."""
         # Setup
         counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
-        
+
         # Mock the count_tokens method
         counter.count_tokens = MagicMock(return_value=10)
-        
+
         # Execute
         result = counter.count_message("Test message")
-        
+
         # Assert
         counter.count_tokens.assert_called_once_with("Test message")
         self.assertEqual(result, 10)
@@ -43,13 +40,13 @@ class TestTokenCounter(unittest.TestCase):
         """Test adding prompt tokens."""
         # Setup
         counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
-        
+
         # Mock the count_message method
         counter.count_message = MagicMock(return_value=15)
-        
+
         # Execute
         result = counter.add_prompt("Test prompt")
-        
+
         # Assert
         self.assertEqual(result, 15)
         self.assertEqual(counter.prompt_tokens, 15)
@@ -59,13 +56,13 @@ class TestTokenCounter(unittest.TestCase):
         """Test adding completion tokens."""
         # Setup
         counter = TokenCounter(max_tokens=100000, token_threshold=0.9, auto_continue=False)
-        
+
         # Mock the count_message method
         counter.count_message = MagicMock(return_value=25)
-        
+
         # Execute
         result = counter.add_completion("Test completion")
-        
+
         # Assert
         self.assertEqual(result, 25)
         self.assertEqual(counter.completion_tokens, 25)
