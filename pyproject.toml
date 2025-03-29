@@ -23,6 +23,7 @@ dependencies = [
     "tokenizers>=0.21.0",
     "pygit2>=1.16.0",
     "syntax-checker>=0.3.0",
+    "tiktoken>=0.6.0",            # tokenizer
 ]
 
 [project.urls]
