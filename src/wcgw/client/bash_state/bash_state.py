@@ -16,6 +16,7 @@ from typing import (
 )
 
 import pexpect
+import psutil
 import pyte
 
 from ...types_ import (
@@ -85,6 +86,116 @@ def check_if_screen_command_available() -> bool:
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
+
+
+def get_wcgw_screen_sessions() -> list[str]:
+    """
+    Get a list of all WCGW screen session IDs.
+
+    Returns:
+        List of screen session IDs that match the wcgw pattern.
+    """
+    screen_sessions = []
+
+    try:
+        # Get list of all screen sessions
+        result = subprocess.run(
+            ["screen", "-ls"],
+            capture_output=True,
+            text=True,
+            check=False,  # Don't raise exception on non-zero exit code
+            timeout=0.5,
+        )
+        output = result.stdout or result.stderr or ""
+
+        # Parse screen output to get session IDs
+        for line in output.splitlines():
+            line = line.strip()
+            if not line or not line[0].isdigit():
+                continue
+
+            # Extract session info (e.g., "1234.wcgw.123456 (Detached)")
+            session_parts = line.split()
+            if not session_parts:
+                continue
+
+            session_id = session_parts[0].strip()
+
+            # Check if it's a WCGW session
+            if ".wcgw." in session_id:
+                screen_sessions.append(session_id)
+    except Exception:
+        # If anything goes wrong, just return empty list
+        pass
+
+    return screen_sessions
+
+
+def get_orphaned_wcgw_screens() -> list[str]:
+    """
+    Identify orphaned WCGW screen sessions where the parent process has PID 1
+    or doesn't exist.
+
+    Returns:
+        List of screen session IDs that are orphaned and match the wcgw pattern.
+    """
+    orphaned_screens = []
+
+    try:
+        # Get list of all WCGW screen sessions
+        screen_sessions = get_wcgw_screen_sessions()
+
+        for session_id in screen_sessions:
+            # Extract PID from session ID (first part before the dot)
+            try:
+                pid = int(session_id.split(".")[0])
+
+                # Check if process exists and if its parent is PID 1
+                try:
+                    process = psutil.Process(pid)
+                    parent_pid = process.ppid()
+
+                    if parent_pid == 1:
+                        # This is an orphaned process
+                        orphaned_screens.append(session_id)
+                except psutil.NoSuchProcess:
+                    # Process doesn't exist anymore, consider it orphaned
+                    orphaned_screens.append(session_id)
+            except (ValueError, IndexError):
+                # Couldn't parse PID, skip
+                continue
+    except Exception:
+        # If anything goes wrong, just return empty list
+        pass
+
+    return orphaned_screens
+
+
+def cleanup_orphaned_wcgw_screens(console: Console) -> None:
+    """
+    Clean up all orphaned WCGW screen sessions.
+
+    Args:
+        console: Console for logging.
+    """
+    orphaned_sessions = get_orphaned_wcgw_screens()
+
+    if not orphaned_sessions:
+        return
+
+    console.log(
+        f"Found {len(orphaned_sessions)} orphaned WCGW screen sessions to clean up"
+    )
+
+    for session in orphaned_sessions:
+        try:
+            subprocess.run(
+                ["screen", "-S", session, "-X", "quit"],
+                check=False,
+                timeout=CONFIG.timeout,
+            )
+        except Exception as e:
+            console.log(f"Failed to kill orphaned screen session: {session}\n{e}")
 
 
 def cleanup_all_screens_with_name(name: str, console: Console) -> None:
@@ -387,6 +498,11 @@ class BashState:
         self._last_command = ""
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
+
+        # Clean up orphaned WCGW screen sessions
+        if check_if_screen_command_available():
+            cleanup_orphaned_wcgw_screens(self.console)
+
         try:
             self._shell, self._shell_id = start_shell(
                 self._bash_command_mode.bash_mode == "restricted_mode",

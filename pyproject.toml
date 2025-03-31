@@ -23,6 +23,7 @@ dependencies = [
     "tokenizers>=0.21.0",
     "pygit2>=1.16.0",
     "syntax-checker>=0.3.0",
+    "psutil>=7.0.0",
 ]
 
 [project.urls]
@@ -58,6 +59,7 @@ dev-dependencies = [
     "line-profiler>=4.2.0",
     "pytest-asyncio>=0.25.3",
     "types-pexpect>=4.9.0.20241208",
+    "types-psutil>=7.0.0.20250218",
 ]
 
 [tool.pytest.ini_options]
