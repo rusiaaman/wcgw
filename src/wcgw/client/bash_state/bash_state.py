@@ -31,6 +31,7 @@ from ...types_ import (
 )
 from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
+from .parser.bash_statement_parser import BashStatementParser
 
 PROMPT_CONST = "wcgw→" + " "
 PROMPT_STATEMENT = "export GIT_PAGER=cat PAGER=cat PROMPT_COMMAND= PS1='wcgw→'' '"
@@ -933,10 +934,22 @@ def _execute_bash(
                 raise ValueError(WAITING_INPUT_MESSAGE)
 
             command = command_data.command.strip()
-            if "\n" in command:
-                raise ValueError(
-                    "Command should not contain newline character in middle. Run only one command at a time."
-                )
+
+            # Check for multiple statements using the bash statement parser
+            try:
+                parser = BashStatementParser()
+                statements = parser.parse_string(command)
+                if len(statements) > 1:
+                    return (
+                        "Error: Command contains multiple statements. Please run only one command at a time.",
+                        0.0,
+                    )
+            except Exception:
+                # Fall back to simple newline check if something goes wrong
+                if "\n" in command:
+                    raise ValueError(
+                        "Command should not contain newline character in middle. Run only one command at a time."
+                    )
 
             for i in range(0, len(command), 128):
                 bash_state.send(command[i : i + 128], set_as_command=None)
