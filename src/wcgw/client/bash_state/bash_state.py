@@ -938,17 +938,17 @@ def _execute_bash(
             command = command_data.command.strip()
 
             # Check for multiple statements using the bash statement parser
-            try:
-                parser = BashStatementParser()
-                statements = parser.parse_string(command)
-                if len(statements) > 1:
-                    return (
-                        "Error: Command contains multiple statements. Please run only one bash statement at a time.",
-                        0.0,
-                    )
-            except Exception:
-                # Fall back to simple newline check if something goes wrong
-                if "\n" in command:
+            if "\n" in command:
+                try:
+                    parser = BashStatementParser()
+                    statements = parser.parse_string(command)
+                    if len(statements) > 1:
+                        return (
+                            "Error: Command contains multiple statements. Please run only one bash statement at a time.",
+                            0.0,
+                        )
+                except Exception:
+                    # Fall back to simple newline check if something goes wrong
                     raise ValueError(
                         "Command should not contain newline character in middle. Run only one command at a time."
                     )
