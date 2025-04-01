@@ -48,8 +48,6 @@ from ..types_ import (
     ModesConfig,
     ReadFiles,
     ReadImage,
-    SendSpecials,
-    SendText,
     WriteIfEmpty,
 )
 from .bash_state.bash_state import (
@@ -1217,7 +1215,7 @@ if __name__ == "__main__":
                 Context(BASH_STATE, BASH_STATE.console),
                 Initialize(
                     type="first_call",
-                    any_workspace_path="/tmp/as",
+                    any_workspace_path="",
                     initial_files_to_read=[],
                     task_id_to_resume="",
                     mode_name="wcgw",
@@ -1232,47 +1230,39 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(
-                    action_json=Command(
-                        command="npm create vite@latest . -- --template react"
-                    )
+                BashCommand(action_json=Command(command="pwd")),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                None,
+            )
+        )
+
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                ReadFiles(
+                    file_paths=["/Users/arusia/repos/wcgw/src/wcgw/client/tools.py"],
+                    show_line_numbers_reason="true",
                 ),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
-                None,
-            )
+                15000,
+            )[0][0]
         )
 
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(action_json=SendSpecials(send_specials=["Enter"])),
+                FileWriteOrEdit(
+                    file_path="/Users/arusia/repos/wcgw/src/wcgw/client/tools.py",
+                    file_content_or_search_replace_blocks="""test""",
+                    percentage_to_change=100,
+                ),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
-                None,
-            )
-        )
-
-        print(
-            get_tool_output(
-                Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(action_json=SendText(send_text="as")),
-                default_enc,
-                0,
-                lambda x, y: ("", 0),
-                None,
-            )
-        )
-
-        print(
-            get_tool_output(
-                Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(action_json=SendSpecials(send_specials=["Enter"])),
-                default_enc,
-                0,
-                lambda x, y: ("", 0),
-                None,
-            )
+                800,
+            )[0][0]
         )
