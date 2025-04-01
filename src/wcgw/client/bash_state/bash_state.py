@@ -381,6 +381,8 @@ class BashState:
         self.close_bg_expect_thread()
         if set_as_command is not None:
             self._last_command = set_as_command
+        # if s == "\n":
+        #     return self._shell.sendcontrol("m")
         output = self._shell.send(s)
         return output
 
@@ -941,7 +943,7 @@ def _execute_bash(
                 statements = parser.parse_string(command)
                 if len(statements) > 1:
                     return (
-                        "Error: Command contains multiple statements. Please run only one command at a time.",
+                        "Error: Command contains multiple statements. Please run only one bash statement at a time.",
                         0.0,
                     )
             except Exception:
