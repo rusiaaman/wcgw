@@ -306,6 +306,24 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     assert isinstance(outputs[0], str)
     assert "hello world" in outputs[0]
 
+    # Test multiline
+    cmd = BashCommand(action_json=Command(command="echo 'hello \nworld'"))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert "hello\nworld" in outputs[0]
+
+    # Multiple commands should raise exception
+    cmd = BashCommand(action_json=Command(command="echo 'hello'\necho world'"))
+    outputs, _ = get_tool_output(
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert isinstance(outputs[0], str)
+    assert "Error: Command contains multiple statements" in outputs[0]
+
 
 def test_interaction_commands(context: Context, temp_dir: str) -> None:
     """Test the various interaction command types."""

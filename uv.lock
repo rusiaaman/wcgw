@@ -1238,7 +1238,7 @@ wheels = [
 
 [[package]]
 name = "wcgw"
-version = "4.1.0"
+version = "4.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -1259,12 +1259,6 @@ dependencies = [
     { name = "typer" },
     { name = "uvicorn" },
     { name = "websockets" },
-]
-
-[package.optional-dependencies]
-bash-parser = [
-    { name = "tree-sitter" },
-    { name = "tree-sitter-bash" },
 ]
 
 [package.dev-dependencies]
@@ -1301,13 +1295,10 @@ requires-dist = [
     { name = "syntax-checker", specifier = ">=0.3.0" },
     { name = "tokenizers", specifier = ">=0.21.0" },
     { name = "toml", specifier = ">=0.10.2" },
-    { name = "tree-sitter", marker = "extra == 'bash-parser'", specifier = ">=0.24.0" },
-    { name = "tree-sitter-bash", marker = "extra == 'bash-parser'", specifier = ">=0.23.3" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "uvicorn", specifier = ">=0.31.0" },
     { name = "websockets", specifier = ">=13.1" },
 ]
-provides-extras = ["bash-parser"]
 
 [package.metadata.requires-dev]
 dev = [
