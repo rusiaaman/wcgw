@@ -1,7 +1,7 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "4.1.0"
+version = "4.1.1"
 description = "Shell and coding agent on claude and chatgpt"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -60,12 +60,6 @@ dev-dependencies = [
     "pytest-asyncio>=0.25.3",
     "types-pexpect>=4.9.0.20241208",
     "types-psutil>=7.0.0.20250218",
-    "tree-sitter>=0.24.0",
-    "tree-sitter-bash>=0.23.3",
-]
-
-[project.optional-dependencies]
-bash-parser = [
     "tree-sitter>=0.24.0",
     "tree-sitter-bash>=0.23.3",
 ]
