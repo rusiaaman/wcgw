@@ -26,6 +26,7 @@ jobs:
         run: |
           pip install uv
           uv venv --python "${{ matrix.python-version }}"
+          uv sync --group types
       - name: Run type checks
         run: |
           uv run mypy --strict src/wcgw

@@ -50,18 +50,26 @@ wcgw_relay = "wcgw.relay.serve:run"
 wcgw_mcp = "wcgw:mcp_server"
 
 [tool.uv]
-dev-dependencies = [
+default-groups = []
+
+[dependency-groups]
+types = [
     "mypy>=1.11.2",
     "types-toml>=0.10.8.20240310",
+    "types-pexpect>=4.9.0.20241208",
+    "types-psutil>=7.0.0.20250218",
+    "line-profiler>=4.2.0",
+]
+tests = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.25.3",
+]
+dev = [
     "autoflake",
     "ipython>=8.12.3",
     "gunicorn>=23.0.0",
-    "pytest>=8.0.0",
-    "pytest-cov>=4.1.0",
     "line-profiler>=4.2.0",
-    "pytest-asyncio>=0.25.3",
-    "types-pexpect>=4.9.0.20241208",
-    "types-psutil>=7.0.0.20250218",
 ]
 
 [tool.pytest.ini_options]

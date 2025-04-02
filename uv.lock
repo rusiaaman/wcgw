@@ -1238,7 +1238,7 @@ wheels = [
 
 [[package]]
 name = "wcgw"
-version = "4.1.1"
+version = "4.1.2"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -1256,6 +1256,8 @@ dependencies = [
     { name = "syntax-checker" },
     { name = "tokenizers" },
     { name = "toml" },
+    { name = "tree-sitter" },
+    { name = "tree-sitter-bash" },
     { name = "typer" },
     { name = "uvicorn" },
     { name = "websockets" },
@@ -1267,12 +1269,15 @@ dev = [
     { name = "gunicorn" },
     { name = "ipython" },
     { name = "line-profiler" },
-    { name = "mypy" },
+]
+tests = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "tree-sitter" },
-    { name = "tree-sitter-bash" },
+]
+types = [
+    { name = "line-profiler" },
+    { name = "mypy" },
     { name = "types-pexpect" },
     { name = "types-psutil" },
     { name = "types-toml" },
@@ -1295,6 +1300,8 @@ requires-dist = [
     { name = "syntax-checker", specifier = ">=0.3.0" },
     { name = "tokenizers", specifier = ">=0.21.0" },
     { name = "toml", specifier = ">=0.10.2" },
+    { name = "tree-sitter", specifier = ">=0.24.0" },
+    { name = "tree-sitter-bash", specifier = ">=0.23.3" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "uvicorn", specifier = ">=0.31.0" },
     { name = "websockets", specifier = ">=13.1" },
@@ -1306,12 +1313,15 @@ dev = [
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "ipython", specifier = ">=8.12.3" },
     { name = "line-profiler", specifier = ">=4.2.0" },
-    { name = "mypy", specifier = ">=1.11.2" },
+]
+tests = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
     { name = "pytest-cov", specifier = ">=4.1.0" },
-    { name = "tree-sitter", specifier = ">=0.24.0" },
-    { name = "tree-sitter-bash", specifier = ">=0.23.3" },
+]
+types = [
+    { name = "line-profiler", specifier = ">=4.2.0" },
+    { name = "mypy", specifier = ">=1.11.2" },
     { name = "types-pexpect", specifier = ">=4.9.0.20241208" },
     { name = "types-psutil", specifier = ">=7.0.0.20250218" },
     { name = "types-toml", specifier = ">=0.10.8.20240310" },
