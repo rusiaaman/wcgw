@@ -89,7 +89,6 @@ You are now running in "code_writer" mode.
     - Do not use echo to write multi-line files, always use FileWriteOrEdit tool to update a code.
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - You should use the provided bash execution, reading and writing file tools to complete objective.
-    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
     - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools.
 """
 
@@ -114,13 +113,9 @@ You are now running in "code_writer" mode.
 
 
 WCGW_PROMPT = """
----
-You're an expert software engineer with shell and code knowledge.
-
-Instructions:
+# Instructions
 
     - You should use the provided bash execution, reading and writing file tools to complete objective.
-    - First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
     - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools
@@ -130,8 +125,6 @@ Instructions:
 
 Additional instructions:
     Always run `pwd` if you get any file or directory not found error to make sure you're not lost, or to get absolute cwd.
-
-    Always write production ready, syntactically correct code.
 
 
 """
@@ -153,7 +146,6 @@ You are now running in "architect" mode. This means
 Respond only after doing the following:
 - Read as many relevant files as possible. 
 - Be comprehensive in your understanding and search of relevant files.
-- First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
 - Share minimal snippets higlighting the changes (avoid large number of lines in the snippets, use ... comments)
 """
 
