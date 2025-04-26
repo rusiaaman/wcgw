@@ -341,34 +341,38 @@ def get_bash_state_dir_xdg() -> str:
     os.makedirs(bash_state_dir, exist_ok=True)
     return bash_state_dir
 
+
 def generate_chat_id() -> str:
     """Generate a random 4-digit chat ID."""
-    return f"{random.randint(1000, 9999)}"
+    return f"i{random.randint(1000, 9999)}"
+
 
 def save_bash_state_by_id(chat_id: str, bash_state_dict: dict[str, Any]) -> None:
     """Save bash state to XDG directory with the given chat ID."""
     if not chat_id:
         return
-        
+
     bash_state_dir = get_bash_state_dir_xdg()
     state_file = os.path.join(bash_state_dir, f"{chat_id}_bash_state.json")
-    
+
     with open(state_file, "w") as f:
         json.dump(bash_state_dict, f, indent=2)
+
 
 def load_bash_state_by_id(chat_id: str) -> Optional[dict[str, Any]]:
     """Load bash state from XDG directory with the given chat ID."""
     if not chat_id:
         return None
-        
+
     bash_state_dir = get_bash_state_dir_xdg()
     state_file = os.path.join(bash_state_dir, f"{chat_id}_bash_state.json")
-    
+
     if not os.path.exists(state_file):
         return None
-        
+
     with open(state_file) as f:
         return json.load(f)  # type: ignore
+
 
 class BashState:
     _use_screen: bool
@@ -631,14 +635,14 @@ class BashState:
     def current_chat_id(self) -> str:
         """Get the current chat ID."""
         return self._current_chat_id
-        
+
     def load_state_from_chat_id(self, chat_id: str) -> bool:
         """
         Load bash state from a chat ID.
-        
+
         Args:
             chat_id: The chat ID to load state from
-            
+
         Returns:
             bool: True if state was successfully loaded, False otherwise
         """
@@ -646,21 +650,21 @@ class BashState:
         loaded_state = load_bash_state_by_id(chat_id)
         if not loaded_state:
             return False
-            
+
         # Parse and load the state
         parsed_state = BashState.parse_state(loaded_state)
         self.load_state(
             parsed_state[0],
-            parsed_state[1], 
+            parsed_state[1],
             parsed_state[2],
             parsed_state[3],
             parsed_state[4],
             parsed_state[5],
             parsed_state[5],
-            chat_id
+            chat_id,
         )
         return True
-        
+
     def serialize(self) -> dict[str, Any]:
         """Serialize BashState to a dictionary for saving"""
         return {
@@ -674,7 +678,7 @@ class BashState:
             "workspace_root": self._workspace_root,
             "chat_id": self._current_chat_id,
         }
-        
+
     def save_state_to_disk(self) -> None:
         """Save the current bash state to disk using the chat ID."""
         state_dict = self.serialize()
@@ -721,7 +725,7 @@ class BashState:
         chat_id = state.get("chat_id")
         if chat_id is None:
             chat_id = generate_chat_id()
-            
+
         return (
             BashCommandMode.deserialize(state["bash_command_mode"]),
             FileEditMode.deserialize(state["file_edit_mode"]),
@@ -753,7 +757,7 @@ class BashState:
         self._mode = mode
         self._current_chat_id = chat_id
         self.reset_shell()
-        
+
         # Save state to disk after loading
         self.save_state_to_disk()
 
@@ -1000,8 +1004,11 @@ def execute_bash(
         if bash_arg.chat_id != bash_state.current_chat_id:
             # Try to load state from the chat ID
             if not bash_state.load_state_from_chat_id(bash_arg.chat_id):
-                return f"Error: No saved bash state found for chat ID {bash_arg.chat_id}. Please initialize first with this ID.", 0.0
-            
+                return (
+                    f"Error: No saved bash state found for chat ID {bash_arg.chat_id}. Please initialize first with this ID.",
+                    0.0,
+                )
+
         output, cost = _execute_bash(bash_state, enc, bash_arg, max_tokens, timeout_s)
 
         # Remove echo if it's a command

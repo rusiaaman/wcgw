@@ -76,9 +76,6 @@ class Context:
     console: Console
 
 
-INITIALIZED = False
-
-
 def get_mode_prompt(context: Context) -> str:
     mode_prompt = ""
     if context.bash_state.mode == "code_writer":
@@ -298,11 +295,9 @@ User home directory: {expanduser("~")}
 {memory}
 
 ---
-Use chat_id="{context.bash_state.current_chat_id}" for all wcgw tool calls which take that.
+Use chat_id={context.bash_state.current_chat_id} for all wcgw tool calls which take that.
 """
 
-    global INITIALIZED
-    INITIALIZED = True
     return output, context, initial_paths_with_ranges
 
 
@@ -324,8 +319,6 @@ def reset_wcgw(
     change_mode: ModesConfig,
     chat_id: str,
 ) -> str:
-    global INITIALIZED
-
     # Load state for this chat_id before proceeding with mode/directory changes
     if chat_id != context.bash_state.current_chat_id:
         # Try to load state from the chat ID
@@ -355,7 +348,6 @@ def reset_wcgw(
             chat_id,
         )
         mode_prompt = get_mode_prompt(context)
-        INITIALIZED = True
         return (
             f"Reset successful with mode change to {mode_name}.\n"
             + mode_prompt
@@ -380,7 +372,6 @@ def reset_wcgw(
             starting_directory,
             chat_id,
         )
-    INITIALIZED = True
     return "Reset successful" + get_status(context.bash_state)
 
 
@@ -906,7 +897,7 @@ def get_tool_output(
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData], float]:
-    global TOOL_CALLS, INITIALIZED
+    global TOOL_CALLS
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
         arg = adapter.validate_python(args)
@@ -920,8 +911,6 @@ def get_tool_output(
 
     if isinstance(arg, BashCommand):
         context.console.print("Calling execute bash tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         output_str, cost = execute_bash(
             context.bash_state, enc, arg, max_tokens, arg.wait_for_seconds
@@ -929,8 +918,6 @@ def get_tool_output(
         output = output_str, cost
     elif isinstance(arg, WriteIfEmpty):
         context.console.print("Calling write file tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         result, write_paths = write_file(arg, True, max_tokens, context)
         output = result, 0
@@ -942,8 +929,6 @@ def get_tool_output(
                 file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, FileEdit):
         context.console.print("Calling full file edit tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         result, edit_paths = do_diff_edit(arg, max_tokens, context)
         output = result, 0.0
@@ -955,8 +940,6 @@ def get_tool_output(
                 file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, FileWriteOrEdit):
         context.console.print("Calling file writing tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         result, write_edit_paths = file_writing(arg, max_tokens, context)
         output = result, 0.0
