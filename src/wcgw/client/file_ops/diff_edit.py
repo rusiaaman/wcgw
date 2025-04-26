@@ -11,6 +11,7 @@ class SearchReplaceMatchError(Exception):
         message = f"""
 {message}
 ---
+Edit failed, no changes are applied. You'll have to reapply all search/replace blocks again.
 Retry immediately with same "percentage_to_change" using search replace blocks fixing above error.
 """
         super().__init__(message)

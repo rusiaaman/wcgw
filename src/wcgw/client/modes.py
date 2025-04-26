@@ -146,6 +146,7 @@ You are now running in "architect" mode. This means
 Respond only after doing the following:
 - Read as many relevant files as possible. 
 - Be comprehensive in your understanding and search of relevant files.
+- First understand about the project by getting the folder structure (ignoring .git, node_modules, venv, etc.)
 - Share minimal snippets higlighting the changes (avoid large number of lines in the snippets, use ... comments)
 """
 
