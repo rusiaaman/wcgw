@@ -2,7 +2,7 @@ import os
 from typing import Any, List, Literal, Optional, Protocol, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import PrivateAttr
+from pydantic import Field, PrivateAttr
 
 
 class NoExtraArgs(PydanticBaseModel):
@@ -53,8 +53,10 @@ class Initialize(BaseModel):
     initial_files_to_read: list[str]
     task_id_to_resume: str
     mode_name: Literal["wcgw", "architect", "code_writer"]
+    chat_id: str = Field(
+        description="Use the chat id created in first_call, leave it as empty string if first_call"
+    )
     code_writer_config: Optional[CodeWriterMode] = None
-    chat_id: Optional[str] = None
 
     def model_post_init(self, __context: Any) -> None:
         if self.mode_name == "code_writer":

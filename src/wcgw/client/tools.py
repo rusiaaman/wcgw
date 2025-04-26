@@ -100,7 +100,7 @@ def initialize(
     task_id_to_resume: str,
     max_tokens: Optional[int],
     mode: ModesConfig,
-    chat_id: Optional[str] = None,
+    chat_id: str,
 ) -> tuple[str, Context, dict[str, list[tuple[int, int]]]]:
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
@@ -109,20 +109,8 @@ def initialize(
     memory = ""
     loaded_state = None
 
-    # Handle different initialization types
-    if type != "first_call" and not chat_id:
-        return (
-            "Error: chat_id is required for non-first_call initialization",
-            context,
-            {},
-        )
-
     # For workspace/mode changes, ensure we're using an existing state if possible
-    if (
-        type != "first_call"
-        and chat_id is not None
-        and chat_id != context.bash_state.current_chat_id
-    ):
+    if type != "first_call" and chat_id != context.bash_state.current_chat_id:
         # Try to load state from the chat ID
         if not context.bash_state.load_state_from_chat_id(chat_id):
             return (
@@ -983,24 +971,18 @@ def get_tool_output(
             workspace_path = workspace_path if os.path.exists(workspace_path) else ""
 
             # For these specific operations, chat_id is required
-            if arg.chat_id is None:
-                output = (
-                    "Error: chat_id is required for non-first_call initialization",
-                    0.0,
-                )
-            else:
-                output = (
-                    reset_wcgw(
-                        context,
-                        workspace_path,
-                        arg.mode_name
-                        if is_mode_change(arg.mode, context.bash_state)
-                        else None,
-                        arg.mode,
-                        arg.chat_id,
-                    ),
-                    0.0,
-                )
+            output = (
+                reset_wcgw(
+                    context,
+                    workspace_path,
+                    arg.mode_name
+                    if is_mode_change(arg.mode, context.bash_state)
+                    else None,
+                    arg.mode,
+                    arg.chat_id,
+                ),
+                0.0,
+            )
         else:
             output_, context, init_paths = initialize(
                 arg.type,
@@ -1267,6 +1249,7 @@ if __name__ == "__main__":
                     task_id_to_resume="",
                     mode_name="wcgw",
                     code_writer_config=None,
+                    chat_id="",
                 ),
                 default_enc,
                 0,
