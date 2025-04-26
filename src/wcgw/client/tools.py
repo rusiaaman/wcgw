@@ -31,6 +31,7 @@ from syntax_checker import check_syntax
 from ..client.bash_state.bash_state import (
     BashState,
     execute_bash,
+    generate_chat_id,
     get_status,
 )
 from ..client.repo_ops.file_stats import (
@@ -213,6 +214,10 @@ def initialize(
     else:
         mode_changed = is_mode_change(mode, context.bash_state)
         state = modes_to_state(mode)
+        new_chat_id = context.bash_state.current_chat_id
+        if type == "first_call":
+            # Recreate chat id
+            new_chat_id = generate_chat_id()
         # Use the provided workspace path as the workspace root
         context.bash_state.load_state(
             state[0],
@@ -222,7 +227,7 @@ def initialize(
             dict(context.bash_state.whitelist_for_overwrite),
             str(folder_to_start) if folder_to_start else "",
             str(folder_to_start) if folder_to_start else "",
-            context.bash_state.current_chat_id,
+            new_chat_id,
         )
         if type == "first_call" or mode_changed:
             mode_prompt = get_mode_prompt(context)

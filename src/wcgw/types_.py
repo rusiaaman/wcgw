@@ -63,11 +63,6 @@ class Initialize(BaseModel):
             assert self.code_writer_config is not None, (
                 "code_writer_config can't be null when the mode is code_writer"
             )
-        # Enforce chat_id presence for non-first_call operations
-        if self.type != "first_call":
-            assert self.chat_id is not None, (
-                "chat_id can't be null for non-first_call operations"
-            )
         return super().model_post_init(__context)
 
     @property
