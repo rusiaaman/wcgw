@@ -54,11 +54,17 @@ class Initialize(BaseModel):
     task_id_to_resume: str
     mode_name: Literal["wcgw", "architect", "code_writer"]
     code_writer_config: Optional[CodeWriterMode] = None
+    chat_id: Optional[str] = None
 
     def model_post_init(self, __context: Any) -> None:
         if self.mode_name == "code_writer":
             assert self.code_writer_config is not None, (
                 "code_writer_config can't be null when the mode is code_writer"
+            )
+        # Enforce chat_id presence for non-first_call operations
+        if self.type != "first_call":
+            assert self.chat_id is not None, (
+                "chat_id can't be null for non-first_call operations"
             )
         return super().model_post_init(__context)
 
@@ -102,6 +108,7 @@ class SendAscii(BaseModel):
 class BashCommand(BaseModel):
     action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
     wait_for_seconds: Optional[float] = None
+    chat_id: str
 
 
 class ReadImage(BaseModel):
@@ -214,6 +221,7 @@ class FileWriteOrEdit(BaseModel):
     file_path: str
     percentage_to_change: int  # 0.0 to 100.0
     file_content_or_search_replace_blocks: str
+    chat_id: str
 
 
 class ContextSave(BaseModel):

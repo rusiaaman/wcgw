@@ -1,6 +1,8 @@
 import datetime
+import json
 import os
 import platform
+import random
 import subprocess
 import threading
 import time
@@ -332,8 +334,45 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+def get_bash_state_dir_xdg() -> str:
+    """Get the XDG directory for storing bash state."""
+    xdg_data_dir = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+    bash_state_dir = os.path.join(xdg_data_dir, "wcgw", "bash_state")
+    os.makedirs(bash_state_dir, exist_ok=True)
+    return bash_state_dir
+
+def generate_chat_id() -> str:
+    """Generate a random 4-digit chat ID."""
+    return f"{random.randint(1000, 9999)}"
+
+def save_bash_state_by_id(chat_id: str, bash_state_dict: dict[str, Any]) -> None:
+    """Save bash state to XDG directory with the given chat ID."""
+    if not chat_id:
+        return
+        
+    bash_state_dir = get_bash_state_dir_xdg()
+    state_file = os.path.join(bash_state_dir, f"{chat_id}_bash_state.json")
+    
+    with open(state_file, "w") as f:
+        json.dump(bash_state_dict, f, indent=2)
+
+def load_bash_state_by_id(chat_id: str) -> Optional[dict[str, Any]]:
+    """Load bash state from XDG directory with the given chat ID."""
+    if not chat_id:
+        return None
+        
+    bash_state_dir = get_bash_state_dir_xdg()
+    state_file = os.path.join(bash_state_dir, f"{chat_id}_bash_state.json")
+    
+    if not os.path.exists(state_file):
+        return None
+        
+    with open(state_file) as f:
+        return json.load(f)  # type: ignore
+
 class BashState:
     _use_screen: bool
+    _current_chat_id: str
 
     def __init__(
         self,
@@ -345,6 +384,7 @@ class BashState:
         mode: Optional[Modes],
         use_screen: bool,
         whitelist_for_overwrite: Optional[dict[str, "FileWhitelistData"]] = None,
+        chat_id: Optional[str] = None,
     ) -> None:
         self._last_command: str = ""
         self.console = console
@@ -362,6 +402,8 @@ class BashState:
         self._whitelist_for_overwrite: dict[str, FileWhitelistData] = (
             whitelist_for_overwrite or {}
         )
+        # Always ensure we have a chat ID
+        self._current_chat_id = chat_id if chat_id is not None else generate_chat_id()
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
         self._use_screen = use_screen
@@ -585,6 +627,40 @@ class BashState:
         self.cleanup()
         self._init_shell()
 
+    @property
+    def current_chat_id(self) -> str:
+        """Get the current chat ID."""
+        return self._current_chat_id
+        
+    def load_state_from_chat_id(self, chat_id: str) -> bool:
+        """
+        Load bash state from a chat ID.
+        
+        Args:
+            chat_id: The chat ID to load state from
+            
+        Returns:
+            bool: True if state was successfully loaded, False otherwise
+        """
+        # Try to load state from disk
+        loaded_state = load_bash_state_by_id(chat_id)
+        if not loaded_state:
+            return False
+            
+        # Parse and load the state
+        parsed_state = BashState.parse_state(loaded_state)
+        self.load_state(
+            parsed_state[0],
+            parsed_state[1], 
+            parsed_state[2],
+            parsed_state[3],
+            parsed_state[4],
+            parsed_state[5],
+            parsed_state[5],
+            chat_id
+        )
+        return True
+        
     def serialize(self) -> dict[str, Any]:
         """Serialize BashState to a dictionary for saving"""
         return {
@@ -596,7 +672,13 @@ class BashState:
             },
             "mode": self._mode,
             "workspace_root": self._workspace_root,
+            "chat_id": self._current_chat_id,
         }
+        
+    def save_state_to_disk(self) -> None:
+        """Save the current bash state to disk using the chat ID."""
+        state_dict = self.serialize()
+        save_bash_state_by_id(self._current_chat_id, state_dict)
 
     @staticmethod
     def parse_state(
@@ -607,6 +689,7 @@ class BashState:
         WriteIfEmptyMode,
         Modes,
         dict[str, "FileWhitelistData"],
+        str,
         str,
     ]:
         whitelist_state = state["whitelist_for_overwrite"]
@@ -634,6 +717,11 @@ class BashState:
                 for k in whitelist_state
             }
 
+        # Get the chat_id from state, or generate a new one if not present
+        chat_id = state.get("chat_id")
+        if chat_id is None:
+            chat_id = generate_chat_id()
+            
         return (
             BashCommandMode.deserialize(state["bash_command_mode"]),
             FileEditMode.deserialize(state["file_edit_mode"]),
@@ -641,6 +729,7 @@ class BashState:
             state["mode"],
             whitelist_dict,
             state.get("workspace_root", ""),
+            chat_id,
         )
 
     def load_state(
@@ -652,6 +741,7 @@ class BashState:
         whitelist_for_overwrite: dict[str, "FileWhitelistData"],
         cwd: str,
         workspace_root: str,
+        chat_id: str,
     ) -> None:
         """Create a new BashState instance from a serialized state dictionary"""
         self._bash_command_mode = bash_command_mode
@@ -661,7 +751,11 @@ class BashState:
         self._write_if_empty_mode = write_if_empty_mode
         self._whitelist_for_overwrite = dict(whitelist_for_overwrite)
         self._mode = mode
+        self._current_chat_id = chat_id
         self.reset_shell()
+        
+        # Save state to disk after loading
+        self.save_state_to_disk()
 
     def get_pending_for(self) -> str:
         if isinstance(self._state, datetime.datetime):
@@ -902,6 +996,12 @@ def execute_bash(
     timeout_s: Optional[float],
 ) -> tuple[str, float]:
     try:
+        # Check if the chat ID matches current
+        if bash_arg.chat_id != bash_state.current_chat_id:
+            # Try to load state from the chat ID
+            if not bash_state.load_state_from_chat_id(bash_arg.chat_id):
+                return f"Error: No saved bash state found for chat ID {bash_arg.chat_id}. Please initialize first with this ID.", 0.0
+            
         output, cost = _execute_bash(bash_state, enc, bash_arg, max_tokens, timeout_s)
 
         # Remove echo if it's a command
