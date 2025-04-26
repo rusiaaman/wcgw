@@ -171,6 +171,7 @@ async def test_handle_call_tool(setup_bash_state):
         "task_id_to_resume": "",
         "mode_name": "wcgw",
         "type": "first_call",
+        "chat_id": "",
     }
     result = await handle_call_tool("Initialize", init_args)
     assert isinstance(result, list)
@@ -179,7 +180,11 @@ async def test_handle_call_tool(setup_bash_state):
     assert "Initialize" in result[0].text
 
     # Test JSON string argument handling
-    json_args = {"action_json": {"command": "ls"}, "wait_for_seconds": None}
+    json_args = {
+        "action_json": {"command": "ls"},
+        "wait_for_seconds": None,
+        "chat_id": "",
+    }
     result = await handle_call_tool("BashCommand", json_args)
     assert isinstance(result, list)
 
@@ -199,7 +204,8 @@ async def test_handle_call_tool(setup_bash_state):
         side_effect=Exception("Test error"),
     ):
         result = await handle_call_tool(
-            "BashCommand", {"action_json": {"command": "ls"}, "wait_for_seconds": None}
+            "BashCommand",
+            {"action_json": {"command": "ls"}, "wait_for_seconds": None, "chat_id": ""},
         )
         assert "GOT EXCEPTION" in result[0].text
 
