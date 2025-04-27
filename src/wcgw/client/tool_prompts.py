@@ -91,7 +91,7 @@ TOOL_PROMPTS = [
         name="ContextSave",
         description="""
 Saves provided description and file contents of all the relevant file paths or globs in a single text file.
-- Provide random unqiue id or whatever user provided.
+- Provide random 3 word unqiue id or whatever user provided.
 - Leave project path as empty string if no project path""",
     ),
 ]

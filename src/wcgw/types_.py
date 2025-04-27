@@ -2,7 +2,7 @@ import os
 from typing import Any, List, Literal, Optional, Protocol, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import PrivateAttr
+from pydantic import Field, PrivateAttr
 
 
 class NoExtraArgs(PydanticBaseModel):
@@ -53,6 +53,9 @@ class Initialize(BaseModel):
     initial_files_to_read: list[str]
     task_id_to_resume: str
     mode_name: Literal["wcgw", "architect", "code_writer"]
+    chat_id: str = Field(
+        description="Use the chat id created in first_call, leave it as empty string if first_call"
+    )
     code_writer_config: Optional[CodeWriterMode] = None
 
     def model_post_init(self, __context: Any) -> None:
@@ -102,6 +105,7 @@ class SendAscii(BaseModel):
 class BashCommand(BaseModel):
     action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
     wait_for_seconds: Optional[float] = None
+    chat_id: str
 
 
 class ReadImage(BaseModel):
@@ -214,6 +218,7 @@ class FileWriteOrEdit(BaseModel):
     file_path: str
     percentage_to_change: int  # 0.0 to 100.0
     file_content_or_search_replace_blocks: str
+    chat_id: str
 
 
 class ContextSave(BaseModel):

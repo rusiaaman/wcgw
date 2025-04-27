@@ -28,13 +28,17 @@ from openai.types.chat import (
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from syntax_checker import check_syntax
 
-from wcgw.client.bash_state.bash_state import get_status
-from wcgw.client.repo_ops.file_stats import (
+from ..client.bash_state.bash_state import (
+    BashState,
+    execute_bash,
+    generate_chat_id,
+    get_status,
+)
+from ..client.repo_ops.file_stats import (
     FileStats,
     load_workspace_stats,
     save_workspace_stats,
 )
-
 from ..types_ import (
     BashCommand,
     CodeWriterMode,
@@ -49,10 +53,6 @@ from ..types_ import (
     ReadFiles,
     ReadImage,
     WriteIfEmpty,
-)
-from .bash_state.bash_state import (
-    BashState,
-    execute_bash,
 )
 from .encoder import EncoderDecoder, get_default_encoder
 from .file_ops.search_replace import (
@@ -75,9 +75,6 @@ from .repo_ops.repo_context import get_repo_context
 class Context:
     bash_state: BashState
     console: Console
-
-
-INITIALIZED = False
 
 
 def get_mode_prompt(context: Context) -> str:
@@ -104,6 +101,7 @@ def initialize(
     task_id_to_resume: str,
     max_tokens: Optional[int],
     mode: ModesConfig,
+    chat_id: str,
 ) -> tuple[str, Context, dict[str, list[tuple[int, int]]]]:
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
@@ -112,21 +110,34 @@ def initialize(
     memory = ""
     loaded_state = None
 
-    if type == "first_call":
-        if task_id_to_resume:
-            try:
-                project_root_path, task_mem, loaded_state = load_memory(
-                    task_id_to_resume,
-                    max_tokens,
-                    lambda x: default_enc.encoder(x),
-                    lambda x: default_enc.decoder(x),
-                )
-                memory = "Following is the retrieved task:\n" + task_mem
-                if os.path.exists(project_root_path):
-                    any_workspace_path = project_root_path
+    # For workspace/mode changes, ensure we're using an existing state if possible
+    if type != "first_call" and chat_id != context.bash_state.current_chat_id:
+        # Try to load state from the chat ID
+        if not context.bash_state.load_state_from_chat_id(chat_id):
+            return (
+                f"Error: No saved bash state found for chat ID {chat_id}",
+                context,
+                {},
+            )
+    del (
+        chat_id
+    )  # No use other than loading correct state before doing actual tool related stuff
 
-            except Exception:
-                memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
+    # Handle task resumption - this applies only to first_call
+    if type == "first_call" and task_id_to_resume:
+        try:
+            project_root_path, task_mem, loaded_state = load_memory(
+                task_id_to_resume,
+                max_tokens,
+                lambda x: default_enc.encoder(x),
+                lambda x: default_enc.decoder(x),
+            )
+            memory = "Following is the retrieved task:\n" + task_mem
+            if os.path.exists(project_root_path):
+                any_workspace_path = project_root_path
+
+        except Exception:
+            memory = f'Error: Unable to load task with ID "{task_id_to_resume}" '
     elif task_id_to_resume:
         memory = (
             "Warning: task can only be resumed in a new conversation. No task loaded."
@@ -167,6 +178,11 @@ def initialize(
             workspace_root = (
                 str(folder_to_start) if folder_to_start else parsed_state[5]
             )
+            loaded_chat_id = parsed_state[6] if len(parsed_state) > 6 else None
+
+            if not loaded_chat_id:
+                loaded_chat_id = context.bash_state.current_chat_id
+
             if mode == "wcgw":
                 context.bash_state.load_state(
                     parsed_state[0],
@@ -176,6 +192,7 @@ def initialize(
                     {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
                     str(folder_to_start) if folder_to_start else workspace_root,
                     workspace_root,
+                    loaded_chat_id,
                 )
             else:
                 state = modes_to_state(mode)
@@ -187,6 +204,7 @@ def initialize(
                     {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
                     str(folder_to_start) if folder_to_start else workspace_root,
                     workspace_root,
+                    loaded_chat_id,
                 )
         except ValueError:
             context.console.print(traceback.format_exc())
@@ -196,6 +214,10 @@ def initialize(
     else:
         mode_changed = is_mode_change(mode, context.bash_state)
         state = modes_to_state(mode)
+        new_chat_id = context.bash_state.current_chat_id
+        if type == "first_call":
+            # Recreate chat id
+            new_chat_id = generate_chat_id()
         # Use the provided workspace path as the workspace root
         context.bash_state.load_state(
             state[0],
@@ -205,6 +227,7 @@ def initialize(
             dict(context.bash_state.whitelist_for_overwrite),
             str(folder_to_start) if folder_to_start else "",
             str(folder_to_start) if folder_to_start else "",
+            new_chat_id,
         )
         if type == "first_call" or mode_changed:
             mode_prompt = get_mode_prompt(context)
@@ -263,10 +286,11 @@ User home directory: {expanduser("~")}
 ---
 
 {memory}
+
+---
+Use chat_id={context.bash_state.current_chat_id} for all wcgw tool calls which take that.
 """
 
-    global INITIALIZED
-    INITIALIZED = True
     return output, context, initial_paths_with_ranges
 
 
@@ -286,8 +310,13 @@ def reset_wcgw(
     starting_directory: str,
     mode_name: Optional[Modes],
     change_mode: ModesConfig,
+    chat_id: str,
 ) -> str:
-    global INITIALIZED
+    # Load state for this chat_id before proceeding with mode/directory changes
+    if chat_id != context.bash_state.current_chat_id:
+        # Try to load state from the chat ID
+        if not context.bash_state.load_state_from_chat_id(chat_id):
+            return f"Error: No saved bash state found for chat ID {chat_id}"
     if mode_name:
         # update modes if they're relative
         if isinstance(change_mode, CodeWriterMode):
@@ -300,7 +329,7 @@ def reset_wcgw(
             change_mode
         )
 
-        # Reset shell with new mode
+        # Reset shell with new mode, using the provided chat ID
         context.bash_state.load_state(
             bash_command_mode,
             file_edit_mode,
@@ -309,9 +338,9 @@ def reset_wcgw(
             dict(context.bash_state.whitelist_for_overwrite),
             starting_directory,
             starting_directory,
+            chat_id,
         )
         mode_prompt = get_mode_prompt(context)
-        INITIALIZED = True
         return (
             f"Reset successful with mode change to {mode_name}.\n"
             + mode_prompt
@@ -325,7 +354,7 @@ def reset_wcgw(
         write_if_empty_mode = context.bash_state.write_if_empty_mode
         mode = context.bash_state.mode
 
-        # Reload state with new directory
+        # Reload state with new directory, using the provided chat ID
         context.bash_state.load_state(
             bash_command_mode,
             file_edit_mode,
@@ -334,8 +363,8 @@ def reset_wcgw(
             dict(context.bash_state.whitelist_for_overwrite),
             starting_directory,
             starting_directory,
+            chat_id,
         )
-    INITIALIZED = True
     return "Reset successful" + get_status(context.bash_state)
 
 
@@ -763,6 +792,15 @@ def file_writing(
     If percentage_changed > 50%, treat content as direct file content.
     Otherwise, treat content as search/replace blocks.
     """
+    # Check if the chat ID matches current
+    if file_writing_args.chat_id != context.bash_state.current_chat_id:
+        # Try to load state from the chat ID
+        if not context.bash_state.load_state_from_chat_id(file_writing_args.chat_id):
+            return (
+                f"Error: No saved bash state found for chat ID {file_writing_args.chat_id}. Please initialize first with this ID.",
+                {},
+            )
+
     # Expand the path before checking if it's absolute
     path_ = expand_user(file_writing_args.file_path)
     if not os.path.isabs(path_):
@@ -852,7 +890,7 @@ def get_tool_output(
     loop_call: Callable[[str, float], tuple[str, float]],
     max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData], float]:
-    global TOOL_CALLS, INITIALIZED
+    global TOOL_CALLS
     if isinstance(args, dict):
         adapter = TypeAdapter[TOOLS](TOOLS, config={"extra": "forbid"})
         arg = adapter.validate_python(args)
@@ -866,8 +904,6 @@ def get_tool_output(
 
     if isinstance(arg, BashCommand):
         context.console.print("Calling execute bash tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         output_str, cost = execute_bash(
             context.bash_state, enc, arg, max_tokens, arg.wait_for_seconds
@@ -875,8 +911,6 @@ def get_tool_output(
         output = output_str, cost
     elif isinstance(arg, WriteIfEmpty):
         context.console.print("Calling write file tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         result, write_paths = write_file(arg, True, max_tokens, context)
         output = result, 0
@@ -888,8 +922,6 @@ def get_tool_output(
                 file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, FileEdit):
         context.console.print("Calling full file edit tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         result, edit_paths = do_diff_edit(arg, max_tokens, context)
         output = result, 0.0
@@ -901,8 +933,6 @@ def get_tool_output(
                 file_paths_with_ranges[path] = ranges.copy()
     elif isinstance(arg, FileWriteOrEdit):
         context.console.print("Calling file writing tool")
-        if not INITIALIZED:
-            raise Exception("Initialize tool not called yet.")
 
         result, write_edit_paths = file_writing(arg, max_tokens, context)
         output = result, 0.0
@@ -944,6 +974,8 @@ def get_tool_output(
                 else os.path.dirname(arg.any_workspace_path)
             )
             workspace_path = workspace_path if os.path.exists(workspace_path) else ""
+
+            # For these specific operations, chat_id is required
             output = (
                 reset_wcgw(
                     context,
@@ -952,6 +984,7 @@ def get_tool_output(
                     if is_mode_change(arg.mode, context.bash_state)
                     else None,
                     arg.mode,
+                    arg.chat_id,
                 ),
                 0.0,
             )
@@ -964,6 +997,7 @@ def get_tool_output(
                 arg.task_id_to_resume,
                 max_tokens,
                 arg.mode,
+                arg.chat_id,
             )
             output = output_, 0.0
             # Since init_paths is already a dictionary mapping file paths to line ranges,
@@ -1220,6 +1254,7 @@ if __name__ == "__main__":
                     task_id_to_resume="",
                     mode_name="wcgw",
                     code_writer_config=None,
+                    chat_id="",
                 ),
                 default_enc,
                 0,
@@ -1230,7 +1265,10 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(action_json=Command(command="pwd")),
+                BashCommand(
+                    action_json=Command(command="pwd"),
+                    chat_id=BASH_STATE.current_chat_id,
+                ),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
@@ -1259,6 +1297,7 @@ if __name__ == "__main__":
                     file_path="/Users/arusia/repos/wcgw/src/wcgw/client/tools.py",
                     file_content_or_search_replace_blocks="""test""",
                     percentage_to_change=100,
+                    chat_id=BASH_STATE.current_chat_id,
                 ),
                 default_enc,
                 0,

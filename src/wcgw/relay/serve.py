@@ -131,11 +131,15 @@ async def bash_command(command: CommandWithUUID) -> str:
 
     gpts[user_id] = put_results
 
+    # Get the chat ID - either from the state or use the user_id as a fallback
+    chat_id = str(user_id)  # Use user_id as fallback
+
     await clients[user_id](
         Mdata(
             data=BashCommand(
                 action_json=command.action_json,
                 wait_for_seconds=command.wait_for_seconds,
+                chat_id=chat_id,
             ),
             user_id=user_id,
         )
