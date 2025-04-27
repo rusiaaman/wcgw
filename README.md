@@ -18,6 +18,8 @@ wcgw is an MCP server with tightly integrated shell and code editing tools.
 
 ## Updates
 
+- [27 Apr 2025] Removed support for GPTs over relay server. Only MCP server is supported in version >= 5.
+
 - [24 Mar 2025] Improved writing and editing experience for sonnet 3.7, CLAUDE.md gets loaded automatically.
 
 - [16 Feb 2025] You can now attach to the working terminal that the AI uses. See the "attach-to-terminal" section below.
