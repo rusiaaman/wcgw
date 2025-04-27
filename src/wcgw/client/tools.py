@@ -1043,6 +1043,9 @@ def get_tool_output(
     if file_paths_with_ranges:  # Only add to whitelist if we have paths
         context.bash_state.add_to_whitelist_for_overwrite(file_paths_with_ranges)
 
+    # Save bash_state
+    context.bash_state.save_state_to_disk()
+
     if isinstance(output[0], str):
         context.console.print(str(output[0]))
     else:
