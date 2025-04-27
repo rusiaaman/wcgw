@@ -1,6 +1,6 @@
 # Shell and Coding agent for Claude and other mcp clients
 
-Empowering AI to code, build and run on your local machine.
+Empowering chat applications to code, build and run on your local machine.
 
 wcgw is an MCP server with tightly integrated shell and code editing tools.
 
