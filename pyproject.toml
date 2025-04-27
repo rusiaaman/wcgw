@@ -1,8 +1,8 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "4.1.3"
-description = "Shell and coding agent on claude and chatgpt"
+version = "5.0.0"
+description = "Shell and coding agent for Claude and other mcp clients"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -45,8 +45,7 @@ packages = ["src/wcgw", "src/mcp_wcgw_fork/src/mcp_wcgw", "src/wcgw_cli"]
 
 [project.scripts]
 wcgw_local = "wcgw_cli:app"
-wcgw = "wcgw:listen"
-wcgw_relay = "wcgw.relay.serve:run"
+wcgw = "wcgw:mcp_server"
 wcgw_mcp = "wcgw:mcp_server"
 
 [tool.uv]

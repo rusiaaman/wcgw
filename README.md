@@ -1,9 +1,8 @@
-# Shell and Coding agent for Claude and Chatgpt
+# Shell and Coding agent for Claude and other mcp clients
 
-Empowering chat applications to code, build and run on your local machine.
+Empowering AI to code, build and run on your local machine.
 
-- Claude - MCP server with tightly integrated shell and code editing tools.
-- Chatgpt - Allows custom gpt to talk to your shell via a relay server. (linux, mac, windows on wsl)
+wcgw is an MCP server with tightly integrated shell and code editing tools.
 
 ⚠️ Warning: do not allow BashCommand tool without reviewing the command, it may result in data loss.
 
@@ -89,11 +88,9 @@ Then create or update `claude_desktop_config.json` (~/Library/Application Suppor
       "args": [
         "tool",
         "run",
-        "--from",
-        "wcgw@latest",
         "--python",
         "3.12",
-        "wcgw_mcp"
+        "wcgw@latest"
       ]
     }
   }
@@ -105,10 +102,10 @@ Then restart claude app.
 _If there's an error in setting up_
 
 - If there's an error like "uv ENOENT", make sure `uv` is installed. Then run 'which uv' in the terminal, and use its output in place of "uv" in the configuration.
-- If there's still an issue, check that `uv tool run --from wcgw@latest --python 3.12 wcgw_mcp` runs in your terminal. It should have no output and shouldn't exit.
+- If there's still an issue, check that `uv tool run --python 3.12 wcgw@latest` runs in your terminal. It should have no output and shouldn't exit.
 - Try removing ~/.cache/uv folder
 - Try using `uv` version `0.6.0` for which this tool was tested.
-- Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --from wcgw@latest --python 3.12 wcgw_mcp`
+- Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --python 3.12 wcgw@latest`
 
 ### Windows on wsl
 
@@ -127,11 +124,9 @@ Then add or update the claude config file `%APPDATA%\Claude\claude_desktop_confi
         "uv",
         "tool",
         "run",
-        "--from",
-        "wcgw@latest",
         "--python",
         "3.12",
-        "wcgw_mcp"
+        "wcgw@latest"
       ]
     }
   }
@@ -191,10 +186,6 @@ Commands:
 
 - Select a text and press `cmd+'` and then enter instructions. This will switch the app to Claude and paste a text containing your instructions, file path, workspace dir, and the selected text.
 
-## Chatgpt Setup
-
-Read here: https://github.com/rusiaaman/wcgw/blob/main/openai.md
-
 ## Examples
 
 ![example](https://github.com/rusiaaman/wcgw/blob/main/static/example.jpg?raw=true)
@@ -231,7 +222,7 @@ Add `OPENAI_API_KEY` and `OPENAI_ORG_ID` env variables.
 
 Then run
 
-`uvx --from wcgw@latest wcgw_local  --limit 0.1` # Cost limit $0.1
+`uvx wcgw@latest wcgw_local --limit 0.1` # Cost limit $0.1
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
 
@@ -241,7 +232,7 @@ Add `ANTHROPIC_API_KEY` env variable.
 
 Then run
 
-`uvx --from wcgw@latest wcgw_local --claude`
+`uvx wcgw@latest wcgw_local --claude`
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
 
