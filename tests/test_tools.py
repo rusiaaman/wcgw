@@ -867,6 +867,30 @@ def test_git_recent_files(context: Context, temp_dir: str) -> None:
         assert file in repo_structure
 
 
+def test_write_empty_file_and_read(context: Context, temp_dir: str) -> None:
+    """Test writing an empty file and reading it."""
+    _test_init(context, temp_dir)
+
+    test_file = os.path.join(temp_dir, "empty.txt")
+    write_args = FileWriteOrEdit(
+        file_path=test_file,
+        percentage_to_change=100,
+        file_content_or_search_replace_blocks="",
+        chat_id=context.bash_state._current_chat_id,
+    )
+    outputs, _ = get_tool_output(
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+    assert "Success" in outputs[0]
+
+    read_args = ReadFiles(file_paths=[test_file])
+    outputs, _ = get_tool_output(
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+    )
+    assert len(outputs) == 1
+
+
 def test_error_cases(context: Context, temp_dir: str) -> None:
     """Test various error cases."""
     # First initialize

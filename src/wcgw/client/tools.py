@@ -1165,7 +1165,7 @@ def read_file(
     with path.open("r") as f:
         all_lines = f.readlines(10_000_000)
 
-        if all_lines[-1].endswith("\n"):
+        if all_lines and all_lines[-1].endswith("\n"):
             # Special handling of line counts because readlines doesn't consider last empty line as a separate line
             all_lines[-1] = all_lines[-1][:-1]
             all_lines.append("")
