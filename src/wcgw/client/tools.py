@@ -1220,7 +1220,10 @@ def read_file(
             content = truncated_content
             # Add informative message about truncation with total line count
             total_lines = len(all_lines)
-            content += f"\n(...truncated) Only showing till line number {last_line_shown} of {total_lines} total lines due to the token limit, please continue reading from {last_line_shown + 1} if required"
+            content += (
+                f"\n(...truncated) Only showing till line number {last_line_shown} of {total_lines} total lines due to the token limit, please continue reading from {last_line_shown + 1} if required"
+                f" using syntax {file_path}:{last_line_shown + 1}-{total_lines}"
+            )
             truncated = True
 
             # Update effective_end if truncated
