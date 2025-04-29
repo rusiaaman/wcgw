@@ -82,7 +82,6 @@ TOOL_PROMPTS = [
 - percentage_to_change should be low if mostly new code is to be added. It should be high if a lot of things are to be replaced.
 - If percentage_to_change > 50, provide full file content in file_content_or_search_replace_blocks
 - If percentage_to_change <= 50, file_content_or_search_replace_blocks should be search/replace blocks.
-- Use max 10-12 search/replace blocks per call. If exceeding, call this again with rest of the blocks.
 
 """
         + diffinstructions,
