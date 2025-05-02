@@ -1,3 +1,0 @@
-[submodule "src/mcp_wcgw"]
-	path = src/mcp_wcgw_fork
-	url = https://github.com/rusiaaman/python-sdk.git

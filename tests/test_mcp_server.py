@@ -2,14 +2,14 @@ import os
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from mcp_wcgw.server.models import InitializationOptions
-from mcp_wcgw.types import (
+from mcp.server.models import InitializationOptions
+from mcp.types import (
     GetPromptResult,
     Prompt,
     PromptMessage,
     TextContent,
 )
-from mcp_wcgw.types import Tool as ToolParam
+from mcp.types import Tool as ToolParam
 from pydantic import ValidationError
 
 from wcgw.client.bash_state.bash_state import CONFIG, BashState
@@ -241,7 +241,7 @@ async def test_main(setup_bash_state):
         mock_context = AsyncMock()
         mock_context.__aenter__.return_value = (mock_read_stream, mock_write_stream)
 
-        with patch("mcp_wcgw.server.stdio.stdio_server", return_value=mock_context):
+        with patch("mcp.server.stdio.stdio_server", return_value=mock_context):
             # Mock server.run to prevent actual server start
             with patch("wcgw.client.mcp_server.server.server.run") as mock_run:
                 await main()
