@@ -46,10 +46,13 @@ class FileEditOutput:
         last_idx = 0
         errors = []
         warnings = set[str]()
+        info = set[str]()
+        score = 0.0
         for (span, tolerances, replace_with), search_ in zip(
             self.edited_with_tolerances, self.orig_search_blocks
         ):
             for tol in tolerances:
+                score += tol.count * tol.score_multiplier
                 if tol.count > 0:
                     if tol.severity_cat == "WARNING":
                         warnings.add(tol.error_name)
@@ -66,6 +69,8 @@ Error:
 {tol.error_name}
 ---
                                   """)
+                    else:
+                        info.add(tol.error_name)
                     if len(errors) >= max_errors:
                         raise SearchReplaceMatchError("\n".join(errors))
             if last_idx < span.start:
@@ -80,12 +85,19 @@ Error:
         if errors:
             raise SearchReplaceMatchError("\n".join(errors))
 
+        if score > 1000:
+            display = (list(warnings) + list(info))[:max_errors]
+            raise SearchReplaceMatchError(
+                "Too many warnings generated, not apply the edits\n"
+                + "\n".join(display)
+            )
+
         return new_lines, set(warnings)
 
     @staticmethod
     def get_best_match(
         outputs: list["FileEditOutput"],
-    ) -> tuple[list["FileEditOutput"], bool]:
+    ) -> list["FileEditOutput"]:
         best_hits: list[FileEditOutput] = []
         best_score = float("-inf")
         assert outputs
@@ -103,7 +115,7 @@ Error:
                     best_score = hit_score
                 elif abs(hit_score - best_score) < 1e-3:
                     best_hits.append(output)
-        return best_hits, best_score > 1000
+        return best_hits
 
 
 def line_process_max_space_tolerance(line: str) -> str:
