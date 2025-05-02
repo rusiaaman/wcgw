@@ -1,6 +1,6 @@
 import os
-from dataclasses import dataclass
-from typing import Any
+
+from mcp.types import Tool, ToolAnnotations
 
 from ..types_ import (
     BashCommand,
@@ -15,15 +15,8 @@ with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f
     diffinstructions = f.read()
 
 
-@dataclass
-class Prompts:
-    inputSchema: dict[str, Any]
-    name: str
-    description: str
-
-
 TOOL_PROMPTS = [
-    Prompts(
+    Tool(
         inputSchema=Initialize.model_json_schema(),
         name="Initialize",
         description="""
@@ -38,8 +31,9 @@ TOOL_PROMPTS = [
 - Use type="reset_shell" if in a conversation shell is not working after multiple tries.
 - Use type="user_asked_change_workspace" if in a conversation user asked to change workspace
 """,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
-    Prompts(
+    Tool(
         inputSchema=BashCommand.model_json_schema(),
         name="BashCommand",
         description="""
@@ -54,8 +48,9 @@ TOOL_PROMPTS = [
 - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again.
 - Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
 """,
+        annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True),
     ),
-    Prompts(
+    Tool(
         inputSchema=ReadFiles.model_json_schema(),
         name="ReadFiles",
         description="""
@@ -65,13 +60,15 @@ TOOL_PROMPTS = [
     - You may populate "show_line_numbers_reason" with your reason, by default null/empty means no line numbers are shown.
     - You may extract a range of lines. E.g., `/path/to/file:1-10` for lines 1-10. You can drop start or end like `/path/to/file:1-` or `/path/to/file:-10` 
 """,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
-    Prompts(
+    Tool(
         inputSchema=ReadImage.model_json_schema(),
         name="ReadImage",
         description="Read an image from the shell.",
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
-    Prompts(
+    Tool(
         inputSchema=FileWriteOrEdit.model_json_schema(),
         name="FileWriteOrEdit",
         description="""
@@ -85,13 +82,17 @@ TOOL_PROMPTS = [
 
 """
         + diffinstructions,
+        annotations=ToolAnnotations(
+            destructiveHint=True, idempotentHint=True, openWorldHint=False
+        ),
     ),
-    Prompts(
+    Tool(
         inputSchema=ContextSave.model_json_schema(),
         name="ContextSave",
         description="""
 Saves provided description and file contents of all the relevant file paths or globs in a single text file.
 - Provide random 3 word unqiue id or whatever user provided.
 - Leave project path as empty string if no project path""",
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
 ]
