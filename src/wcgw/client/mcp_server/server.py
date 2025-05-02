@@ -3,11 +3,10 @@ import logging
 import os
 from typing import Any
 
-import mcp_wcgw.server.stdio
-import mcp_wcgw.types as types
-from mcp_wcgw.server import NotificationOptions, Server
-from mcp_wcgw.server.models import InitializationOptions
-from mcp_wcgw.types import Tool as ToolParam
+import mcp.server.stdio
+import mcp.types as types
+from mcp.server import NotificationOptions, Server
+from mcp.server.models import InitializationOptions
 from pydantic import AnyUrl
 
 from wcgw.client.modes import KTS
@@ -89,15 +88,7 @@ async def handle_list_tools() -> list[types.Tool]:
     Each tool specifies its arguments using JSON Schema validation.
     """
 
-    tools_ = [
-        ToolParam(
-            inputSchema=tool.inputSchema,
-            name=tool.name,
-            description=tool.description,
-        )
-        for tool in TOOL_PROMPTS
-    ]
-    return tools_
+    return TOOL_PROMPTS
 
 
 @server.call_tool()  # type: ignore
@@ -165,7 +156,7 @@ async def main() -> None:
     ) as BASH_STATE:
         BASH_STATE.console.log("wcgw version: " + version)
         # Run the server using stdin/stdout streams
-        async with mcp_wcgw.server.stdio.stdio_server() as (read_stream, write_stream):
+        async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
             await server.run(
                 read_stream,
                 write_stream,
