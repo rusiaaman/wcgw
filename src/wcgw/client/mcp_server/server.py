@@ -110,7 +110,7 @@ async def handle_call_tool(
             default_enc,
             0.0,
             lambda x, y: ("", 0),
-            8000,
+            24000,
         )
 
     except Exception as e:
