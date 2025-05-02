@@ -155,7 +155,7 @@ def edit_with_individual_fallback(
     original_lines: list[str], search_replace_blocks: list[tuple[list[str], list[str]]]
 ) -> tuple[list[str], set[str]]:
     outputs = FileEditInput(original_lines, 0, search_replace_blocks, 0).edit_file()
-    best_matches, is_error = FileEditOutput.get_best_match(outputs)
+    best_matches = FileEditOutput.get_best_match(outputs)
 
     try:
         edited_content, comments_ = best_matches[0].replace_or_throw(3)
@@ -171,7 +171,6 @@ def edit_with_individual_fallback(
                 all_comments |= comments_
             return running_lines, all_comments
         raise
-    assert not is_error
 
     if len(best_matches) > 1:
         # Find the first block that differs across matches
