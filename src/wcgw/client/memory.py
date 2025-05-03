@@ -64,7 +64,8 @@ T = TypeVar("T")
 
 def load_memory(
     task_id: str,
-    max_tokens: Optional[int],
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
     encoder: Callable[[str], list[T]],
     decoder: Callable[[list[T]], str],
 ) -> tuple[str, str, Optional[dict[str, Any]]]:
@@ -75,6 +76,8 @@ def load_memory(
     with open(memory_file, "r") as f:
         data = f.read()
 
+    # Memory files are considered non-code files for token limits
+    max_tokens = noncoding_max_tokens
     if max_tokens:
         toks = encoder(data)
         if len(toks) > max_tokens:

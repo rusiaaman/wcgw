@@ -120,7 +120,8 @@ def loop(
         try:
             _, memory, _ = load_memory(
                 resume,
-                8000,
+                24000,  # coding_max_tokens
+                8000,   # noncoding_max_tokens
                 lambda x: default_enc.encoder(x),
                 lambda x: default_enc.decoder(x),
             )
@@ -187,8 +188,10 @@ def loop(
             os.getcwd(),
             [],
             resume if (memory and resume) else "",
-            max_tokens=8000,
+            24000,  # coding_max_tokens
+            8000,   # noncoding_max_tokens
             mode="wcgw",
+            chat_id="",
         )
 
         if not history:
@@ -283,7 +286,8 @@ def loop(
                                         enc,
                                         limit - cost,
                                         loop,
-                                        max_tokens=8000,
+                                        24000,  # coding_max_tokens
+                                        8000,   # noncoding_max_tokens
                                     )
                                     output_or_done = output_or_dones[0]
                                 except Exception as e:

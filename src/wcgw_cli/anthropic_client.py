@@ -130,7 +130,8 @@ def loop(
         try:
             _, memory, _ = load_memory(
                 resume,
-                8000,
+                24000,  # coding_max_tokens
+                8000,   # noncoding_max_tokens
                 lambda x: default_enc.encoder(x),
                 lambda x: default_enc.decoder(x),
             )
@@ -197,7 +198,7 @@ def loop(
     tools = [
         ToolParam(
             name=tool.name,
-            description=tool.description,
+            description=tool.description or "",  # Ensure it's not None
             input_schema=tool.inputSchema,
         )
         for tool in TOOL_PROMPTS
@@ -223,8 +224,10 @@ def loop(
             os.getcwd(),
             [],
             resume if (memory and resume) else "",
-            max_tokens=8000,
+            24000,  # coding_max_tokens
+            8000,   # noncoding_max_tokens
             mode="wcgw",
+            chat_id="",
         )
 
         if history:
@@ -412,7 +415,8 @@ def loop(
                                         default_enc,
                                         limit - cost,
                                         loop,
-                                        max_tokens=8000,
+                                        24000,  # coding_max_tokens
+                                        8000,   # noncoding_max_tokens
                                     )
                                 except Exception as e:
                                     output_or_dones = [

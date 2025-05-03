@@ -88,7 +88,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -108,7 +108,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -130,7 +130,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -148,7 +148,9 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         description="Test context",
         relevant_file_globs=["*.txt"],
     )
-    get_tool_output(context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    get_tool_output(
+        context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
+    )
 
     # Now try to resume the saved context
     init_args = Initialize(
@@ -162,7 +164,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -182,7 +184,9 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         description="Test context with mode switch",
         relevant_file_globs=["*.txt"],
     )
-    get_tool_output(context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    get_tool_output(
+        context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
+    )
 
     # Now try to resume the saved context but in architect mode
     init_args = Initialize(
@@ -196,7 +200,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -219,7 +223,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -238,7 +242,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -261,7 +265,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -279,14 +283,14 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     # Test when nothing is running
     cmd = BashCommand(action_json=StatusCheck(status_check=True), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "No running command to check status of" in outputs[0]
@@ -294,14 +298,14 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     # Start a command and check status
     cmd = BashCommand(action_json=Command(command="sleep 1"), wait_for_seconds=0.1, chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = still running" in outputs[0]
 
     # Check status while command is running
     status_check = BashCommand(action_json=StatusCheck(status_check=True), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, status_check, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, status_check, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "status = process exited" in outputs[0]
@@ -309,7 +313,7 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     # Test simple command
     cmd = BashCommand(action_json=Command(command="echo 'hello world'"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
@@ -318,7 +322,7 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     # Test multiline
     cmd = BashCommand(action_json=Command(command="echo 'hello \nworld'"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
@@ -327,7 +331,7 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
     # Multiple commands should raise exception
     cmd = BashCommand(action_json=Command(command="echo 'hello'\necho world'"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
@@ -344,14 +348,14 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     # Test text interaction
     cmd = BashCommand(action_json=SendText(send_text="hello"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
@@ -359,7 +363,7 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     # Test special keys
     cmd = BashCommand(action_json=SendSpecials(send_specials=["Enter"]), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
@@ -368,7 +372,7 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     #  Send ctrl-c
     cmd = BashCommand(action_json=SendAscii(send_ascii=[3]), chat_id=context.bash_state._current_chat_id)  # Ctrl-C
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert isinstance(outputs[0], str)
@@ -377,28 +381,28 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
     # Test interactions with long running command
     cmd = BashCommand(action_json=Command(command="sleep 1"), wait_for_seconds=0.1, chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = still running" in outputs[0]
 
     # Check status with special keys
     cmd = BashCommand(action_json=SendSpecials(send_specials=["Enter"]), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = process exited" in outputs[0]
 
     # Test interrupting command
     cmd = BashCommand(action_json=Command(command="sleep 1"), wait_for_seconds=0.1, chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = still running" in outputs[0]
 
     # Send Ctrl-C
     cmd = BashCommand(action_json=SendSpecials(send_specials=["Ctrl-c"]), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "status = process exited" in outputs[0]
@@ -414,9 +418,9 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     # Test writing a file
     test_file = os.path.join(temp_dir, "test.txt")
@@ -427,7 +431,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -436,7 +440,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     # Test reading the file back
     read_args = ReadFiles(file_paths=[test_file])
     outputs, _ = get_tool_output(
-        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -454,7 +458,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     # Verify the error message
@@ -471,7 +475,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert (
@@ -481,7 +485,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     # Test writing after reading the file (should succeed with warning)
     read_args = ReadFiles(file_paths=[test_file2])
     outputs, _ = get_tool_output(
-        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     write_args = FileWriteOrEdit(
@@ -491,7 +495,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "Success" in outputs[0]
@@ -499,7 +503,7 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     # Verify the new content was written
     read_args = ReadFiles(file_paths=[test_file2])
     outputs, _ = get_tool_output(
-        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "new content after read" in outputs[0]
@@ -515,9 +519,9 @@ def test_context_save(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     # Create some test files
     test_file1 = os.path.join(temp_dir, "test1.txt")
@@ -537,7 +541,7 @@ def test_context_save(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, save_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -555,9 +559,9 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     # Test shell reset without mode change
     reset_args = Initialize(
@@ -570,7 +574,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -588,7 +592,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -606,7 +610,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -619,7 +623,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
     # Verify mode was actually changed by trying a command not in allowed list
     cmd = BashCommand(action_json=Command(command="touch test.txt"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "Error: BashCommand not allowed in current mode" in str(outputs[0])
 
@@ -634,7 +638,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -654,7 +658,7 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, reset_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -670,9 +674,9 @@ def _test_init(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
     # Reset shell to clean state
     context.bash_state.reset_shell()
 
@@ -687,7 +691,7 @@ def test_file_io(context: Context, temp_dir: str) -> None:
 
     cmd = BashCommand(action_json=Command(command=f"cat {test_file}"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "hello world" in outputs[0]
@@ -700,13 +704,13 @@ def test_command_interrupt(context: Context, temp_dir: str) -> None:
 
     cmd = BashCommand(action_json=Command(command="sleep 5"), wait_for_seconds=0.1, chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = still running" in outputs[0]
 
     cmd = BashCommand(action_json=SendSpecials(send_specials=["Ctrl-c"]), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = process exited" in outputs[0]
 
@@ -717,7 +721,7 @@ def test_command_suspend(context: Context, temp_dir: str) -> None:
 
     cmd = BashCommand(action_json=Command(command="sleep 5"), wait_for_seconds=0.1, chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = still running" in outputs[0]
 
@@ -727,17 +731,17 @@ def test_text_input(context: Context, temp_dir: str) -> None:
     _test_init(context, temp_dir)
 
     cmd = BashCommand(action_json=Command(command="cat"), chat_id=context.bash_state._current_chat_id)
-    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     cmd = BashCommand(action_json=SendText(send_text="hello"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "hello" in str(outputs[0])
 
     cmd = BashCommand(action_json=SendSpecials(send_specials=["Ctrl-d"]), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = process exited" in str(outputs[0])
 
@@ -747,17 +751,17 @@ def test_ascii_input(context: Context, temp_dir: str) -> None:
     _test_init(context, temp_dir)
 
     cmd = BashCommand(action_json=Command(command="cat"), chat_id=context.bash_state._current_chat_id)
-    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     cmd = BashCommand(action_json=SendAscii(send_ascii=[65, 66, 67]), chat_id=context.bash_state._current_chat_id)  # ABC
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "ABC" in str(outputs[0])
 
     cmd = BashCommand(action_json=SendAscii(send_ascii=[3]), chat_id=context.bash_state._current_chat_id)  # Ctrl-C
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert "status = process exited" in str(outputs[0])
 
@@ -772,9 +776,9 @@ def test_read_image(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     # Create a small test image
     test_image = os.path.join(temp_dir, "test.png")
@@ -789,7 +793,7 @@ def test_read_image(context: Context, temp_dir: str) -> None:
     # Test reading image
     read_args = ReadImage(file_path=test_image)
     outputs, _ = get_tool_output(
-        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -853,7 +857,7 @@ def test_git_recent_files(context: Context, temp_dir: str) -> None:
     )
 
     outputs, _ = get_tool_output(
-        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
 
     assert len(outputs) == 1
@@ -879,14 +883,14 @@ def test_write_empty_file_and_read(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "Success" in outputs[0]
 
     read_args = ReadFiles(file_paths=[test_file])
     outputs, _ = get_tool_output(
-        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
 
@@ -901,14 +905,14 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
         task_id_to_resume="",
         mode_name="wcgw",
         code_writer_config=None,
-        chat_id="",
-    )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+            chat_id="",
+        )
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     # Test reading non-existent file
     read_args = ReadFiles(file_paths=[os.path.join(temp_dir, "nonexistent.txt")])
     outputs, _ = get_tool_output(
-        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, read_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "Error" in outputs[0]
@@ -921,7 +925,7 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
         chat_id=context.bash_state._current_chat_id,
     )
     outputs, _ = get_tool_output(
-        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, write_args, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "Success" in outputs[0]  # Should succeed as it creates directories
@@ -929,7 +933,7 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
     # Test invalid bash command
     cmd = BashCommand(action_json=Command(command="nonexistentcommand"), chat_id=context.bash_state._current_chat_id)
     outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
     assert len(outputs) == 1
     assert "not found" in str(outputs[0]).lower()

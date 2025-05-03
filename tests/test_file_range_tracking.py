@@ -49,7 +49,7 @@ def test_read_file_tracks_line_ranges(test_file, context):
     """Test that read_file correctly returns line ranges."""
     # Read lines 5-10
     _, _, _, path, line_range = read_file(
-        test_file, max_tokens=None, context=context, start_line_num=5, end_line_num=10
+        test_file, coding_max_tokens=None, noncoding_max_tokens=None, context=context, start_line_num=5, end_line_num=10
     )
 
     # Check that the line range is correct
@@ -68,7 +68,8 @@ def test_read_files_tracks_multiple_ranges(test_file, context):
         # Read different ranges from both files
         _, file_ranges, _ = read_files(
             file_paths=[test_file, second_file],
-            max_tokens=None,
+            coding_max_tokens=None,
+            noncoding_max_tokens=None,
             context=context,
             start_line_nums=[5, 10],
             end_line_nums=[10, 20],

@@ -996,7 +996,7 @@ def execute_bash(
     bash_state: BashState,
     enc: EncoderDecoder[int],
     bash_arg: BashCommand,
-    max_tokens: Optional[int],
+    max_tokens: Optional[int],  # This will be noncoding_max_tokens
     timeout_s: Optional[float],
 ) -> tuple[str, float]:
     try:
@@ -1026,7 +1026,7 @@ def _execute_bash(
     bash_state: BashState,
     enc: EncoderDecoder[int],
     bash_arg: BashCommand,
-    max_tokens: Optional[int],
+    max_tokens: Optional[int],  # This will be noncoding_max_tokens
     timeout_s: Optional[float],
 ) -> tuple[str, float]:
     try:

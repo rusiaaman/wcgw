@@ -70,7 +70,7 @@ def test_file_edit(context: Context, temp_dir: str) -> None:
         code_writer_config=None,
         type="first_call",
     )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None)
 
     # Create a test file
     test_file = os.path.join(temp_dir, "test.py")
@@ -92,7 +92,7 @@ def hello():
     )
 
     outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
     )
 
     assert len(outputs) == 1
@@ -117,7 +117,7 @@ def hello():
     )
 
     outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
     )
 
     assert len(outputs) == 1
@@ -144,7 +144,7 @@ def hello():
 
     with pytest.raises(SearchReplaceMatchError) as e:
         outputs, _ = get_tool_output(
-            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
         )
 
         assert """def hello():
@@ -170,7 +170,7 @@ def hello():
     )
 
     outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
     )
 
     assert len(outputs) == 1
@@ -198,7 +198,7 @@ def hello():
         )
 
         outputs, _ = get_tool_output(
-            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
         )
 
     with pytest.raises(SearchReplaceSyntaxError) as e:
@@ -216,7 +216,7 @@ def hello():
         )
 
         outputs, _ = get_tool_output(
-            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
         )
 
     # Test multiple matches
@@ -245,7 +245,7 @@ def hello():
         )
 
         outputs, _ = get_tool_output(
-            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+            context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
         )
 
     # Grounding should pass even when duplicate found
@@ -270,7 +270,7 @@ def hello():
     )
 
     outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
     )
 
     with open(test_file) as f:
@@ -480,7 +480,7 @@ def test_context_based_matching(context: Context, temp_dir: str) -> None:
         code_writer_config=None,
         type="first_call",
     )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None)
 
     # Create a test file with repeating pattern
     test_file = os.path.join(temp_dir, "test_context.py")
@@ -510,7 +510,7 @@ C
 >>>>>>> REPLACE""",
     )
     outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
     )
 
     # Verify the change - first B should be modified
@@ -540,7 +540,7 @@ B_MODIFIED_SECOND
 >>>>>>> REPLACE""",
     )
     outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
     )
 
     # Verify the change - second B should be modified
@@ -560,7 +560,7 @@ def test_unordered(context: Context, temp_dir: str) -> None:
         code_writer_config=None,
         type="first_call",
     )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None)
+    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None)
 
     # Create a test file with repeating pattern
     test_file = os.path.join(temp_dir, "test_context.py")
@@ -586,7 +586,7 @@ A_MODIFIED
 """,
     )
     outputs, _ = get_tool_output(
-        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None
+        context, edit_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
     )
 
     # Verify the change - first B should be modified
