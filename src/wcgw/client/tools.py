@@ -55,6 +55,7 @@ from ..types_ import (
     WriteIfEmpty,
 )
 from .encoder import EncoderDecoder, get_default_encoder
+from .file_ops.extensions import select_max_tokens
 from .file_ops.search_replace import (
     DIVIDER_MARKER,
     REPLACE_MARKER,
@@ -99,7 +100,8 @@ def initialize(
     any_workspace_path: str,
     read_files_: list[str],
     task_id_to_resume: str,
-    max_tokens: Optional[int],
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
     mode: ModesConfig,
     chat_id: str,
 ) -> tuple[str, Context, dict[str, list[tuple[int, int]]]]:
@@ -128,7 +130,8 @@ def initialize(
         try:
             project_root_path, task_mem, loaded_state = load_memory(
                 task_id_to_resume,
-                max_tokens,
+                coding_max_tokens,
+                noncoding_max_tokens,
                 lambda x: default_enc.encoder(x),
                 lambda x: default_enc.decoder(x),
             )
@@ -248,7 +251,7 @@ def initialize(
                 for f in read_files_
             ]
         initial_files, initial_paths_with_ranges, _ = read_files(
-            read_files_, max_tokens, context
+            read_files_, coding_max_tokens, noncoding_max_tokens, context
         )
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
@@ -455,7 +458,11 @@ def read_image_from_shell(file_path: str, context: Context) -> ImageData:
 
 
 def get_context_for_errors(
-    errors: list[tuple[int, int]], file_content: str, max_tokens: Optional[int]
+    errors: list[tuple[int, int]],
+    file_content: str,
+    filename: str,
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
 ) -> str:
     file_lines = file_content.split("\n")
     min_line_num = max(0, min([error[0] for error in errors]) - 10)
@@ -463,6 +470,7 @@ def get_context_for_errors(
     context_lines = file_lines[min_line_num:max_line_num]
     context = "\n".join(context_lines)
 
+    max_tokens = select_max_tokens(filename, coding_max_tokens, noncoding_max_tokens)
     if max_tokens is not None and max_tokens > 0:
         ntokens = len(default_enc.encoder(context))
         if ntokens > max_tokens:
@@ -473,7 +481,8 @@ def get_context_for_errors(
 def write_file(
     writefile: WriteIfEmpty,
     error_on_exist: bool,
-    max_tokens: Optional[int],
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
     context: Context,
 ) -> tuple[
     str, dict[str, list[tuple[int, int]]]
@@ -536,7 +545,7 @@ def write_file(
                     msg = f"Error: you need to read existing file {path_} at least once before it can be overwritten.\n\n"
                     # Read the entire file
                     file_content_str, truncated, _, _, line_range = read_file(
-                        path_, max_tokens, context, False
+                        path_, coding_max_tokens, noncoding_max_tokens, context, False
                     )
                     file_ranges = [line_range]
 
@@ -558,7 +567,7 @@ def write_file(
                     msg = "Error: the file has changed since last read.\n\n"
                     # Read the entire file again
                     file_content_str, truncated, _, _, line_range = read_file(
-                        path_, max_tokens, context, False
+                        path_, coding_max_tokens, noncoding_max_tokens, context, False
                     )
                     file_ranges = [line_range]
 
@@ -591,7 +600,8 @@ def write_file(
                     )
                     readfiles, file_ranges_dict, truncated = read_files(
                         paths_readfiles.file_paths,
-                        max_tokens,
+                        coding_max_tokens,
+                        noncoding_max_tokens,
                         context,
                         show_line_numbers=False,
                         start_line_nums=paths_readfiles.start_line_nums,
@@ -631,7 +641,11 @@ def write_file(
                 syntax_errors += "\nNote: Ignore if 'tagged template literals' are used, they may raise false positive errors in tree-sitter."
 
             context_for_errors = get_context_for_errors(
-                check.errors, writefile.file_content, max_tokens
+                check.errors,
+                writefile.file_content,
+                path_,
+                coding_max_tokens,
+                noncoding_max_tokens,
             )
             context.console.print(f"W: Syntax errors encountered: {syntax_errors}")
             warnings.append(f"""
@@ -656,10 +670,13 @@ Syntax errors:
 
 
 def do_diff_edit(
-    fedit: FileEdit, max_tokens: Optional[int], context: Context
+    fedit: FileEdit,
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
+    context: Context,
 ) -> tuple[str, dict[str, list[tuple[int, int]]]]:
     try:
-        return _do_diff_edit(fedit, max_tokens, context)
+        return _do_diff_edit(fedit, coding_max_tokens, noncoding_max_tokens, context)
     except Exception as e:
         # Try replacing \"
         try:
@@ -669,14 +686,19 @@ def do_diff_edit(
                     '\\"', '"'
                 ),
             )
-            return _do_diff_edit(fedit, max_tokens, context)
+            return _do_diff_edit(
+                fedit, coding_max_tokens, noncoding_max_tokens, context
+            )
         except Exception:
             pass
         raise e
 
 
 def _do_diff_edit(
-    fedit: FileEdit, max_tokens: Optional[int], context: Context
+    fedit: FileEdit,
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
+    context: Context,
 ) -> tuple[str, dict[str, list[tuple[int, int]]]]:
     context.console.log(f"Editing file: {fedit.file_path}")
 
@@ -736,7 +758,11 @@ def _do_diff_edit(
         syntax_errors = check.description
         if syntax_errors:
             context_for_errors = get_context_for_errors(
-                check.errors, apply_diff_to, max_tokens
+                check.errors,
+                apply_diff_to,
+                path_,
+                coding_max_tokens,
+                noncoding_max_tokens,
             )
             if extension in {"tsx", "ts"}:
                 syntax_errors += "\nNote: Ignore if 'tagged template literals' are used, they may raise false positive errors in tree-sitter."
@@ -782,7 +808,8 @@ def _is_edit(content: str, percentage: int) -> bool:
 
 def file_writing(
     file_writing_args: FileWriteOrEdit,
-    max_tokens: Optional[int],
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
     context: Context,
 ) -> tuple[
     str, dict[str, list[tuple[int, int]]]
@@ -820,7 +847,8 @@ def file_writing(
                 file_content=file_writing_args.file_content_or_search_replace_blocks,
             ),
             True,
-            max_tokens,
+            coding_max_tokens,
+            noncoding_max_tokens,
             context,
         )
         return result, paths
@@ -831,7 +859,8 @@ def file_writing(
                 file_path=path_,
                 file_edit_using_search_replace_blocks=file_writing_args.file_content_or_search_replace_blocks,
             ),
-            max_tokens,
+            coding_max_tokens,
+            noncoding_max_tokens,
             context,
         )
         return result, paths
@@ -888,7 +917,8 @@ def get_tool_output(
     enc: EncoderDecoder[int],
     limit: float,
     loop_call: Callable[[str, float], tuple[str, float]],
-    max_tokens: Optional[int],
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
 ) -> tuple[list[str | ImageData], float]:
     global TOOL_CALLS
     if isinstance(args, dict):
@@ -906,13 +936,15 @@ def get_tool_output(
         context.console.print("Calling execute bash tool")
 
         output_str, cost = execute_bash(
-            context.bash_state, enc, arg, max_tokens, arg.wait_for_seconds
+            context.bash_state, enc, arg, noncoding_max_tokens, arg.wait_for_seconds
         )
         output = output_str, cost
     elif isinstance(arg, WriteIfEmpty):
         context.console.print("Calling write file tool")
 
-        result, write_paths = write_file(arg, True, max_tokens, context)
+        result, write_paths = write_file(
+            arg, True, coding_max_tokens, noncoding_max_tokens, context
+        )
         output = result, 0
         # Add write paths with their ranges to our tracking dictionary
         for path, ranges in write_paths.items():
@@ -923,7 +955,9 @@ def get_tool_output(
     elif isinstance(arg, FileEdit):
         context.console.print("Calling full file edit tool")
 
-        result, edit_paths = do_diff_edit(arg, max_tokens, context)
+        result, edit_paths = do_diff_edit(
+            arg, coding_max_tokens, noncoding_max_tokens, context
+        )
         output = result, 0.0
         # Add edit paths with their ranges to our tracking dictionary
         for path, ranges in edit_paths.items():
@@ -934,7 +968,9 @@ def get_tool_output(
     elif isinstance(arg, FileWriteOrEdit):
         context.console.print("Calling file writing tool")
 
-        result, write_edit_paths = file_writing(arg, max_tokens, context)
+        result, write_edit_paths = file_writing(
+            arg, coding_max_tokens, noncoding_max_tokens, context
+        )
         output = result, 0.0
         # Add write/edit paths with their ranges to our tracking dictionary
         for path, ranges in write_edit_paths.items():
@@ -951,7 +987,8 @@ def get_tool_output(
         # Access line numbers through properties
         result, file_ranges_dict, _ = read_files(
             arg.file_paths,
-            max_tokens,
+            coding_max_tokens,
+            noncoding_max_tokens,
             context,
             bool(arg.show_line_numbers_reason),
             arg.start_line_nums,
@@ -995,7 +1032,8 @@ def get_tool_output(
                 arg.any_workspace_path,
                 arg.initial_files_to_read,
                 arg.task_id_to_resume,
-                max_tokens,
+                coding_max_tokens,
+                noncoding_max_tokens,
                 arg.mode,
                 arg.chat_id,
             )
@@ -1024,7 +1062,9 @@ def get_tool_output(
             relevant_files.extend(globs[:1000])
             if not globs:
                 warnings += f"Warning: No files found for the glob: {fglob}\n"
-        relevant_files_data, _, _ = read_files(relevant_files[:10_000], None, context)
+        relevant_files_data, _, _ = read_files(
+            relevant_files[:10_000], None, None, context
+        )
         save_path = save_memory(
             arg, relevant_files_data, context.bash_state.serialize()
         )
@@ -1069,7 +1109,8 @@ def range_format(start_line_num: Optional[int], end_line_num: Optional[int]) -> 
 
 def read_files(
     file_paths: list[str],
-    max_tokens: Optional[int],
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
     context: Context,
     show_line_numbers: bool = False,
     start_line_nums: Optional[list[Optional[int]]] = None,
@@ -1105,7 +1146,8 @@ def read_files(
             # if they weren't provided as parameters
             content, truncated, tokens, path, line_range = read_file(
                 file,
-                max_tokens,
+                coding_max_tokens,
+                noncoding_max_tokens,
                 context,
                 show_line_numbers,
                 start_line_num,
@@ -1121,13 +1163,20 @@ def read_files(
             message += f"\n{file}: {str(e)}\n"
             continue
 
-        if max_tokens:
-            max_tokens = max_tokens - tokens
+        if coding_max_tokens:
+            coding_max_tokens = coding_max_tokens - tokens
+        if noncoding_max_tokens:
+            noncoding_max_tokens = noncoding_max_tokens - tokens
 
         range_formatted = range_format(start_line_num, end_line_num)
         message += f"\n{file}{range_formatted}\n```\n{content}\n"
 
-        if truncated or (max_tokens and max_tokens <= 0):
+        # Check if we've hit either token limit
+        if (
+            truncated
+            or (coding_max_tokens is not None and coding_max_tokens <= 0)
+            or (noncoding_max_tokens is not None and noncoding_max_tokens <= 0)
+        ):
             not_reading = file_paths[i + 1 :]
             if not_reading:
                 message += f"\nNot reading the rest of the files: {', '.join(not_reading)} due to token limit, please call again"
@@ -1139,7 +1188,8 @@ def read_files(
 
 def read_file(
     file_path: str,
-    max_tokens: Optional[int],
+    coding_max_tokens: Optional[int],
+    noncoding_max_tokens: Optional[int],
     context: Context,
     show_line_numbers: bool = False,
     start_line_num: Optional[int] = None,
@@ -1200,6 +1250,9 @@ def read_file(
 
     truncated = False
     tokens_counts = 0
+
+    # Select the appropriate max_tokens based on file type
+    max_tokens = select_max_tokens(file_path, coding_max_tokens, noncoding_max_tokens)
 
     # Handle token limit if specified
     if max_tokens is not None:
@@ -1265,7 +1318,8 @@ if __name__ == "__main__":
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
-                None,
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
             )
         )
         print(
@@ -1278,7 +1332,8 @@ if __name__ == "__main__":
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
-                None,
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
             )
         )
 
@@ -1292,7 +1347,8 @@ if __name__ == "__main__":
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
-                15000,
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
             )[0][0]
         )
 
@@ -1308,6 +1364,7 @@ if __name__ == "__main__":
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
-                800,
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
             )[0][0]
         )

@@ -1,7 +1,7 @@
 import importlib
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
 import mcp.server.stdio
 import mcp.types as types
@@ -24,7 +24,7 @@ from ..tools import (
     which_tool_name,
 )
 
-server = Server("wcgw")
+server: Server[Any] = Server("wcgw")
 
 # Log only time stamp
 logging.basicConfig(level=logging.INFO, format="%(asctime)s: %(message)s")
@@ -110,7 +110,8 @@ async def handle_call_tool(
             default_enc,
             0.0,
             lambda x, y: ("", 0),
-            24000,
+            24000,  # coding_max_tokens
+            8000,   # noncoding_max_tokens
         )
 
     except Exception as e:
