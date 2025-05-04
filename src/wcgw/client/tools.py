@@ -117,7 +117,7 @@ def initialize(
         # Try to load state from the chat ID
         if not context.bash_state.load_state_from_chat_id(chat_id):
             return (
-                f"Error: No saved bash state found for chat ID {chat_id}",
+                f"Error: No saved bash state found for chat ID {chat_id}. Please re-initialize to get a new id or use correct id.",
                 context,
                 {},
             )
@@ -319,7 +319,7 @@ def reset_wcgw(
     if chat_id != context.bash_state.current_chat_id:
         # Try to load state from the chat ID
         if not context.bash_state.load_state_from_chat_id(chat_id):
-            return f"Error: No saved bash state found for chat ID {chat_id}"
+            return f"Error: No saved bash state found for chat ID {chat_id}. Please re-initialize to get a new id or use correct id."
     if mode_name:
         # update modes if they're relative
         if isinstance(change_mode, CodeWriterMode):
@@ -824,7 +824,7 @@ def file_writing(
         # Try to load state from the chat ID
         if not context.bash_state.load_state_from_chat_id(file_writing_args.chat_id):
             return (
-                f"Error: No saved bash state found for chat ID {file_writing_args.chat_id}. Please initialize first with this ID.",
+                f"Error: No saved bash state found for chat ID {file_writing_args.chat_id}. Please re-initialize to get a new id or use correct id.",
                 {},
             )
 
