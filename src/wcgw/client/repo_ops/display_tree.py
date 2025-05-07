@@ -15,7 +15,7 @@ class DirectoryTree:
         self.root = root
         self.max_files = max_files
         self.expanded_files: Set[Path] = set()
-        self.expanded_dirs = set[Path]()
+        self.expanded_dirs: Set[Path] = set()
 
         if not self.root.exists():
             raise ValueError(f"Root path {root} does not exist")
@@ -77,11 +77,11 @@ class DirectoryTree:
         def _display_recursive(
             current_path: Path, indent: int = 0, depth: int = 0
         ) -> None:
-            # Print current directory name
+            # Print current directory name with a trailing slash for directories
             if current_path == self.root:
-                writer.write(f"{current_path}\n")
+                writer.write(f"{current_path}/\n")
             else:
-                writer.write(f"{' ' * indent}{current_path.name}\n")
+                writer.write(f"{' ' * indent}{current_path.name}/\n")
 
             # Don't recurse beyond depth 1 unless path contains expanded files
             if depth > 0 and current_path not in self.expanded_dirs:
