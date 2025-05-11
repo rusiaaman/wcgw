@@ -27,7 +27,7 @@ jobs:
           pip install uv
       - name: Run tests with coverage
         run: |
-          uv run --group tests --python "${{ matrix.python-version }}" pytest --cov=wcgw --cov-report=xml --cov-report=term-missing
+          uv run --frozen --group tests --python "${{ matrix.python-version }}" pytest --cov=wcgw --cov-report=xml --cov-report=term-missing
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         if: success()

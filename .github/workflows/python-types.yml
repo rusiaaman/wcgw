@@ -27,4 +27,4 @@ jobs:
           pip install uv
       - name: Run type checks
         run: |
-          uv run --group types --python "${{ matrix.python-version }}" mypy --strict src/wcgw
+          uv run --frozen --group types --python "${{ matrix.python-version }}" mypy --strict src/wcgw
