@@ -87,13 +87,7 @@ Then create or update `claude_desktop_config.json` (~/Library/Application Suppor
   "mcpServers": {
     "wcgw": {
       "command": "uv",
-      "args": [
-        "tool",
-        "run",
-        "--python",
-        "3.12",
-        "wcgw@latest"
-      ]
+      "args": ["tool", "run", "--python", "3.12", "wcgw@latest"]
     }
   }
 }
@@ -122,14 +116,7 @@ Then add or update the claude config file `%APPDATA%\Claude\claude_desktop_confi
   "mcpServers": {
     "wcgw": {
       "command": "wsl.exe",
-      "args": [
-        "uv",
-        "tool",
-        "run",
-        "--python",
-        "3.12",
-        "wcgw@latest"
-      ]
+      "args": ["uv", "tool", "run", "--python", "3.12", "wcgw@latest"]
     }
   }
 }
@@ -201,7 +188,7 @@ Then you can update `/Users/username/Library/Application Support/Claude/claude_d
 ```
 {
   "mcpServers": {
-    "filesystem": {
+    "wcgw": {
       "command": "docker",
       "args": [
         "run",
@@ -209,7 +196,7 @@ Then you can update `/Users/username/Library/Application Support/Claude/claude_d
         "--rm",
         "--mount",
         "type=bind,src=/Users/username/Desktop,dst=/workspace/Desktop",
-        "wcgw",
+        "wcgw"
       ]
     }
   }
