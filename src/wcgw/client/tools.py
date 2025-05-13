@@ -475,7 +475,7 @@ def get_context_for_errors(
         ntokens = len(default_enc.encoder(context))
         if ntokens > max_tokens:
             return "Please re-read the file to understand the context"
-    return f"Here's relevant snippet from the file where the syntax errors occured:\n```\n{context}\n```"
+    return f"Here's relevant snippet from the file where the syntax errors occured:\n<snippet>\n{context}\n</snippet>"
 
 
 def write_file(
@@ -556,7 +556,7 @@ def write_file(
                     return (
                         (
                             msg
-                            + f"Here's the existing file:\n```\n{file_content_str}\n{final_message}\n```"
+                            + f"Here's the existing file:\n<wcgw:file>\n{file_content_str}\n{final_message}\n</wcgw:file>"
                         ),
                         {path_: file_ranges},
                     )
@@ -578,7 +578,7 @@ def write_file(
                     return (
                         (
                             msg
-                            + f"Here's the existing file:\n```\n{file_content_str}\n```\n{final_message}"
+                            + f"Here's the existing file:\n<wcgw:file>\n{file_content_str}\n</wcgw:file>\n{final_message}"
                         ),
                         {path_: file_ranges},
                     )
@@ -1164,25 +1164,27 @@ def read_files(
             continue
 
         if coding_max_tokens:
-            coding_max_tokens = coding_max_tokens - tokens
+            coding_max_tokens = max(0, coding_max_tokens - tokens)
         if noncoding_max_tokens:
-            noncoding_max_tokens = noncoding_max_tokens - tokens
+            noncoding_max_tokens = max(0, noncoding_max_tokens - tokens)
 
         range_formatted = range_format(start_line_num, end_line_num)
-        message += f"\n{file}{range_formatted}\n```\n{content}\n"
+        message += f'\n<wcgw:file path="{file}{range_formatted}">\n{content}\n'
 
-        # Check if we've hit either token limit
+        if not truncated:
+            message += "</wcgw:file>"
+
+        # Check if we've hit both token limit
         if (
             truncated
             or (coding_max_tokens is not None and coding_max_tokens <= 0)
-            or (noncoding_max_tokens is not None and noncoding_max_tokens <= 0)
+            and (noncoding_max_tokens is not None and noncoding_max_tokens <= 0)
         ):
             not_reading = file_paths[i + 1 :]
             if not_reading:
                 message += f"\nNot reading the rest of the files: {', '.join(not_reading)} due to token limit, please call again"
             break
-        else:
-            message += "```"
+
     return message, file_ranges_dict, truncated
 
 
