@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/rusiaaman-wcgw-badge.png)](https://mseep.ai/app/rusiaaman-wcgw)
+
 # Shell and Coding agent for Claude and other mcp clients
 
 Empowering chat applications to code, build and run on your local machine.
