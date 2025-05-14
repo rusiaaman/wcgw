@@ -273,6 +273,8 @@ def initialize(
     uname_machine = os.uname().machine
 
     output = f"""
+Use chat_id={context.bash_state.current_chat_id} for all wcgw tool calls which take that.
+---
 {mode_prompt}
 
 # Environment
@@ -281,17 +283,16 @@ Machine: {uname_machine}
 Initialized in directory (also cwd): {context.bash_state.cwd}
 User home directory: {expanduser("~")}
 
-{repo_context}
-
 {alignment_context}
-{initial_files_context}
+{repo_context}
 
 ---
 
 {memory}
-
 ---
-Use chat_id={context.bash_state.current_chat_id} for all wcgw tool calls which take that.
+
+{initial_files_context}
+
 """
 
     return output, context, initial_paths_with_ranges
