@@ -53,8 +53,8 @@ class Initialize(BaseModel):
     initial_files_to_read: list[str]
     task_id_to_resume: str
     mode_name: Literal["wcgw", "architect", "code_writer"]
-    chat_id: str = Field(
-        description="Use the chat id created in first_call, leave it as empty string if first_call"
+    thread_id: str = Field(
+        description="Use the thread_id created in first_call, leave it as empty string if first_call"
     )
     code_writer_config: Optional[CodeWriterMode] = None
 
@@ -105,7 +105,7 @@ class SendAscii(BaseModel):
 class BashCommand(BaseModel):
     action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
     wait_for_seconds: Optional[float] = None
-    chat_id: str
+    thread_id: str
 
 
 class ReadImage(BaseModel):
@@ -215,10 +215,15 @@ class FileEdit(BaseModel):
 
 
 class FileWriteOrEdit(BaseModel):
-    file_path: str
-    percentage_to_change: int  # 0.0 to 100.0
-    file_content_or_search_replace_blocks: str
-    chat_id: str
+    # Naming should be in sorted order otherwise it gets changed in LLM backend.
+    file_path: str = Field(description="#1: absolute file path")
+    percentage_to_change: int = Field(
+        description="#2: predict this percentage, calculated as number of existing lines that will have some diff divided by total existing lines."
+    )
+    text_or_search_replace_blocks: str = Field(
+        description="#3: content/edit blocks. Must be after #2 in the tool xml"
+    )
+    thread_id: str = Field(description="#4: thread_id")
 
 
 class ContextSave(BaseModel):

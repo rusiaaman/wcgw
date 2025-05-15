@@ -62,7 +62,7 @@ def test_file_edit(context: Context, temp_dir: str) -> None:
     """Test the FileWriteOrEdit tool."""
     # First initialize
     init_args = Initialize(
-        chat_id="",
+        thread_id="",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -70,7 +70,9 @@ def test_file_edit(context: Context, temp_dir: str) -> None:
         code_writer_config=None,
         type="first_call",
     )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None)
+    get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
+    )
 
     # Create a test file
     test_file = os.path.join(temp_dir, "test.py")
@@ -79,10 +81,10 @@ def test_file_edit(context: Context, temp_dir: str) -> None:
 
     # Test editing the file
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=10,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('hello')
 =======
@@ -104,10 +106,10 @@ def hello():
 
     # Test indentation match
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=100,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
   def hello():
     print('hello world')     
 =======
@@ -130,10 +132,10 @@ def hello():
 
     # Test no match with partial
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=50,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
   def hello():
     print('no match')  
 =======
@@ -156,10 +158,10 @@ def hello():
 
     # Test syntax error
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=10,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
 
 def hello():
     print('ok')
@@ -183,10 +185,10 @@ def hello():
 
     with pytest.raises(SearchReplaceSyntaxError) as e:
         edit_args = FileWriteOrEdit(
-            chat_id=context.bash_state.current_chat_id,
+            thread_id=context.bash_state.current_thread_id,
             file_path=test_file,
             percentage_to_change=50,
-            file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+            text_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('ok')
 =======
@@ -203,10 +205,10 @@ def hello():
 
     with pytest.raises(SearchReplaceSyntaxError) as e:
         edit_args = FileWriteOrEdit(
-            chat_id=context.bash_state.current_chat_id,
+            thread_id=context.bash_state.current_thread_id,
             file_path=test_file,
             percentage_to_change=10,
-            file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+            text_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('ok')
 =======
@@ -231,10 +233,10 @@ def hello():
 
     with pytest.raises(SearchReplaceMatchError) as e:
         edit_args = FileWriteOrEdit(
-            chat_id=context.bash_state.current_chat_id,
+            thread_id=context.bash_state.current_thread_id,
             file_path=test_file,
             percentage_to_change=1,
-            file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+            text_or_search_replace_blocks="""<<<<<<< SEARCH
 def hello():
     print('ok')
 =======
@@ -250,10 +252,10 @@ def hello():
 
     # Grounding should pass even when duplicate found
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=10,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
 # Comment
 =======
 # New Comment
@@ -472,7 +474,7 @@ def test_context_based_matching(context: Context, temp_dir: str) -> None:
     """Test using past and future context to uniquely identify search blocks."""
     # First initialize
     init_args = Initialize(
-        chat_id="",
+        thread_id="",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -480,7 +482,9 @@ def test_context_based_matching(context: Context, temp_dir: str) -> None:
         code_writer_config=None,
         type="first_call",
     )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None)
+    get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
+    )
 
     # Create a test file with repeating pattern
     test_file = os.path.join(temp_dir, "test_context.py")
@@ -490,10 +494,10 @@ def test_context_based_matching(context: Context, temp_dir: str) -> None:
     # Test case 1: Using future context to uniquely identify a block
     # The search "A" followed by "B" followed by "C" uniquely determines the first B
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=10,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
 A
 =======
 A
@@ -525,10 +529,10 @@ C
 
     # The search "C" followed by "B" uniquely determines the second B
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=10,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
 C
 =======
 C
@@ -552,7 +556,7 @@ B_MODIFIED_SECOND
 def test_unordered(context: Context, temp_dir: str) -> None:
     # First initialize
     init_args = Initialize(
-        chat_id="",
+        thread_id="",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
@@ -560,7 +564,9 @@ def test_unordered(context: Context, temp_dir: str) -> None:
         code_writer_config=None,
         type="first_call",
     )
-    get_tool_output(context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None)
+    get_tool_output(
+        context, init_args, default_enc, 1.0, lambda x, y: ("", 0.0), None, None
+    )
 
     # Create a test file with repeating pattern
     test_file = os.path.join(temp_dir, "test_context.py")
@@ -570,10 +576,10 @@ def test_unordered(context: Context, temp_dir: str) -> None:
     # Test case 1: Using future context to uniquely identify a block
     # The search "A" followed by "B" followed by "C" uniquely determines the first B
     edit_args = FileWriteOrEdit(
-        chat_id=context.bash_state.current_chat_id,
+        thread_id=context.bash_state.current_thread_id,
         file_path=test_file,
         percentage_to_change=10,
-        file_content_or_search_replace_blocks="""<<<<<<< SEARCH
+        text_or_search_replace_blocks="""<<<<<<< SEARCH
 C
 =======
 CPrime

@@ -155,7 +155,7 @@ async def test_handle_list_tools():
         elif tool.name == "FileWriteOrEdit":
             properties = tool.inputSchema["properties"]
             assert "file_path" in properties
-            assert "file_content_or_search_replace_blocks" in properties
+            assert "text_or_search_replace_blocks" in properties
 
 
 @pytest.mark.asyncio
@@ -171,7 +171,7 @@ async def test_handle_call_tool(setup_bash_state):
         "task_id_to_resume": "",
         "mode_name": "wcgw",
         "type": "first_call",
-        "chat_id": "",
+        "thread_id": "",
     }
     result = await handle_call_tool("Initialize", init_args)
     assert isinstance(result, list)
@@ -183,7 +183,7 @@ async def test_handle_call_tool(setup_bash_state):
     json_args = {
         "action_json": {"command": "ls"},
         "wait_for_seconds": None,
-        "chat_id": "",
+        "thread_id": "",
     }
     result = await handle_call_tool("BashCommand", json_args)
     assert isinstance(result, list)
@@ -205,7 +205,11 @@ async def test_handle_call_tool(setup_bash_state):
     ):
         result = await handle_call_tool(
             "BashCommand",
-            {"action_json": {"command": "ls"}, "wait_for_seconds": None, "chat_id": ""},
+            {
+                "action_json": {"command": "ls"},
+                "wait_for_seconds": None,
+                "thread_id": "",
+            },
         )
         assert "GOT EXCEPTION" in result[0].text
 

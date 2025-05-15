@@ -31,7 +31,7 @@ from syntax_checker import check_syntax
 from ..client.bash_state.bash_state import (
     BashState,
     execute_bash,
-    generate_chat_id,
+    generate_thread_id,
     get_status,
 )
 from ..client.repo_ops.file_stats import (
@@ -103,7 +103,7 @@ def initialize(
     coding_max_tokens: Optional[int],
     noncoding_max_tokens: Optional[int],
     mode: ModesConfig,
-    chat_id: str,
+    thread_id: str,
 ) -> tuple[str, Context, dict[str, list[tuple[int, int]]]]:
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
@@ -113,16 +113,16 @@ def initialize(
     loaded_state = None
 
     # For workspace/mode changes, ensure we're using an existing state if possible
-    if type != "first_call" and chat_id != context.bash_state.current_chat_id:
-        # Try to load state from the chat ID
-        if not context.bash_state.load_state_from_chat_id(chat_id):
+    if type != "first_call" and thread_id != context.bash_state.current_thread_id:
+        # Try to load state from the thread_id
+        if not context.bash_state.load_state_from_thread_id(thread_id):
             return (
-                f"Error: No saved bash state found for chat ID {chat_id}. Please re-initialize to get a new id or use correct id.",
+                f"Error: No saved bash state found for thread_id {thread_id}. Please re-initialize to get a new id or use correct id.",
                 context,
                 {},
             )
     del (
-        chat_id
+        thread_id
     )  # No use other than loading correct state before doing actual tool related stuff
 
     # Handle task resumption - this applies only to first_call
@@ -181,10 +181,10 @@ def initialize(
             workspace_root = (
                 str(folder_to_start) if folder_to_start else parsed_state[5]
             )
-            loaded_chat_id = parsed_state[6] if len(parsed_state) > 6 else None
+            loaded_thread_id = parsed_state[6] if len(parsed_state) > 6 else None
 
-            if not loaded_chat_id:
-                loaded_chat_id = context.bash_state.current_chat_id
+            if not loaded_thread_id:
+                loaded_thread_id = context.bash_state.current_thread_id
 
             if mode == "wcgw":
                 context.bash_state.load_state(
@@ -195,7 +195,7 @@ def initialize(
                     {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
                     str(folder_to_start) if folder_to_start else workspace_root,
                     workspace_root,
-                    loaded_chat_id,
+                    loaded_thread_id,
                 )
             else:
                 state = modes_to_state(mode)
@@ -207,7 +207,7 @@ def initialize(
                     {**parsed_state[4], **context.bash_state.whitelist_for_overwrite},
                     str(folder_to_start) if folder_to_start else workspace_root,
                     workspace_root,
-                    loaded_chat_id,
+                    loaded_thread_id,
                 )
         except ValueError:
             context.console.print(traceback.format_exc())
@@ -217,10 +217,10 @@ def initialize(
     else:
         mode_changed = is_mode_change(mode, context.bash_state)
         state = modes_to_state(mode)
-        new_chat_id = context.bash_state.current_chat_id
+        new_thread_id = context.bash_state.current_thread_id
         if type == "first_call":
-            # Recreate chat id
-            new_chat_id = generate_chat_id()
+            # Recreate thread_id
+            new_thread_id = generate_thread_id()
         # Use the provided workspace path as the workspace root
         context.bash_state.load_state(
             state[0],
@@ -230,7 +230,7 @@ def initialize(
             dict(context.bash_state.whitelist_for_overwrite),
             str(folder_to_start) if folder_to_start else "",
             str(folder_to_start) if folder_to_start else "",
-            new_chat_id,
+            new_thread_id,
         )
         if type == "first_call" or mode_changed:
             mode_prompt = get_mode_prompt(context)
@@ -273,7 +273,7 @@ def initialize(
     uname_machine = os.uname().machine
 
     output = f"""
-Use chat_id={context.bash_state.current_chat_id} for all wcgw tool calls which take that.
+Use thread_id={context.bash_state.current_thread_id} for all wcgw tool calls which take that.
 ---
 {mode_prompt}
 
@@ -314,13 +314,13 @@ def reset_wcgw(
     starting_directory: str,
     mode_name: Optional[Modes],
     change_mode: ModesConfig,
-    chat_id: str,
+    thread_id: str,
 ) -> str:
-    # Load state for this chat_id before proceeding with mode/directory changes
-    if chat_id != context.bash_state.current_chat_id:
-        # Try to load state from the chat ID
-        if not context.bash_state.load_state_from_chat_id(chat_id):
-            return f"Error: No saved bash state found for chat ID {chat_id}. Please re-initialize to get a new id or use correct id."
+    # Load state for this thread_id before proceeding with mode/directory changes
+    if thread_id != context.bash_state.current_thread_id:
+        # Try to load state from the thread_id
+        if not context.bash_state.load_state_from_thread_id(thread_id):
+            return f"Error: No saved bash state found for thread_id {thread_id}. Please re-initialize to get a new id or use correct id."
     if mode_name:
         # update modes if they're relative
         if isinstance(change_mode, CodeWriterMode):
@@ -333,7 +333,7 @@ def reset_wcgw(
             change_mode
         )
 
-        # Reset shell with new mode, using the provided chat ID
+        # Reset shell with new mode, using the provided thread_id
         context.bash_state.load_state(
             bash_command_mode,
             file_edit_mode,
@@ -342,7 +342,7 @@ def reset_wcgw(
             dict(context.bash_state.whitelist_for_overwrite),
             starting_directory,
             starting_directory,
-            chat_id,
+            thread_id,
         )
         mode_prompt = get_mode_prompt(context)
         return (
@@ -358,7 +358,7 @@ def reset_wcgw(
         write_if_empty_mode = context.bash_state.write_if_empty_mode
         mode = context.bash_state.mode
 
-        # Reload state with new directory, using the provided chat ID
+        # Reload state with new directory, using the provided thread_id
         context.bash_state.load_state(
             bash_command_mode,
             file_edit_mode,
@@ -367,7 +367,7 @@ def reset_wcgw(
             dict(context.bash_state.whitelist_for_overwrite),
             starting_directory,
             starting_directory,
-            chat_id,
+            thread_id,
         )
     return "Reset successful" + get_status(context.bash_state)
 
@@ -820,12 +820,14 @@ def file_writing(
     If percentage_changed > 50%, treat content as direct file content.
     Otherwise, treat content as search/replace blocks.
     """
-    # Check if the chat ID matches current
-    if file_writing_args.chat_id != context.bash_state.current_chat_id:
-        # Try to load state from the chat ID
-        if not context.bash_state.load_state_from_chat_id(file_writing_args.chat_id):
+    # Check if the thread_id matches current
+    if file_writing_args.thread_id != context.bash_state.current_thread_id:
+        # Try to load state from the thread_id
+        if not context.bash_state.load_state_from_thread_id(
+            file_writing_args.thread_id
+        ):
             return (
-                f"Error: No saved bash state found for chat ID {file_writing_args.chat_id}. Please re-initialize to get a new id or use correct id.",
+                f"Error: No saved bash state found for thread_id {file_writing_args.thread_id}. Please re-initialize to get a new id or use correct id.",
                 {},
             )
 
@@ -838,14 +840,14 @@ def file_writing(
         )
 
     # If file doesn't exist, always use direct file_content mode
-    content = file_writing_args.file_content_or_search_replace_blocks
+    content = file_writing_args.text_or_search_replace_blocks
 
     if not _is_edit(content, file_writing_args.percentage_to_change):
         # Use direct content mode (same as WriteIfEmpty)
         result, paths = write_file(
             WriteIfEmpty(
                 file_path=path_,
-                file_content=file_writing_args.file_content_or_search_replace_blocks,
+                file_content=file_writing_args.text_or_search_replace_blocks,
             ),
             True,
             coding_max_tokens,
@@ -858,7 +860,7 @@ def file_writing(
         result, paths = do_diff_edit(
             FileEdit(
                 file_path=path_,
-                file_edit_using_search_replace_blocks=file_writing_args.file_content_or_search_replace_blocks,
+                file_edit_using_search_replace_blocks=file_writing_args.text_or_search_replace_blocks,
             ),
             coding_max_tokens,
             noncoding_max_tokens,
@@ -1013,7 +1015,7 @@ def get_tool_output(
             )
             workspace_path = workspace_path if os.path.exists(workspace_path) else ""
 
-            # For these specific operations, chat_id is required
+            # For these specific operations, thread_id is required
             output = (
                 reset_wcgw(
                     context,
@@ -1022,7 +1024,7 @@ def get_tool_output(
                     if is_mode_change(arg.mode, context.bash_state)
                     else None,
                     arg.mode,
-                    arg.chat_id,
+                    arg.thread_id,
                 ),
                 0.0,
             )
@@ -1036,7 +1038,7 @@ def get_tool_output(
                 coding_max_tokens,
                 noncoding_max_tokens,
                 arg.mode,
-                arg.chat_id,
+                arg.thread_id,
             )
             output = output_, 0.0
             # Since init_paths is already a dictionary mapping file paths to line ranges,
@@ -1316,7 +1318,7 @@ if __name__ == "__main__":
                     task_id_to_resume="",
                     mode_name="wcgw",
                     code_writer_config=None,
-                    chat_id="",
+                    thread_id="",
                 ),
                 default_enc,
                 0,
@@ -1330,7 +1332,7 @@ if __name__ == "__main__":
                 Context(BASH_STATE, BASH_STATE.console),
                 BashCommand(
                     action_json=Command(command="pwd"),
-                    chat_id=BASH_STATE.current_chat_id,
+                    thread_id=BASH_STATE.current_thread_id,
                 ),
                 default_enc,
                 0,
@@ -1360,9 +1362,9 @@ if __name__ == "__main__":
                 Context(BASH_STATE, BASH_STATE.console),
                 FileWriteOrEdit(
                     file_path="/Users/arusia/repos/wcgw/src/wcgw/client/tools.py",
-                    file_content_or_search_replace_blocks="""test""",
+                    text_or_search_replace_blocks="""test""",
                     percentage_to_change=100,
-                    chat_id=BASH_STATE.current_chat_id,
+                    thread_id=BASH_STATE.current_thread_id,
                 ),
                 default_enc,
                 0,

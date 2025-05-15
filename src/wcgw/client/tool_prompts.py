@@ -74,12 +74,10 @@ TOOL_PROMPTS = [
         description="""
 - Writes or edits a file based on the percentage of changes.
 - Use absolute path only (~ allowed).
-- percentage_to_change is calculated as number of existing lines that will have some diff divided by total existing lines.
 - First write down percentage of lines that need to be replaced in the file (between 0-100) in percentage_to_change
 - percentage_to_change should be low if mostly new code is to be added. It should be high if a lot of things are to be replaced.
-- If percentage_to_change > 50, provide full file content in file_content_or_search_replace_blocks
-- If percentage_to_change <= 50, file_content_or_search_replace_blocks should be search/replace blocks.
-
+- If percentage_to_change > 50, provide full file content in text_or_search_replace_blocks
+- If percentage_to_change <= 50, text_or_search_replace_blocks should be search/replace blocks.
 """
         + diffinstructions,
         annotations=ToolAnnotations(
