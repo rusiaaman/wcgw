@@ -121,6 +121,31 @@ Then add or update the claude config file `%APPDATA%\Claude\claude_desktop_confi
   }
 }
 ```
+When you encounter an error, execute the command wsl uv --python 3.12 wcgw@latest in command prompt. If you get the `error /bin/bash: line 1: uv: command not found`, it means uv was not installed globally and you need to point to the correct path of uv.
+1. Find where uv is installed:
+```bash
+whereis uv
+```
+Example output:
+```uv: /home/mywsl/.local/bin/uv```
+
+2. Test the full path works:
+```
+wsl /home/mywsl/.local/bin/uv tool run --python 3.12 wcgw@latest
+```
+
+3. Update the config with the full path:
+```
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "wsl.exe",
+      "args": ["/home/mywsl/.local/bin/uv", "tool", "run", "--python", "3.12", "wcgw@latest"]
+    }
+  }
+}
+```
+Replace `/home/mywsl/.local/bin/uv` with your actual uv path from step 1.
 
 ### Usage
 
