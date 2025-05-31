@@ -63,6 +63,10 @@ class Initialize(BaseModel):
             assert self.code_writer_config is not None, (
                 "code_writer_config can't be null when the mode is code_writer"
             )
+        if self.type != "first_call" and not self.thread_id:
+            raise ValueError(
+                "Thread id should be provided if type != 'first_call', including when resetting"
+            )
         return super().model_post_init(__context)
 
     @property
