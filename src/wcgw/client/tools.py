@@ -26,6 +26,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 from pydantic import BaseModel, TypeAdapter, ValidationError
+from syntax_checker import Output as SCOutput
 from syntax_checker import check_syntax as raw_check_syntax
 
 from ..client.bash_state.bash_state import (
@@ -78,7 +79,7 @@ class Context:
     console: Console
 
 
-def check_syntax(ext: str, content: str):
+def check_syntax(ext: str, content: str) -> SCOutput:
     if ext == "html":
         # Ignore due to prevelance of templating, causing issues
         return raw_check_syntax("html", "")
@@ -516,7 +517,7 @@ def write_file(
     error_on_exist_ = (
         error_on_exist and path_ not in context.bash_state.whitelist_for_overwrite
     )
-
+    curr_hash = ""
     if error_on_exist and path_ in context.bash_state.whitelist_for_overwrite:
         # Ensure hash has not changed
         if os.path.exists(path_):
