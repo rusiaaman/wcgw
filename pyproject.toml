@@ -1,7 +1,7 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "5.1.4"
+version = "5.2.0"
 description = "Shell and coding agent for Claude and other mcp clients"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,7 +22,7 @@ dependencies = [
     "anthropic>=0.39.0",
     "tokenizers>=0.21.0",
     "pygit2>=1.16.0",
-    "syntax-checker>=0.3.0",
+    "syntax-checker==0.4.0b4",
     "psutil>=7.0.0",
     "tree-sitter>=0.24.0",
     "tree-sitter-bash>=0.23.3",

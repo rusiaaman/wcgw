@@ -4,7 +4,7 @@ from typing import Callable, Optional
 from .diff_edit import FileEditInput, FileEditOutput, SearchReplaceMatchError
 
 # Global regex patterns
-SEARCH_MARKER = re.compile(r"^<<<<<<+\s*SEARCH\s*$")
+SEARCH_MARKER = re.compile(r"^<<<<<<+\s*SEARCH>?\s*$")
 DIVIDER_MARKER = re.compile(r"^======*\s*$")
 REPLACE_MARKER = re.compile(r"^>>>>>>+\s*REPLACE\s*$")
 

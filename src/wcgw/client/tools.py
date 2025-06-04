@@ -26,7 +26,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
 )
 from pydantic import BaseModel, TypeAdapter, ValidationError
-from syntax_checker import check_syntax
+from syntax_checker import check_syntax as raw_check_syntax
 
 from ..client.bash_state.bash_state import (
     BashState,
@@ -76,6 +76,13 @@ from .repo_ops.repo_context import get_repo_context
 class Context:
     bash_state: BashState
     console: Console
+
+
+def check_syntax(ext: str, content: str):
+    if ext == "html":
+        # Ignore due to prevelance of templating, causing issues
+        return raw_check_syntax("html", "")
+    return raw_check_syntax(ext, content)
 
 
 def get_mode_prompt(context: Context) -> str:
