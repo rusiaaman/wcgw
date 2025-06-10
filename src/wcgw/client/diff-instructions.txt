@@ -59,14 +59,14 @@ def call_hello_renamed():
 ```
 
 # *SEARCH/REPLACE block* Rules:
-Every "<<<<<<< SEARCH" section must *EXACTLY MATCH* the existing file content, character for character, including all comments, docstrings, whitespaces, etc.
 
-Including multiple unique *SEARCH/REPLACE* blocks if needed.
-Include enough and only enough lines in each SEARCH section to uniquely match each set of lines that need to change.
-
-Keep *SEARCH/REPLACE* blocks concise.
-Break large *SEARCH/REPLACE* blocks into a series of smaller blocks that each change a small portion of the file.
-Include just the changing lines, and a few surrounding lines (0-3 lines) if needed for uniqueness.
-Other than for uniqueness, avoid including those lines which do not change in search (and replace) blocks. Target 0-3 non trivial extra lines per block.
-
-Preserve leading spaces and indentations in both SEARCH and REPLACE blocks.
+- Every "SEARCH" section must *EXACTLY MATCH* the existing file content, character for character, including all comments, docstrings, whitespaces, etc.
+- In a single call the edit blocks should be constructed from top to bottom of the file in a sequence. 
+- An edit block can't edit over a previous edit in the same tool call.
+- Including multiple unique *SEARCH/REPLACE* blocks if needed.
+- Include enough and only enough lines in each SEARCH section to uniquely match each set of lines that need to change.
+- Keep *SEARCH/REPLACE* blocks concise.
+- Break large *SEARCH/REPLACE* blocks into a series of smaller blocks that each change a small portion of the file.
+- Include just the changing lines, and a few surrounding lines (0-3 lines) if needed for uniqueness.
+- Other than for uniqueness, avoid including those lines which do not change in search (and replace) blocks. Target 0-3 non trivial extra lines per block.
+- Preserve leading spaces and indentations in both SEARCH and REPLACE blocks.
