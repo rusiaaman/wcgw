@@ -1230,7 +1230,6 @@ def read_file(
 
         if all_lines and all_lines[-1].endswith("\n"):
             # Special handling of line counts because readlines doesn't consider last empty line as a separate line
-            all_lines[-1] = all_lines[-1][:-1]
             all_lines.append("")
 
     total_lines = len(all_lines)
