@@ -123,9 +123,12 @@ class WriteIfEmpty(BaseModel):
 
 class ReadFiles(BaseModel):
     file_paths: list[str]
-    show_line_numbers_reason: Optional[str] = None
     _start_line_nums: List[Optional[int]] = PrivateAttr(default_factory=lambda: [])
     _end_line_nums: List[Optional[int]] = PrivateAttr(default_factory=lambda: [])
+
+    @property
+    def show_line_numbers_reason(self):
+        return "True"
 
     @property
     def start_line_nums(self) -> List[Optional[int]]:
