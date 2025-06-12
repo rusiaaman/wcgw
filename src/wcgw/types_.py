@@ -127,7 +127,7 @@ class ReadFiles(BaseModel):
     _end_line_nums: List[Optional[int]] = PrivateAttr(default_factory=lambda: [])
 
     @property
-    def show_line_numbers_reason(self):
+    def show_line_numbers_reason(self) -> str:
         return "True"
 
     @property
