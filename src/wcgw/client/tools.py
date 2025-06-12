@@ -263,8 +263,21 @@ def initialize(
         )
         initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
 
-    # Check for CLAUDE.md in the workspace folder on first call
+    # Check for global CLAUDE.md and workspace CLAUDE.md
     alignment_context = ""
+
+    # First check for global CLAUDE.md in ~/.wcgw/CLAUDE.md
+    global_alignment_file_path = os.path.join(expanduser("~"), ".wcgw", "CLAUDE.md")
+    if os.path.exists(global_alignment_file_path):
+        try:
+            with open(global_alignment_file_path, "r") as f:
+                global_alignment_content = f.read()
+            alignment_context += f"---\n# Important guidelines from the user\n```\n{global_alignment_content}\n```\n---\n\n"
+        except Exception:
+            # Handle any errors when reading the global file
+            pass
+
+    # Then check for workspace-specific CLAUDE.md
     if folder_to_start:
         alignment_file_path = os.path.join(folder_to_start, "CLAUDE.md")
         if os.path.exists(alignment_file_path):
@@ -272,10 +285,10 @@ def initialize(
                 # Read the CLAUDE.md file content
                 with open(alignment_file_path, "r") as f:
                     alignment_content = f.read()
-                alignment_context = f"---\n# CLAUDE.md - Project alignment guidelines\n```\n{alignment_content}\n```\n---\n\n"
+                alignment_context += f"---\n# CLAUDE.md - user shared project guidelines to follow\n```\n{alignment_content}\n```\n---\n\n"
             except Exception:
                 # Handle any errors when reading the file
-                alignment_context = ""
+                pass
 
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
