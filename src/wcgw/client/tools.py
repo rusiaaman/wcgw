@@ -617,15 +617,12 @@ def write_file(
                     paths_: list[str] = []
                     for start, end in unread_ranges:
                         paths_.append(path_ + ":" + f"{start}-{end}")
-                    paths_readfiles = ReadFiles(
-                        file_paths=paths_, show_line_numbers_reason=""
-                    )
+                    paths_readfiles = ReadFiles(file_paths=paths_)
                     readfiles, file_ranges_dict, truncated = read_files(
                         paths_readfiles.file_paths,
                         coding_max_tokens,
                         noncoding_max_tokens,
                         context,
-                        show_line_numbers=False,
                         start_line_nums=paths_readfiles.start_line_nums,
                         end_line_nums=paths_readfiles.end_line_nums,
                     )
@@ -1014,7 +1011,6 @@ def get_tool_output(
             coding_max_tokens,
             noncoding_max_tokens,
             context,
-            bool(arg.show_line_numbers_reason),
             arg.start_line_nums,
             arg.end_line_nums,
         )
@@ -1136,7 +1132,6 @@ def read_files(
     coding_max_tokens: Optional[int],
     noncoding_max_tokens: Optional[int],
     context: Context,
-    show_line_numbers: bool = False,
     start_line_nums: Optional[list[Optional[int]]] = None,
     end_line_nums: Optional[list[Optional[int]]] = None,
 ) -> tuple[
@@ -1173,7 +1168,6 @@ def read_files(
                 coding_max_tokens,
                 noncoding_max_tokens,
                 context,
-                show_line_numbers,
                 start_line_num,
                 end_line_num,
             )
@@ -1217,12 +1211,11 @@ def read_file(
     coding_max_tokens: Optional[int],
     noncoding_max_tokens: Optional[int],
     context: Context,
-    show_line_numbers: bool = False,
     start_line_num: Optional[int] = None,
     end_line_num: Optional[int] = None,
 ) -> tuple[str, bool, int, str, tuple[int, int]]:
     context.console.print(f"Reading file: {file_path}")
-
+    show_line_numbers = True
     # Line numbers are now passed as parameters, no need to parse from path
 
     # Expand the path before checking if it's absolute
@@ -1367,7 +1360,6 @@ if __name__ == "__main__":
                 Context(BASH_STATE, BASH_STATE.console),
                 ReadFiles(
                     file_paths=["/Users/arusia/repos/wcgw/src/wcgw/client/tools.py"],
-                    show_line_numbers_reason="true",
                 ),
                 default_enc,
                 0,
