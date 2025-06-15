@@ -10,7 +10,6 @@ wcgw is an MCP server with tightly integrated shell and code editing tools.
 [![Mypy strict](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml/badge.svg?branch=main)](https://github.com/rusiaaman/wcgw/actions/workflows/python-types.yml)
 [![Build](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml/badge.svg)](https://github.com/rusiaaman/wcgw/actions/workflows/python-publish.yml)
 [![codecov](https://codecov.io/gh/rusiaaman/wcgw/graph/badge.svg)](https://codecov.io/gh/rusiaaman/wcgw)
-[![Reddit](https://img.shields.io/badge/Reddit-r%2Fwcgw_mcp-red)](https://www.reddit.com/r/wcgw_mcp/)
 
 ## Demo
 
