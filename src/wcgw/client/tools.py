@@ -266,6 +266,13 @@ def initialize(
     # Check for global CLAUDE.md and workspace CLAUDE.md
     alignment_context = ""
 
+    # Check if ripgrep is available and add instruction if it is
+    try:
+        subprocess.run(["which", "rg"], timeout=1, capture_output=True, check=True)
+        alignment_context += "---\n# Available commands\n\n- Use ripgrep `rg` command instead of `grep` because it's much much faster.\n\n---\n\n"
+    except Exception:
+        pass
+
     # First check for global CLAUDE.md in ~/.wcgw/CLAUDE.md
     global_alignment_file_path = os.path.join(expanduser("~"), ".wcgw", "CLAUDE.md")
     if os.path.exists(global_alignment_file_path):
