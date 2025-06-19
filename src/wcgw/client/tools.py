@@ -58,8 +58,6 @@ from ..types_ import (
 from .encoder import EncoderDecoder, get_default_encoder
 from .file_ops.extensions import select_max_tokens
 from .file_ops.search_replace import (
-    DIVIDER_MARKER,
-    REPLACE_MARKER,
     SEARCH_MARKER,
     search_replace_edit,
 )
@@ -819,16 +817,8 @@ def _is_edit(content: str, percentage: int) -> bool:
     if not lines:
         return False
     line = lines[0]
-    if SEARCH_MARKER.match(line):
+    if SEARCH_MARKER.match(line) or percentage <= 50:
         return True
-    if percentage <= 50:
-        for line in lines:
-            if (
-                SEARCH_MARKER.match(line)
-                or DIVIDER_MARKER.match(line)
-                or REPLACE_MARKER.match(line)
-            ):
-                return True
     return False
 
 
