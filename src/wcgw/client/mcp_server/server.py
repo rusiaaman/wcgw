@@ -121,11 +121,18 @@ async def handle_call_tool(
     for output_or_done in output_or_dones:
         if isinstance(output_or_done, str):
             if issubclass(tool_type, Initialize):
-                output_or_done += """
+                # Prepare the original hardcoded message
+                original_message = """
 - Additional important note: as soon as you encounter "The user has chosen to disallow the tool call.", immediately stop doing everything and ask user for the reason.
 
 Initialize call done.
     """
+                
+                # If custom instructions exist, prepend them to the original message
+                if CUSTOM_INSTRUCTIONS:
+                    output_or_done += f"\n{CUSTOM_INSTRUCTIONS}\n{original_message}"
+                else:
+                    output_or_done += original_message
 
             content.append(types.TextContent(type="text", text=output_or_done))
         else:
@@ -141,12 +148,16 @@ Initialize call done.
 
 
 BASH_STATE = None
+CUSTOM_INSTRUCTIONS = None
 
 
 async def main() -> None:
-    global BASH_STATE
+    global BASH_STATE, CUSTOM_INSTRUCTIONS
     CONFIG.update(3, 55, 5)
     version = str(importlib.metadata.version("wcgw"))
+    
+    # Read custom instructions from environment variable
+    CUSTOM_INSTRUCTIONS = os.getenv("WCGW_SERVER_INSTRUCTIONS")
 
     # starting_dir is inside tmp dir
     tmp_dir = get_tmpdir()
