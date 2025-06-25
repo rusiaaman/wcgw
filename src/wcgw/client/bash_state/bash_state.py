@@ -87,7 +87,7 @@ def check_if_screen_command_available() -> bool:
             ["which", "screen"], capture_output=True, check=True, timeout=0.2
         )
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
         return False
 
 
