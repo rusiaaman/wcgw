@@ -817,7 +817,7 @@ def _is_edit(content: str, percentage: int) -> bool:
     if not lines:
         return False
     line = lines[0]
-    if SEARCH_MARKER.match(line) or percentage <= 50:
+    if SEARCH_MARKER.match(line) or (0 < percentage <= 50):
         return True
     return False
 
