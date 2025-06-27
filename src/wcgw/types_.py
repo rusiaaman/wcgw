@@ -83,14 +83,17 @@ class Initialize(BaseModel):
 
 class Command(BaseModel):
     command: str
+    type: Literal["command"] = "command"
 
 
 class StatusCheck(BaseModel):
     status_check: Literal[True]
+    type: Literal["status_check"] = "status_check"
 
 
 class SendText(BaseModel):
     send_text: str
+    type: Literal["send_text"] = "send_text"
 
 
 Specials = Literal[
@@ -100,16 +103,49 @@ Specials = Literal[
 
 class SendSpecials(BaseModel):
     send_specials: Sequence[Specials]
+    type: Literal["send_specials"] = "send_specials"
 
 
 class SendAscii(BaseModel):
     send_ascii: Sequence[int]
+    type: Literal["send_ascii"] = "send_ascii"
+
+
+class ActionJsonSchema(BaseModel):
+    type: Literal[
+        "command", "status_check", "send_text", "send_specials", "send_ascii"
+    ] = Field(description="type of action.")
+    command: Optional[str] = Field(
+        default=None, description='Set only if type="command"'
+    )
+    status_check: Optional[Literal[True]] = Field(
+        default=None, description='Set only if type="status_check"'
+    )
+    send_text: Optional[str] = Field(
+        default=None, description='Set only if type="send_text"'
+    )
+    send_specials: Optional[Sequence[Specials]] = Field(
+        default=None, description='Set only if type="send_specials"'
+    )
+    send_ascii: Optional[Sequence[int]] = Field(
+        default=None, description='Set only if type="send_ascii"'
+    )
+
+
+class BashCommandOverride(BaseModel):
+    action_json: ActionJsonSchema
+    wait_for_seconds: Optional[float] = None
+    thread_id: str
 
 
 class BashCommand(BaseModel):
     action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
     wait_for_seconds: Optional[float] = None
     thread_id: str
+
+    @staticmethod
+    def model_json_schema(*args, **kwargs) -> dict[str, Any]:  # type: ignore
+        return BashCommandOverride.model_json_schema(*args, **kwargs)
 
 
 class ReadImage(BaseModel):
