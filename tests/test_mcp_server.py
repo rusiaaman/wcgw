@@ -142,14 +142,16 @@ async def test_handle_list_tools():
             assert "action_json" in properties
             assert "wait_for_seconds" in properties
             # Check type field has all the command types
-            type_properties = properties["action_json"]["anyOf"]
-            type_refs = set(p["$ref"].split("/")[-1] for p in type_properties)
+            type_properties = tool.inputSchema["$defs"]["ActionJsonSchema"][
+                "properties"
+            ]
+            type_refs = set(type_properties)
             required_types = {
-                "Command",
-                "StatusCheck",
-                "SendText",
-                "SendSpecials",
-                "SendAscii",
+                "command",
+                "status_check",
+                "send_text",
+                "send_specials",
+                "send_ascii",
             }
             assert required_types.issubset(type_refs)
         elif tool.name == "FileWriteOrEdit":
