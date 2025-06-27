@@ -35,6 +35,9 @@ FROM python:3.12-slim-bookworm
 
 RUN apt-get update && apt-get install -y screen && rm -rf /var/lib/apt/lists/*
 
+# Create app user and group
+RUN groupadd -r app && useradd -r -g app app
+
 # Set the working directory in the container
 WORKDIR /workspace
 
