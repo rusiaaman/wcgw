@@ -87,7 +87,7 @@ class Command(BaseModel):
 
 
 class StatusCheck(BaseModel):
-    status_check: Literal[True]
+    status_check: Literal[True] = True
     type: Literal["status_check"] = "status_check"
 
 

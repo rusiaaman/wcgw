@@ -61,8 +61,7 @@ def call_hello_renamed():
 # *SEARCH/REPLACE block* Rules:
 
 - Every "SEARCH" section must *EXACTLY MATCH* the existing file content, character for character, including all comments, docstrings, whitespaces, etc.
-- In a single call the edit blocks should be constructed from top to bottom of the file in a sequence. 
-- An edit block can't edit over a previous edit in the same tool call.
+- Use multiple search/replace blocks in a single FileWriteOrEdit tool call to edit in a single file in multiple places from top to bottom (separate calls are slower).
 - Including multiple unique *SEARCH/REPLACE* blocks if needed.
 - Include enough and only enough lines in each SEARCH section to uniquely match each set of lines that need to change.
 - Keep *SEARCH/REPLACE* blocks concise.
