@@ -49,7 +49,9 @@ class Initialize(BaseModel):
         "reset_shell",
         "user_asked_change_workspace",
     ]
-    any_workspace_path: str
+    any_workspace_path: str = Field(
+        description="Workspce to initialise in. Don't use ~ by default, instead use empty string"
+    )
     initial_files_to_read: list[str]
     task_id_to_resume: str
     mode_name: Literal["wcgw", "architect", "code_writer"]
