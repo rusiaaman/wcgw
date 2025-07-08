@@ -10,6 +10,7 @@ from ..types_ import (
     ReadFiles,
     ReadImage,
 )
+from .schema_generator import remove_titles_from_schema
 
 with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f:
     diffinstructions = f.read()
@@ -17,7 +18,7 @@ with open(os.path.join(os.path.dirname(__file__), "diff-instructions.txt")) as f
 
 TOOL_PROMPTS = [
     Tool(
-        inputSchema=Initialize.model_json_schema(),
+        inputSchema=remove_titles_from_schema(Initialize.model_json_schema()),
         name="Initialize",
         description="""
 - Always call this at the start of the conversation before using any of the shell tools from wcgw.
@@ -34,7 +35,7 @@ TOOL_PROMPTS = [
         annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
     Tool(
-        inputSchema=BashCommand.model_json_schema(),
+        inputSchema=remove_titles_from_schema(BashCommand.model_json_schema()),
         name="BashCommand",
         description="""
 - Execute a bash command. This is stateful (beware with subsequent calls).
@@ -51,7 +52,7 @@ TOOL_PROMPTS = [
         annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True),
     ),
     Tool(
-        inputSchema=ReadFiles.model_json_schema(),
+        inputSchema=remove_titles_from_schema(ReadFiles.model_json_schema()),
         name="ReadFiles",
         description="""
 - Read full file content of one or more files.
@@ -62,13 +63,13 @@ TOOL_PROMPTS = [
         annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
     Tool(
-        inputSchema=ReadImage.model_json_schema(),
+        inputSchema=remove_titles_from_schema(ReadImage.model_json_schema()),
         name="ReadImage",
         description="Read an image from the shell.",
         annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
     Tool(
-        inputSchema=FileWriteOrEdit.model_json_schema(),
+        inputSchema=remove_titles_from_schema(FileWriteOrEdit.model_json_schema()),
         name="FileWriteOrEdit",
         description="""
 - Writes or edits a file based on the percentage of changes.
@@ -84,7 +85,7 @@ TOOL_PROMPTS = [
         ),
     ),
     Tool(
-        inputSchema=ContextSave.model_json_schema(),
+        inputSchema=remove_titles_from_schema(ContextSave.model_json_schema()),
         name="ContextSave",
         description="""
 Saves provided description and file contents of all the relevant file paths or globs in a single text file.
