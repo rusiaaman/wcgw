@@ -20,5 +20,8 @@
           "source.fixAll": "always",
           "source.organizeImports": "always",
       }
+    },
+    "files.readonlyInclude": {
+        "/Users/arusia/.kombai/editableFiles/1751969427585/schema.ts": true
     }
 }
