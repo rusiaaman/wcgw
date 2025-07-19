@@ -6,6 +6,7 @@ import mimetypes
 import os
 import subprocess
 import traceback
+import uuid
 from dataclasses import dataclass
 from hashlib import sha256
 from os.path import expanduser
@@ -34,6 +35,7 @@ from ..client.bash_state.bash_state import (
     execute_bash,
     generate_thread_id,
     get_status,
+    get_tmpdir,
 )
 from ..client.repo_ops.file_stats import (
     FileStats,
@@ -153,6 +155,12 @@ def initialize(
         )
 
     folder_to_start = None
+    if type == "first_call" and not any_workspace_path:
+        tmp_dir = get_tmpdir()
+        any_workspace_path = os.path.join(
+            tmp_dir, "claude-playground-" + uuid.uuid4().hex[:4]
+        )
+
     if any_workspace_path:
         if os.path.exists(any_workspace_path):
             if os.path.isfile(any_workspace_path):
