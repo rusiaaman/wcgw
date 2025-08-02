@@ -27,6 +27,7 @@ dependencies = [
     "tree-sitter>=0.24.0",
     "tree-sitter-bash>=0.23.3",
     "mcp>=1.7.0",
+    "fastmcp>=2.11.0",
 ]
 
 [project.urls]
@@ -47,6 +48,7 @@ packages = ["src/wcgw", "src/wcgw_cli"]
 wcgw_local = "wcgw_cli:app"
 wcgw = "wcgw:mcp_server"
 wcgw_mcp = "wcgw:mcp_server"
+wcgw_fastmcp = "wcgw:fastmcp_server"
 
 [tool.uv]
 default-groups = []
