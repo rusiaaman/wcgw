@@ -4,6 +4,7 @@ import os
 import platform
 import random
 import subprocess
+import tempfile
 import threading
 import time
 import traceback
@@ -65,7 +66,7 @@ def is_mac() -> bool:
 def get_tmpdir() -> str:
     current_tmpdir = os.environ.get("TMPDIR", "")
     if current_tmpdir or not is_mac():
-        return current_tmpdir
+        return tempfile.gettempdir()
     try:
         # Fix issue while running ocrmypdf -> tesseract -> leptonica, set TMPDIR
         # https://github.com/tesseract-ocr/tesseract/issues/4333
@@ -78,7 +79,7 @@ def get_tmpdir() -> str:
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "//tmp"
     except Exception:
-        return ""
+        return tempfile.gettempdir()
 
 
 def check_if_screen_command_available() -> bool:
