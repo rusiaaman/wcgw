@@ -55,7 +55,7 @@ wcgw is an MCP server with tightly integrated shell and code editing tools.
   - By default it runs in 'wcgw' mode that has no restrictions and full authorisation.
   - More details in [Modes section](#modes)
 - ⚡ **Runs in multiplex terminal** Run `screen -x` to attach to the terminal that the AI runs commands on. See history or interrupt process or interact with the same terminal that AI uses.
-- ⚡ **Automatically load CLAUDE.md** Loads "CLAUDE.md" file in project root and sends as instructions during initialisation. Instructions in a global "~/.wcgw/CLAUDE.md" file are loaded and added along with project specific CLAUDE.md. The file name is case sensitive. 
+- ⚡ **Automatically load CLAUDE.md/AGENTS.md** Loads "CLAUDE.md" or "AGENTS.md" file in project root and sends as instructions during initialisation. Instructions in a global "~/.wcgw/CLAUDE.md" or "~/.wcgw/AGENTS.md" file are loaded and added along with project specific CLAUDE.md. The file name is case sensitive. CLAUDE.md is attached if it's present otherwise AGENTS.md is attached.
 
 ## Top use cases examples
 
