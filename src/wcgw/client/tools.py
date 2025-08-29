@@ -279,29 +279,38 @@ def initialize(
     except Exception:
         pass
 
-    # First check for global CLAUDE.md in ~/.wcgw/CLAUDE.md
-    global_alignment_file_path = os.path.join(expanduser("~"), ".wcgw", "CLAUDE.md")
-    if os.path.exists(global_alignment_file_path):
-        try:
-            with open(global_alignment_file_path, "r") as f:
-                global_alignment_content = f.read()
-            alignment_context += f"---\n# Important guidelines from the user\n```\n{global_alignment_content}\n```\n---\n\n"
-        except Exception:
-            # Handle any errors when reading the global file
-            pass
+    # Check for global alignment doc in ~/.wcgw: prefer CLAUDE.md, else AGENTS.md
+    try:
+        global_dir = os.path.join(expanduser("~"), ".wcgw")
+        for fname in ("CLAUDE.md", "AGENTS.md"):
+            global_alignment_file_path = os.path.join(global_dir, fname)
+            if os.path.exists(global_alignment_file_path):
+                with open(global_alignment_file_path, "r") as f:
+                    global_alignment_content = f.read()
+                alignment_context += f"---\n# Important guidelines from the user\n```\n{global_alignment_content}\n```\n---\n\n"
+                break
+    except Exception as e:
+        # Log any errors when reading the global file
+        context.console.log(f"Error reading global alignment file: {e}")
 
-    # Then check for workspace-specific CLAUDE.md
+    # Then check for workspace-specific alignment doc: prefer CLAUDE.md, else AGENTS.md
     if folder_to_start:
-        alignment_file_path = os.path.join(folder_to_start, "CLAUDE.md")
-        if os.path.exists(alignment_file_path):
-            try:
-                # Read the CLAUDE.md file content
-                with open(alignment_file_path, "r") as f:
-                    alignment_content = f.read()
-                alignment_context += f"---\n# CLAUDE.md - user shared project guidelines to follow\n```\n{alignment_content}\n```\n---\n\n"
-            except Exception:
-                # Handle any errors when reading the file
-                pass
+        try:
+            base_dir = str(folder_to_start)
+            selected_name = ""
+            alignment_content = ""
+            for fname in ("CLAUDE.md", "AGENTS.md"):
+                alignment_file_path = os.path.join(base_dir, fname)
+                if os.path.exists(alignment_file_path):
+                    with open(alignment_file_path, "r") as f:
+                        alignment_content = f.read()
+                    selected_name = fname
+                    break
+            if alignment_content:
+                alignment_context += f"---\n# {selected_name} - user shared project guidelines to follow\n```\n{alignment_content}\n```\n---\n\n"
+        except Exception as e:
+            # Log any errors when reading the workspace file
+            context.console.log(f"Error reading workspace alignment file: {e}")
 
     uname_sysname = os.uname().sysname
     uname_machine = os.uname().machine
