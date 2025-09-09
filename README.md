@@ -192,6 +192,12 @@ You can interact with the terminal but beware that the AI might be running in pa
 
 You shouldn't exit the session using `exit `or Ctrl-d, instead you should use `ctrl+a+d` to safely detach without destroying the screen session.
 
+Include the following in ~/.screenrc for better scrolling experience
+```
+defscrollback 10000
+termcapinfo xterm* ti@:te@
+```
+
 ### [Optional] Vs code extension
 
 https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw
