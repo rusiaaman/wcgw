@@ -87,7 +87,7 @@ Then create or update `claude_desktop_config.json` (~/Library/Application Suppor
   "mcpServers": {
     "wcgw": {
       "command": "uv",
-      "args": ["tool", "run", "--python", "3.12", "wcgw@latest"]
+      "args": ["tool", "run", "--python", "3.12", "wcgw"]
     }
   }
 }
@@ -98,10 +98,10 @@ Then restart claude app.
 _If there's an error in setting up_
 
 - If there's an error like "uv ENOENT", make sure `uv` is installed. Then run 'which uv' in the terminal, and use its output in place of "uv" in the configuration.
-- If there's still an issue, check that `uv tool run --python 3.12 wcgw@latest` runs in your terminal. It should have no output and shouldn't exit.
+- If there's still an issue, check that `uv tool run --python 3.12 wcgw` runs in your terminal. It should have no output and shouldn't exit.
 - Try removing ~/.cache/uv folder
 - Try using `uv` version `0.6.0` for which this tool was tested.
-- Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --python 3.12 wcgw@latest`
+- Debug the mcp server using `npx @modelcontextprotocol/inspector@0.1.7 uv tool run --python 3.12 wcgw`
 
 ### Windows on wsl
 
@@ -116,12 +116,12 @@ Then add or update the claude config file `%APPDATA%\Claude\claude_desktop_confi
   "mcpServers": {
     "wcgw": {
       "command": "wsl.exe",
-      "args": ["uv", "tool", "run", "--python", "3.12", "wcgw@latest"]
+      "args": ["uv", "tool", "run", "--python", "3.12", "wcgw"]
     }
   }
 }
 ```
-When you encounter an error, execute the command wsl uv --python 3.12 wcgw@latest in command prompt. If you get the `error /bin/bash: line 1: uv: command not found`, it means uv was not installed globally and you need to point to the correct path of uv.
+When you encounter an error, execute the command wsl uv --python 3.12 wcgw in command prompt. If you get the `error /bin/bash: line 1: uv: command not found`, it means uv was not installed globally and you need to point to the correct path of uv.
 1. Find where uv is installed:
 ```bash
 whereis uv
@@ -131,7 +131,7 @@ Example output:
 
 2. Test the full path works:
 ```
-wsl /home/mywsl/.local/bin/uv tool run --python 3.12 wcgw@latest
+wsl /home/mywsl/.local/bin/uv tool run --python 3.12 wcgw
 ```
 
 3. Update the config with the full path:
@@ -140,7 +140,7 @@ wsl /home/mywsl/.local/bin/uv tool run --python 3.12 wcgw@latest
   "mcpServers": {
     "wcgw": {
       "command": "wsl.exe",
-      "args": ["/home/mywsl/.local/bin/uv", "tool", "run", "--python", "3.12", "wcgw@latest"]
+      "args": ["/home/mywsl/.local/bin/uv", "tool", "run", "--python", "3.12", "wcgw"]
     }
   }
 }
@@ -242,7 +242,7 @@ Add `OPENAI_API_KEY` and `OPENAI_ORG_ID` env variables.
 
 Then run
 
-`uvx wcgw@latest wcgw_local --limit 0.1` # Cost limit $0.1
+`uvx wcgw wcgw_local --limit 0.1` # Cost limit $0.1
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
 
@@ -252,7 +252,7 @@ Add `ANTHROPIC_API_KEY` env variable.
 
 Then run
 
-`uvx wcgw@latest wcgw_local --claude`
+`uvx wcgw wcgw_local --claude`
 
 You can now directly write messages or press enter key to open vim for multiline message and text pasting.
 
