@@ -4,6 +4,7 @@ import os
 import platform
 import random
 import re
+import shlex
 import subprocess
 import tempfile
 import threading
@@ -295,7 +296,9 @@ def start_shell(
         shell.sendline(PROMPT_STATEMENT)
         shell.expect(PROMPT_CONST, timeout=5)
 
-    shellid = "wcgw." + time.strftime("%H%M%S")
+    shellid = shlex.quote(
+        "wcgw." + time.strftime("%d-%H%M") + "." + os.path.basename(initial_dir)
+    )
     if over_screen:
         if not check_if_screen_command_available():
             raise ValueError("Screen command not available")
@@ -304,14 +307,6 @@ def start_shell(
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
     return shell, shellid
-
-
-def _is_int(mystr: str) -> bool:
-    try:
-        int(mystr)
-        return True
-    except ValueError:
-        return False
 
 
 def render_terminal_output(text: str) -> list[str]:
