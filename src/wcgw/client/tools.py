@@ -1374,24 +1374,10 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                ReadFiles(
-                    file_paths=["/Users/arusia/repos/wcgw/src/wcgw/client/tools.py"],
-                ),
-                default_enc,
-                0,
-                lambda x, y: ("", 0),
-                24000,  # coding_max_tokens
-                8000,  # noncoding_max_tokens
-            )[0][0]
-        )
-
-        print(
-            get_tool_output(
-                Context(BASH_STATE, BASH_STATE.console),
-                FileWriteOrEdit(
-                    file_path="/Users/arusia/repos/wcgw/src/wcgw/client/tools.py",
-                    text_or_search_replace_blocks="""test""",
-                    percentage_to_change=100,
+                BashCommand(
+                    action_json=Command(
+                        command="source /Users/arusia/repos/wcgw/.venv/bin/activate"
+                    ),
                     thread_id=BASH_STATE.current_thread_id,
                 ),
                 default_enc,
@@ -1399,5 +1385,50 @@ if __name__ == "__main__":
                 lambda x, y: ("", 0),
                 24000,  # coding_max_tokens
                 8000,  # noncoding_max_tokens
-            )[0][0]
+            )
+        )
+
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                BashCommand(
+                    action_json=Command(command="pwd"),
+                    thread_id=BASH_STATE.current_thread_id,
+                ),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
+            )
+        )
+
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                BashCommand(
+                    action_json=Command(command="take src"),
+                    thread_id=BASH_STATE.current_thread_id,
+                ),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
+            )
+        )
+
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                BashCommand(
+                    action_json=Command(command="pwd"),
+                    thread_id=BASH_STATE.current_thread_id,
+                ),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
+            )
         )

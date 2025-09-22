@@ -3,6 +3,7 @@ import json
 import os
 import platform
 import random
+import re
 import subprocess
 import tempfile
 import threading
@@ -36,8 +37,9 @@ from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 from .parser.bash_statement_parser import BashStatementParser
 
-PROMPT_CONST = "wcgw→" + " "
-PROMPT_STATEMENT = "export GIT_PAGER=cat PAGER=cat PROMPT_COMMAND= PS1='wcgw→'' '"
+PROMPT_CONST = re.compile(r"\n*.*◉ ([^\n]*)╰──➤")
+PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'╰──➤'' '"
+PROMPT_STATEMENT = "\n"
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -84,9 +86,7 @@ def get_tmpdir() -> str:
 
 def check_if_screen_command_available() -> bool:
     try:
-        subprocess.run(
-            ["which", "screen"], capture_output=True, check=True, timeout=0.2
-        )
+        subprocess.run(["which", "screen"], capture_output=True, check=True, timeout=5)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
         return False
@@ -215,7 +215,7 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
             capture_output=True,
             text=True,
             check=True,
-            timeout=0.2,
+            timeout=5,
         )
         output = result.stdout
     except subprocess.CalledProcessError as e:
@@ -255,15 +255,17 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
 def start_shell(
     is_restricted_mode: bool, initial_dir: str, console: Console, over_screen: bool
 ) -> tuple["pexpect.spawn[str]", str]:
-    cmd = "/bin/bash"
+    cmd = "/bin/zsh"
     if is_restricted_mode:
         cmd += " -r"
 
     overrideenv = {
         **os.environ,
-        "PS1": PROMPT_CONST,
+        # "PS1": "$ ",  # Only if it's not present use default
+        "PROMPT_COMMAND": PROMPT_COMMAND,  # Only if it's not present use efault
         "TMPDIR": get_tmpdir(),
         "TERM": "xterm-256color",
+        "IN_WCGW_ENVIRONMENT": "1",
     }
     try:
         shell = pexpect.spawn(
@@ -277,13 +279,13 @@ def start_shell(
             dimensions=(500, 160),
         )
         shell.sendline(PROMPT_STATEMENT)  # Unset prompt command to avoid interfering
-        shell.expect(PROMPT_CONST, timeout=0.2)
+        shell.expect(PROMPT_CONST, timeout=5)
     except Exception as e:
         console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
 
         shell = pexpect.spawn(
-            "/bin/bash --noprofile --norc",
+            "/bin/zsh --noprofile --norc",
             env=overrideenv,  # type: ignore[arg-type]
             echo=True,
             encoding="utf-8",
@@ -291,17 +293,14 @@ def start_shell(
             codec_errors="backslashreplace",
         )
         shell.sendline(PROMPT_STATEMENT)
-        shell.expect(PROMPT_CONST, timeout=0.2)
+        shell.expect(PROMPT_CONST, timeout=5)
 
     shellid = "wcgw." + time.strftime("%H%M%S")
     if over_screen:
         if not check_if_screen_command_available():
             raise ValueError("Screen command not available")
         # shellid is just hour, minute, second number
-        shell.sendline(f"trap 'screen -X -S {shellid} quit' EXIT")
-        shell.expect(PROMPT_CONST, timeout=0.2)
-
-        shell.sendline(f"screen -q -S {shellid} /bin/bash --noprofile --norc")
+        shell.sendline(f"screen -q -S {shellid} /bin/zsh")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
     return shell, shellid
@@ -403,7 +402,7 @@ class BashState:
         self._write_if_empty_mode: WriteIfEmptyMode = (
             write_if_empty_mode or WriteIfEmptyMode("all")
         )
-        self._mode = mode or "wcgw"
+        self._mode: Modes = mode or "wcgw"
         self._whitelist_for_overwrite: dict[str, FileWhitelistData] = (
             whitelist_for_overwrite or {}
         )
@@ -420,14 +419,30 @@ class BashState:
         self.close_bg_expect_thread()
         try:
             output = self._shell.expect(pattern, timeout)
+            if isinstance(self._shell.match, re.Match) and self._shell.match.groups():
+                cwd = self._shell.match.group(1)
+                if cwd.strip():
+                    self._cwd = cwd
         except pexpect.TIMEOUT:
             # Edge case: gets raised when the child fd is not ready in some timeout
             # pexpect/utils.py:143
             return 1
         return output
 
+    def flush(self):
+        # Flush all pending output
+        for _ in range(100):
+            try:
+                output = self.expect([" ", PROMPT_CONST, pexpect.TIMEOUT], 0.1)
+                if output == 2:
+                    return
+            except pexpect.TIMEOUT:
+                return
+
     def send(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
+        if set_as_command:
+            self.flush()
         if set_as_command is not None:
             self._last_command = set_as_command
         # if s == "\n":
@@ -437,6 +452,8 @@ class BashState:
 
     def sendline(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
+        if set_as_command:
+            self.flush()
         if set_as_command is not None:
             self._last_command = set_as_command
         output = self._shell.sendline(s)
@@ -513,37 +530,7 @@ class BashState:
         return self._write_if_empty_mode
 
     def ensure_env_and_bg_jobs(self) -> Optional[int]:
-        quick_timeout = 0.2 if not self.over_screen else 1
-        # First reset the prompt in case venv was sourced or other reasons.
-        self.sendline(PROMPT_STATEMENT, set_as_command=PROMPT_STATEMENT)
-        self.expect(PROMPT_CONST, timeout=quick_timeout)
-        # Reset echo also if it was enabled
-        command = "jobs | wc -l"
-        self.sendline(command, set_as_command=command)
-        before = ""
-        counts = 0
-        while not _is_int(before):  # Consume all previous output
-            try:
-                self.expect(PROMPT_CONST, timeout=quick_timeout)
-            except pexpect.TIMEOUT:
-                self.console.print(f"Couldn't get exit code, before: {before}")
-                raise
-
-            before_val = self.before
-            if not isinstance(before_val, str):
-                before_val = str(before_val)
-            assert isinstance(before_val, str)
-            before_lines = render_terminal_output(before_val)
-            before = "\n".join(before_lines).replace(command, "").strip()
-            counts += 1
-            if counts > 100:
-                raise ValueError(
-                    "Error in understanding shell output. This shouldn't happen, likely shell is in a bad state, please reset it"
-                )
-        try:
-            return int(before)
-        except ValueError:
-            raise ValueError(f"Malformed output: {before}")
+        return 0
 
     def _init_shell(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
@@ -614,21 +601,8 @@ class BashState:
         self._workspace_root = workspace_root
 
     @property
-    def prompt(self) -> str:
+    def prompt(self) -> re.Pattern[str]:
         return PROMPT_CONST
-
-    def update_cwd(self) -> str:
-        self.sendline("pwd", set_as_command="pwd")
-        self.expect(PROMPT_CONST, timeout=0.2)
-        before_val = self.before
-        if not isinstance(before_val, str):
-            before_val = str(before_val)
-        before_lines = render_terminal_output(before_val)
-        current_dir = "\n".join(before_lines).strip()
-        if current_dir.startswith("pwd"):
-            current_dir = current_dir[3:].strip()
-        self._cwd = current_dir
-        return current_dir
 
     def reset_shell(self) -> None:
         self.cleanup()
@@ -976,7 +950,7 @@ def get_status(bash_state: BashState) -> str:
         if bg_jobs and bg_jobs > 0:
             bg_desc = f"; {bg_jobs} background jobs running"
         status += "status = process exited" + bg_desc + "\n"
-        status += "cwd = " + bash_state.update_cwd() + "\n"
+        status += "cwd = " + bash_state.cwd + "\n"
 
     return status.rstrip()
 
