@@ -39,7 +39,7 @@ from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 from .parser.bash_statement_parser import BashStatementParser
 
 PROMPT_CONST = re.compile(r"\n*.*◉ ([^\n]*)╰──➤")
-PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'╰──➤'' '"
+PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'╰──➤'' \r'"
 PROMPT_STATEMENT = "\n"
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
