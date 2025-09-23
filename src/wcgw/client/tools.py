@@ -267,7 +267,7 @@ def initialize(
         initial_files, initial_paths_with_ranges, _ = read_files(
             read_files_, coding_max_tokens, noncoding_max_tokens, context
         )
-        initial_files_context = f"---\n# Requested files\n{initial_files}\n---\n"
+        initial_files_context = f"---\n# Requested files\nHere are the contents of the requested files:\n{initial_files}\n---\n"
 
     # Check for global CLAUDE.md and workspace CLAUDE.md
     alignment_context = ""
@@ -600,7 +600,7 @@ def write_file(
                     return (
                         (
                             msg
-                            + f"Here's the existing file:\n<wcgw:file>\n{file_content_str}\n{final_message}\n</wcgw:file>"
+                            + f"Here's the existing file:\n<file-contents-numbered>\n{file_content_str}\n{final_message}\n</file-contents-numbered>"
                         ),
                         {path_: file_ranges},
                     )
@@ -622,7 +622,7 @@ def write_file(
                     return (
                         (
                             msg
-                            + f"Here's the existing file:\n<wcgw:file>\n{file_content_str}\n</wcgw:file>\n{final_message}"
+                            + f"Here's the existing file:\n<file-contents-numbered>\n{file_content_str}\n</file-contents-numbered>\n{final_message}"
                         ),
                         {path_: file_ranges},
                     )
@@ -1201,10 +1201,12 @@ def read_files(
             noncoding_max_tokens = max(0, noncoding_max_tokens - tokens)
 
         range_formatted = range_format(start_line_num, end_line_num)
-        message += f'\n<wcgw:file path="{file}{range_formatted}">\n{content}\n'
+        message += (
+            f'\n<file-contents-numbered path="{file}{range_formatted}">\n{content}\n'
+        )
 
         if not truncated:
-            message += "</wcgw:file>"
+            message += "</file-contents-numbered>"
 
         # Check if we've hit both token limit
         if (
