@@ -88,6 +88,18 @@ def get_tmpdir() -> str:
 def check_if_screen_command_available() -> bool:
     try:
         subprocess.run(["which", "screen"], capture_output=True, check=True, timeout=5)
+
+        # Check if screenrc exists, create it if it doesn't
+        home_dir = os.path.expanduser("~")
+        screenrc_path = os.path.join(home_dir, ".screenrc")
+
+        if not os.path.exists(screenrc_path):
+            screenrc_content = """defscrollback 10000
+termcapinfo xterm* ti@:te@
+"""
+            with open(screenrc_path, "w") as f:
+                f.write(screenrc_content)
+
         return True
     except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
         return False
@@ -267,6 +279,8 @@ def start_shell(
         "TMPDIR": get_tmpdir(),
         "TERM": "xterm-256color",
         "IN_WCGW_ENVIRONMENT": "1",
+        "GIT_PAGER": "cat",
+        "PAGER": "cat",
     }
     try:
         shell = pexpect.spawn(
@@ -311,7 +325,7 @@ def start_shell(
 
 def render_terminal_output(text: str) -> list[str]:
     screen = pyte.Screen(160, 500)
-    screen.set_mode(pyte.modes.LNM)
+    screen.set_mode(pyte.modes.LNM)  # type: ignore
     stream = pyte.Stream(screen)
     stream.feed(text)
     # Filter out empty lines
@@ -410,7 +424,9 @@ class BashState:
         self._use_screen = use_screen
         self._init_shell()
 
-    def expect(self, pattern: Any, timeout: Optional[float] = -1) -> int:
+    def expect(
+        self, pattern: Any, timeout: Optional[float] = -1, flush_rem_prompt: bool = True
+    ) -> int:
         self.close_bg_expect_thread()
         try:
             output = self._shell.expect(pattern, timeout)
@@ -418,26 +434,29 @@ class BashState:
                 cwd = self._shell.match.group(1)
                 if cwd.strip():
                     self._cwd = cwd
+                    # We can safely flush current prompt
+                    if flush_rem_prompt:
+                        temp_before = self._shell.before
+                        self.flush_prompt()
+                        self._shell.before = temp_before
         except pexpect.TIMEOUT:
             # Edge case: gets raised when the child fd is not ready in some timeout
             # pexpect/utils.py:143
             return 1
         return output
 
-    def flush(self):
-        # Flush all pending output
-        for _ in range(100):
+    def flush_prompt(self):
+        # Flush remaining prompt
+        for _ in range(200):
             try:
-                output = self.expect([" ", PROMPT_CONST, pexpect.TIMEOUT], 0.1)
-                if output == 2:
+                output = self.expect([" ", pexpect.TIMEOUT], 0.1)
+                if output == 1:
                     return
             except pexpect.TIMEOUT:
                 return
 
     def send(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
-        if set_as_command:
-            self.flush()
         if set_as_command is not None:
             self._last_command = set_as_command
         # if s == "\n":
@@ -447,8 +466,6 @@ class BashState:
 
     def sendline(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
-        if set_as_command:
-            self.flush()
         if set_as_command is not None:
             self._last_command = set_as_command
         output = self._shell.sendline(s)
@@ -498,7 +515,6 @@ class BashState:
             self._bg_expect_thread_stop_event = threading.Event()
 
     def cleanup(self) -> None:
-        cleanup_all_screens_with_name(self._shell_id, self.console)
         self.close_bg_expect_thread()
         self._shell.close(True)
 
@@ -575,6 +591,35 @@ class BashState:
         self._state = "repl"
         self._pending_output = ""
         self._last_command = ""
+
+    def clear_to_run(self) -> None:
+        """Check if prompt is clear to enter new command otherwise send ctrl c"""
+        # First clear
+        starttime = time.time()
+        while True:
+            try:
+                output = self.expect(
+                    [PROMPT_CONST, pexpect.TIMEOUT], 0.1, flush_rem_prompt=False
+                )
+                if output == 1:
+                    break
+            except pexpect.TIMEOUT:
+                break
+            if time.time() - starttime > 5:
+                self.console.log(
+                    "Error: could not clear output in 5 seconds. Resetting"
+                )
+                self.reset_shell()
+                return
+        output = self.expect([" ", pexpect.TIMEOUT], 0.1)
+        if output != 1:
+            # Then we got something new send ctrl-c
+            self.send("\x03", None)
+
+            output = self.expect([PROMPT_CONST, pexpect.TIMEOUT], 0.1)
+            if output == 1:
+                self.console.log("Error: could not clear output. Resetting")
+                self.reset_shell()
 
     @property
     def state(self) -> BASH_CLF_OUTPUT:
@@ -1032,6 +1077,7 @@ def _execute_bash(
                         "Command should not contain newline character in middle. Run only one command at a time."
                     )
 
+            bash_state.clear_to_run()
             for i in range(0, len(command), 128):
                 bash_state.send(command[i : i + 128], set_as_command=None)
             bash_state.send(bash_state.linesep, set_as_command=command)
