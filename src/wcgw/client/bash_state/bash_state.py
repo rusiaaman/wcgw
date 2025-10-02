@@ -39,8 +39,8 @@ from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 from .parser.bash_statement_parser import BashStatementParser
 
 PROMPT_CONST = re.compile(r"\n*.*◉ ([^\n]*)╰──➤")
-PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'╰──➤'' \r'"
-PROMPT_STATEMENT = "\n"
+PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'╰──➤'' \r\e[2K'"
+PROMPT_STATEMENT = ""
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -263,6 +263,95 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
             )
         except Exception as e:
             console.log(f"Failed to kill screen session: {session}\n{e}")
+
+
+def get_rc_file_path(shell_path: str) -> Optional[str]:
+    """
+    Get the rc file path for the given shell.
+
+    Args:
+        shell_path: Path to the shell executable
+
+    Returns:
+        Path to the rc file or None if not supported
+    """
+    shell_name = os.path.basename(shell_path)
+    home_dir = os.path.expanduser("~")
+
+    if shell_name == "zsh":
+        return os.path.join(home_dir, ".zshrc")
+    elif shell_name == "bash":
+        return os.path.join(home_dir, ".bashrc")
+    else:
+        return None
+
+
+def ensure_wcgw_block_in_rc_file(shell_path: str, console: Console) -> None:
+    """
+    Ensure the WCGW environment block exists in the appropriate rc file.
+
+    Args:
+        shell_path: Path to the shell executable
+        console: Console for logging
+    """
+    rc_file_path = get_rc_file_path(shell_path)
+    if not rc_file_path:
+        return
+
+    shell_name = os.path.basename(shell_path)
+
+    # Define the WCGW block with marker comments
+    marker_start = "# --WCGW_ENVIRONMENT_START--"
+    marker_end = "# --WCGW_ENVIRONMENT_END--"
+
+    if shell_name == "zsh":
+        wcgw_block = f"""{marker_start}
+if [ -n "$IN_WCGW_ENVIRONMENT" ]; then
+ export GIT_PAGER=cat PAGER=cat
+ PROMPT_COMMAND='printf "◉ $(pwd)╰──➤ \\r\\e[2K"'
+ prmptcmdwcgw() {{ eval "$PROMPT_COMMAND" }}
+ add-zsh-hook -d precmd prmptcmdwcgw
+ precmd_functions+=prmptcmdwcgw
+fi
+{marker_end}
+"""
+    elif shell_name == "bash":
+        wcgw_block = f"""{marker_start}
+if [ -n "$IN_WCGW_ENVIRONMENT" ]; then
+ export GIT_PAGER=cat PAGER=cat
+ PROMPT_COMMAND='printf "◉ $(pwd)╰──➤ \\r\\e[2K"'
+fi
+{marker_end}
+"""
+    else:
+        return
+
+    # Check if rc file exists
+    if not os.path.exists(rc_file_path):
+        # Create the rc file with the WCGW block
+        try:
+            with open(rc_file_path, "w") as f:
+                f.write(wcgw_block)
+            console.log(f"Created {rc_file_path} with WCGW environment block")
+        except Exception as e:
+            console.log(f"Failed to create {rc_file_path}: {e}")
+        return
+
+    # Check if the block already exists
+    try:
+        with open(rc_file_path) as f:
+            content = f.read()
+
+        if marker_start in content:
+            # Block already exists
+            return
+
+        # Append the block to the file
+        with open(rc_file_path, "a") as f:
+            f.write("\n" + wcgw_block)
+        console.log(f"Added WCGW environment block to {rc_file_path}")
+    except Exception as e:
+        console.log(f"Failed to update {rc_file_path}: {e}")
 
 
 def start_shell(
@@ -567,6 +656,9 @@ class BashState:
         self._last_command = ""
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
+
+        # Ensure WCGW block exists in rc file
+        ensure_wcgw_block_in_rc_file(self._shell_path, self.console)
 
         # Clean up orphaned WCGW screen sessions
         if check_if_screen_command_available():
