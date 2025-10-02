@@ -266,9 +266,13 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
 
 
 def start_shell(
-    is_restricted_mode: bool, initial_dir: str, console: Console, over_screen: bool
+    is_restricted_mode: bool,
+    initial_dir: str,
+    console: Console,
+    over_screen: bool,
+    shell_path: str,
 ) -> tuple["pexpect.spawn[str]", str]:
-    cmd = "/bin/zsh"
+    cmd = shell_path
     if is_restricted_mode and cmd.split("/")[-1] == "bash":
         cmd += " -r"
 
@@ -300,7 +304,7 @@ def start_shell(
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
 
         shell = pexpect.spawn(
-            "/bin/zsh --noprofile --norc",
+            "/bin/bash --noprofile --norc",
             env=overrideenv,  # type: ignore[arg-type]
             echo=True,
             encoding="utf-8",
@@ -327,7 +331,7 @@ def start_shell(
             output = shell.expect([PROMPT_CONST, pexpect.TIMEOUT], timeout=0.1)
             if output == 1:
                 break
-        shell.sendline(f"screen -q -S {shellid} /bin/zsh")
+        shell.sendline(f"screen -q -S {shellid} {shell_path}")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
     return shell, shellid
@@ -335,7 +339,7 @@ def start_shell(
 
 def render_terminal_output(text: str) -> list[str]:
     screen = pyte.Screen(160, 500)
-    screen.set_mode(pyte.modes.LNM)  # type: ignore
+    screen.set_mode(pyte.modes.LNM)
     stream = pyte.Stream(screen)
     stream.feed(text)
     # Filter out empty lines
@@ -408,6 +412,7 @@ class BashState:
         use_screen: bool,
         whitelist_for_overwrite: Optional[dict[str, "FileWhitelistData"]] = None,
         thread_id: Optional[str] = None,
+        shell_path: Optional[str] = None,
     ) -> None:
         self._last_command: str = ""
         self.console = console
@@ -432,6 +437,10 @@ class BashState:
         self._bg_expect_thread: Optional[threading.Thread] = None
         self._bg_expect_thread_stop_event = threading.Event()
         self._use_screen = use_screen
+        # Ensure shell_path is always a str, never None
+        self._shell_path: str = (
+            shell_path if shell_path else os.environ.get("SHELL", "/bin/bash")
+        )
         self._init_shell()
 
     def expect(
@@ -455,7 +464,7 @@ class BashState:
             return 1
         return output
 
-    def flush_prompt(self):
+    def flush_prompt(self) -> None:
         # Flush remaining prompt
         for _ in range(200):
             try:
@@ -569,6 +578,7 @@ class BashState:
                 self._cwd,
                 self.console,
                 over_screen=self._use_screen,
+                shell_path=self._shell_path,
             )
             self.over_screen = self._use_screen
         except Exception as e:
@@ -581,6 +591,7 @@ class BashState:
                 self._cwd,
                 self.console,
                 over_screen=False,
+                shell_path=self._shell_path,
             )
             self.over_screen = False
 
