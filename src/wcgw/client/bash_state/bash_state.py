@@ -11,7 +11,7 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass
-from hashlib import sha256
+from hashlib import md5, sha256
 from typing import (
     Any,
     Literal,
@@ -269,7 +269,7 @@ def start_shell(
     is_restricted_mode: bool, initial_dir: str, console: Console, over_screen: bool
 ) -> tuple["pexpect.spawn[str]", str]:
     cmd = "/bin/zsh"
-    if is_restricted_mode:
+    if is_restricted_mode and cmd.split("/")[-1] == "bash":
         cmd += " -r"
 
     overrideenv = {
@@ -310,13 +310,23 @@ def start_shell(
         shell.sendline(PROMPT_STATEMENT)
         shell.expect(PROMPT_CONST, timeout=5)
 
+    initialdir_hash = md5(
+        os.path.normpath(os.path.abspath(initial_dir)).encode()
+    ).hexdigest()[:5]
     shellid = shlex.quote(
-        "wcgw." + time.strftime("%d-%H%M") + "." + os.path.basename(initial_dir)
+        "wcgw."
+        + time.strftime("%d-%Hh%Mm%Ss")
+        + f".{initialdir_hash[:3]}."
+        + os.path.basename(initial_dir)
     )
     if over_screen:
         if not check_if_screen_command_available():
             raise ValueError("Screen command not available")
         # shellid is just hour, minute, second number
+        while True:
+            output = shell.expect([PROMPT_CONST, pexpect.TIMEOUT], timeout=0.1)
+            if output == 1:
+                break
         shell.sendline(f"screen -q -S {shellid} /bin/zsh")
         shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
@@ -1115,7 +1125,7 @@ def _execute_bash(
                 elif char == "Key-right":
                     bash_state.send("\033[C", set_as_command=None)
                 elif char == "Enter":
-                    bash_state.send("\n", set_as_command=None)
+                    bash_state.send("\x0d", set_as_command=None)
                 elif char == "Ctrl-c":
                     bash_state.sendintr()
                     is_interrupt = True
