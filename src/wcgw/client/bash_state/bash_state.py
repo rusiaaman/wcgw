@@ -88,7 +88,12 @@ def get_tmpdir() -> str:
 
 def check_if_screen_command_available() -> bool:
     try:
-        subprocess.run(["which", "screen"], capture_output=True, check=True, timeout=5)
+        subprocess.run(
+            ["which", "screen"],
+            capture_output=True,
+            check=True,
+            timeout=CONFIG.timeout,
+        )
 
         # Check if screenrc exists, create it if it doesn't
         home_dir = os.path.expanduser("~")
@@ -229,7 +234,7 @@ def cleanup_all_screens_with_name(name: str, console: Console) -> None:
             capture_output=True,
             text=True,
             check=True,
-            timeout=5,
+            timeout=CONFIG.timeout,
         )
         output = result.stdout
     except subprocess.CalledProcessError as e:
@@ -368,8 +373,7 @@ def start_shell(
 
     overrideenv = {
         **os.environ,
-        # "PS1": "$ ",  # Only if it's not present use default
-        "PROMPT_COMMAND": PROMPT_COMMAND,  # Only if it's not present use efault
+        "PROMPT_COMMAND": PROMPT_COMMAND,
         "TMPDIR": get_tmpdir(),
         "TERM": "xterm-256color",
         "IN_WCGW_ENVIRONMENT": "1",
@@ -388,7 +392,7 @@ def start_shell(
             dimensions=(500, 160),
         )
         shell.sendline(PROMPT_STATEMENT)  # Unset prompt command to avoid interfering
-        shell.expect(PROMPT_CONST, timeout=5)
+        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
     except Exception as e:
         console.print(traceback.format_exc())
         console.log(f"Error starting shell: {e}. Retrying without rc ...")
@@ -402,7 +406,7 @@ def start_shell(
             codec_errors="backslashreplace",
         )
         shell.sendline(PROMPT_STATEMENT)
-        shell.expect(PROMPT_CONST, timeout=5)
+        shell.expect(PROMPT_CONST, timeout=CONFIG.timeout)
 
     initialdir_hash = md5(
         os.path.normpath(os.path.abspath(initial_dir)).encode()
@@ -740,9 +744,9 @@ class BashState:
                         break
                 except pexpect.TIMEOUT:
                     break
-                if time.time() - starttime > 5:
+                if time.time() - starttime > CONFIG.timeout:
                     self.console.log(
-                        "Error: could not clear output in 5 seconds. Resetting"
+                        f"Error: could not clear output in {CONFIG.timeout} seconds. Resetting"
                     )
                     self.reset_shell()
                     return
@@ -1175,6 +1179,13 @@ def execute_bash(
 
     finally:
         bash_state.run_bg_expect_thread()
+        if bash_state.over_screen:
+            thread = threading.Thread(
+                target=cleanup_orphaned_wcgw_screens,
+                args=(bash_state.console,),
+                daemon=True,
+            )
+            thread.start()
     return output, cost
 
 
@@ -1381,7 +1392,6 @@ You may want to try Ctrl-c again or program specific exit interactive commands.
             if is_bg and bash_state.state == "repl":
                 try:
                     bash_state.cleanup()
-                    cleanup_orphaned_wcgw_screens(bash_state.console)
                     og_bash_state.background_shells.pop(bash_state.current_thread_id)
                 except Exception as e:
                     bash_state.console.log(f"error while cleaning up {e}")
@@ -1403,7 +1413,6 @@ You may want to try Ctrl-c again or program specific exit interactive commands.
         if is_bg and bash_state.state == "repl":
             try:
                 bash_state.cleanup()
-                cleanup_orphaned_wcgw_screens(bash_state.console)
                 og_bash_state.background_shells.pop(bash_state.current_thread_id)
             except Exception as e:
                 bash_state.console.log(f"error while cleaning up {e}")
