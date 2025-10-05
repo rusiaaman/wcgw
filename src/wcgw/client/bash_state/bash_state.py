@@ -646,6 +646,8 @@ class BashState:
             self._bg_expect_thread.join()
             self._bg_expect_thread = None
             self._bg_expect_thread_stop_event = threading.Event()
+        for k, v in self.background_shells.items():
+            v.close_bg_expect_thread()
 
     def cleanup(self) -> None:
         self.close_bg_expect_thread()
