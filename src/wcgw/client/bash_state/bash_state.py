@@ -530,6 +530,12 @@ class BashState:
         self._shell_path: str = (
             shell_path if shell_path else os.environ.get("SHELL", "/bin/bash")
         )
+        if get_rc_file_path(self._shell_path) is None:
+            console.log(
+                f"Warning: Unsupported shell: {self._shell_path}, defaulting to /bin/bash"
+            )
+            self._shell_path = "/bin/bash"
+
         self._init_shell()
 
     def expect(
