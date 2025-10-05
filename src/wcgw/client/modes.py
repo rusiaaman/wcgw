@@ -86,7 +86,7 @@ You are now running in "code_writer" mode.
 
     run_command_common = """
     - Do not use Ctrl-c interrupt commands without asking the user, because often the programs don't show any update but they still are running.
-    - Do not use echo to write multi-line files, always use FileWriteOrEdit tool to update a code.
+    - Do not use echo/cat to write any file, always use FileWriteOrEdit tool to create/update files.
     - Do not provide code snippets unless asked by the user, instead directly add/edit the code.
     - You should use the provided bash execution, reading and writing file tools to complete objective.
     - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools.
@@ -120,7 +120,8 @@ WCGW_PROMPT = """
     - Do not install new tools/packages before ensuring no such tools/package or an alternative already exists.
     - Do not use artifacts if you have access to the repository and not asked by the user to provide artifacts/snippets. Directly create/update using wcgw tools
     - Do not use Ctrl-c or interrupt commands without asking the user, because often the programs don't show any update but they still are running.
-    - Do not use echo to write multi-line files, always use FileWriteOrEdit tool to update a code.
+    - Do not use echo/cat to write any file, always use FileWriteOrEdit tool to create/update files.
+    - You can share task summary directly without creating any file.
     - Provide as many file paths as you need in ReadFiles in one go.
 
 Additional instructions:

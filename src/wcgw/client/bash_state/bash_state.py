@@ -639,6 +639,8 @@ class BashState:
             target=_bg_expect_thread_handler,
         )
         self._bg_expect_thread.start()
+        for k, v in self.background_shells.items():
+            v.run_bg_expect_thread()
 
     def close_bg_expect_thread(self) -> None:
         if self._bg_expect_thread:
@@ -1113,7 +1115,6 @@ def get_status(bash_state: BashState, is_bg: bool) -> str:
     status = "\n\n---\n\n"
     if is_bg:
         status += f"bg_command_id = {bash_state.current_thread_id}\n"
-    else:
     if bash_state.state == "pending":
         status += "status = still running\n"
         status += "running for = " + bash_state.get_pending_for() + "\n"
