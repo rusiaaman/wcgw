@@ -1375,9 +1375,7 @@ if __name__ == "__main__":
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
                 BashCommand(
-                    action_json=Command(
-                        command="source /Users/arusia/repos/wcgw/.venv/bin/activate"
-                    ),
+                    action_json=Command(command="source .venv/bin/activate"),
                     thread_id=BASH_STATE.current_thread_id,
                 ),
                 default_enc,
