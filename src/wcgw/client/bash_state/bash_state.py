@@ -1182,14 +1182,14 @@ def assert_single_statement(command: str) -> None:
         try:
             parser = BashStatementParser()
             statements = parser.parse_string(command)
-            if len(statements) > 1:
-                raise ValueError(
-                    "Error: Command contains multiple statements. Please run only one bash statement at a time."
-                )
         except Exception:
             # Fall back to simple newline check if something goes wrong
             raise ValueError(
                 "Command should not contain newline character in middle. Run only one command at a time."
+            )
+        if len(statements) > 1:
+            raise ValueError(
+                "Error: Command contains multiple statements. Please run only one bash statement at a time."
             )
 
 
