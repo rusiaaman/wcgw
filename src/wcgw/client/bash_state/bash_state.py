@@ -19,6 +19,7 @@ from typing import (
     ParamSpec,
     TypeVar,
 )
+from uuid import uuid4
 
 import pexpect
 import psutil
@@ -503,7 +504,7 @@ class BashState:
         thread_id: Optional[str] = None,
         shell_path: Optional[str] = None,
     ) -> None:
-        self._last_command: str = ""
+        self.last_command: str = ""
         self.console = console
         self._cwd = working_dir or os.getcwd()
         # Store the workspace root separately from the current working directory
@@ -536,7 +537,25 @@ class BashState:
             )
             self._shell_path = "/bin/bash"
 
+        self.background_shells = dict[str, BashState]()
         self._init_shell()
+
+    def start_new_bg_shell(self, working_dir: str) -> "BashState":
+        cid = uuid4().hex[:10]
+        state = BashState(
+            self.console,
+            working_dir=working_dir,
+            bash_command_mode=self.bash_command_mode,
+            file_edit_mode=self.file_edit_mode,
+            write_if_empty_mode=self.write_if_empty_mode,
+            mode=self.mode,
+            use_screen=self.over_screen,
+            whitelist_for_overwrite=None,
+            thread_id=cid,
+            shell_path=self._shell_path,
+        )
+        self.background_shells[cid] = state
+        return state
 
     def expect(
         self, pattern: Any, timeout: Optional[float] = -1, flush_rem_prompt: bool = True
@@ -572,7 +591,7 @@ class BashState:
     def send(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
         if set_as_command is not None:
-            self._last_command = set_as_command
+            self.last_command = set_as_command
         # if s == "\n":
         #     return self._shell.sendcontrol("m")
         output = self._shell.send(s)
@@ -581,7 +600,7 @@ class BashState:
     def sendline(self, s: str | bytes, set_as_command: Optional[str]) -> int:
         self.close_bg_expect_thread()
         if set_as_command is not None:
-            self._last_command = set_as_command
+            self.last_command = set_as_command
         output = self._shell.sendline(s)
         return output
 
@@ -596,8 +615,8 @@ class BashState:
     @property
     def before(self) -> Optional[str]:
         before = self._shell.before
-        if before and before.startswith(self._last_command):
-            return before[len(self._last_command) :]
+        if before and before.startswith(self.last_command):
+            return before[len(self.last_command) :]
         return before
 
     def run_bg_expect_thread(self) -> None:
@@ -654,12 +673,9 @@ class BashState:
     def write_if_empty_mode(self) -> WriteIfEmptyMode:
         return self._write_if_empty_mode
 
-    def ensure_env_and_bg_jobs(self) -> Optional[int]:
-        return 0
-
     def _init_shell(self) -> None:
         self._state: Literal["repl"] | datetime.datetime = "repl"
-        self._last_command = ""
+        self.last_command = ""
         # Ensure self._cwd exists
         os.makedirs(self._cwd, exist_ok=True)
 
@@ -694,10 +710,6 @@ class BashState:
             self.over_screen = False
 
         self._pending_output = ""
-        try:
-            self.ensure_env_and_bg_jobs()
-        except ValueError as e:
-            self.console.log("Error while running _ensure_env_and_bg_jobs" + str(e))
 
         self.run_bg_expect_thread()
 
@@ -709,7 +721,7 @@ class BashState:
     def set_repl(self) -> None:
         self._state = "repl"
         self._pending_output = ""
-        self._last_command = ""
+        self.last_command = ""
 
     def clear_to_run(self) -> None:
         """Check if prompt is clear to enter new command otherwise send ctrl c"""
@@ -1097,19 +1109,22 @@ def _incremental_text(text: str, last_pending_output: str) -> str:
     return rstrip(rendered)
 
 
-def get_status(bash_state: BashState) -> str:
+def get_status(bash_state: BashState, is_bg: bool) -> str:
     status = "\n\n---\n\n"
+    if is_bg:
+        status += f"bg_command_id = {bash_state.current_thread_id}\n"
+    else:
     if bash_state.state == "pending":
         status += "status = still running\n"
         status += "running for = " + bash_state.get_pending_for() + "\n"
         status += "cwd = " + bash_state.cwd + "\n"
     else:
-        bg_jobs = bash_state.ensure_env_and_bg_jobs()
         bg_desc = ""
-        if bg_jobs and bg_jobs > 0:
-            bg_desc = f"; {bg_jobs} background jobs running"
         status += "status = process exited" + bg_desc + "\n"
         status += "cwd = " + bash_state.cwd + "\n"
+
+    if not is_bg:
+        status += "This is the main shell. " + get_bg_running_commandsinfo(bash_state)
 
     return status.rstrip()
 
@@ -1158,6 +1173,37 @@ def execute_bash(
     return output, cost
 
 
+def assert_single_statement(command: str):
+    # Check for multiple statements using the bash statement parser
+    if "\n" in command:
+        try:
+            parser = BashStatementParser()
+            statements = parser.parse_string(command)
+            if len(statements) > 1:
+                raise ValueError(
+                    "Error: Command contains multiple statements. Please run only one bash statement at a time."
+                )
+        except Exception:
+            # Fall back to simple newline check if something goes wrong
+            raise ValueError(
+                "Command should not contain newline character in middle. Run only one command at a time."
+            )
+
+
+def get_bg_running_commandsinfo(bash_state: BashState):
+    msg = ""
+    running = []
+    for id_, state in bash_state.background_shells.items():
+        running.append(f"Command: {state.last_command}, bg_command_id: {id_}")
+    if running:
+        msg = (
+            "Following background commands are attached:\n" + "\n".join(running) + "\n"
+        )
+    else:
+        msg = "No command running in background.\n"
+    return msg
+
+
 def _execute_bash(
     bash_state: BashState,
     enc: EncoderDecoder[int],
@@ -1168,6 +1214,21 @@ def _execute_bash(
     try:
         is_interrupt = False
         command_data = bash_arg.action_json
+        is_bg = False
+        og_bash_state = bash_state
+
+        if not isinstance(command_data, Command) and command_data.bg_command_id:
+            if command_data.bg_command_id not in bash_state.background_shells:
+                error = f"No shell found running with command id {command_data.bg_command_id}.\n"
+                if bash_state.background_shells:
+                    error += get_bg_running_commandsinfo(bash_state)
+                if bash_state.state == "pending":
+                    error += f"On the main thread a command is already running ({bash_state.last_command})"
+                else:
+                    error += "On the main thread no command is running."
+                raise Exception(error)
+            bash_state = bash_state.background_shells[command_data.bg_command_id]
+            is_bg = True
 
         if isinstance(command_data, Command):
             if bash_state.bash_command_mode.allowed_commands == "none":
@@ -1180,21 +1241,11 @@ def _execute_bash(
 
             command = command_data.command.strip()
 
-            # Check for multiple statements using the bash statement parser
-            if "\n" in command:
-                try:
-                    parser = BashStatementParser()
-                    statements = parser.parse_string(command)
-                    if len(statements) > 1:
-                        return (
-                            "Error: Command contains multiple statements. Please run only one bash statement at a time.",
-                            0.0,
-                        )
-                except Exception:
-                    # Fall back to simple newline check if something goes wrong
-                    raise ValueError(
-                        "Command should not contain newline character in middle. Run only one command at a time."
-                    )
+            assert_single_statement(command)
+
+            if command_data.is_background:
+                bash_state = bash_state.start_new_bg_shell(bash_state.cwd)
+                is_bg = True
 
             bash_state.clear_to_run()
             for i in range(0, len(command), 128):
@@ -1321,8 +1372,15 @@ You may want to try Ctrl-c again or program specific exit interactive commands.
     """
                 )
 
-            exit_status = get_status(bash_state)
+            exit_status = get_status(bash_state, is_bg)
             incremental_text += exit_status
+            if is_bg and bash_state.state == "repl":
+                try:
+                    bash_state.cleanup()
+                    cleanup_orphaned_wcgw_screens(bash_state.console)
+                    og_bash_state.background_shells.pop(bash_state.current_thread_id)
+                except Exception as e:
+                    bash_state.console.log(f"error while cleaning up {e}")
 
             return incremental_text, 0
 
@@ -1336,8 +1394,15 @@ You may want to try Ctrl-c again or program specific exit interactive commands.
         output = "(...truncated)\n" + enc.decoder(tokens[-(max_tokens - 1) :])
 
     try:
-        exit_status = get_status(bash_state)
+        exit_status = get_status(bash_state, is_bg)
         output += exit_status
+        if is_bg and bash_state.state == "repl":
+            try:
+                bash_state.cleanup()
+                cleanup_orphaned_wcgw_screens(bash_state.console)
+                og_bash_state.background_shells.pop(bash_state.current_thread_id)
+            except Exception as e:
+                bash_state.console.log(f"error while cleaning up {e}")
     except ValueError:
         bash_state.console.print(output)
         bash_state.console.print(traceback.format_exc())

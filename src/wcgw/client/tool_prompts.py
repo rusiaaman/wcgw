@@ -48,6 +48,7 @@ TOOL_PROMPTS = [
 - Only command is allowed to run at a time. You need to wait for any previous command to finish before running a new one.
 - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again.
 - Do not send Ctrl-c before checking for status till 10 minutes or whatever is appropriate for the program to finish.
+- Only run long running commands in background. Each background command is run in a new non-reusable shell.
 """,
         annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True),
     ),
