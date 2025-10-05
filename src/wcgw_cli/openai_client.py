@@ -191,7 +191,7 @@ def loop(
             24000,  # coding_max_tokens
             8000,   # noncoding_max_tokens
             mode="wcgw",
-            chat_id="",
+            thread_id="",
         )
 
         if not history:

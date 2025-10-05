@@ -15,6 +15,9 @@ def app(
     version: bool = typer.Option(
         False, "--version", "-v", help="Show version and exit"
     ),
+    shell: str = typer.Option(
+        "", "--shell", help="Path to shell executable (defaults to $SHELL or /bin/bash)"
+    ),
 ) -> None:
     """Main entry point for the package."""
     if version:
@@ -22,7 +25,7 @@ def app(
         print(f"wcgw version: {version_}")
         raise typer.Exit()
 
-    asyncio.run(server.main())
+    asyncio.run(server.main(shell))
 
 
 # Optionally expose other important items at package level

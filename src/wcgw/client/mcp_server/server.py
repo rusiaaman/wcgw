@@ -151,7 +151,7 @@ BASH_STATE = None
 CUSTOM_INSTRUCTIONS = None
 
 
-async def main() -> None:
+async def main(shell_path: str = "") -> None:
     global BASH_STATE, CUSTOM_INSTRUCTIONS
     CONFIG.update(3, 55, 5)
     version = str(importlib.metadata.version("wcgw"))
@@ -164,7 +164,7 @@ async def main() -> None:
     starting_dir = os.path.join(tmp_dir, "claude_playground")
 
     with BashState(
-        Console(), starting_dir, None, None, None, None, True, None
+        Console(), starting_dir, None, None, None, None, True, None, None, shell_path or None
     ) as BASH_STATE:
         BASH_STATE.console.log("wcgw version: " + version)
         # Run the server using stdin/stdout streams

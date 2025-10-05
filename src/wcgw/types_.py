@@ -86,16 +86,19 @@ class Initialize(BaseModel):
 class Command(BaseModel):
     command: str
     type: Literal["command"] = "command"
+    is_background: bool = False
 
 
 class StatusCheck(BaseModel):
     status_check: Literal[True] = True
     type: Literal["status_check"] = "status_check"
+    bg_command_id: str | None = None
 
 
 class SendText(BaseModel):
     send_text: str
     type: Literal["send_text"] = "send_text"
+    bg_command_id: str | None = None
 
 
 Specials = Literal[
@@ -106,11 +109,13 @@ Specials = Literal[
 class SendSpecials(BaseModel):
     send_specials: Sequence[Specials]
     type: Literal["send_specials"] = "send_specials"
+    bg_command_id: str | None = None
 
 
 class SendAscii(BaseModel):
     send_ascii: Sequence[int]
     type: Literal["send_ascii"] = "send_ascii"
+    bg_command_id: str | None = None
 
 
 class ActionJsonSchema(BaseModel):
@@ -131,6 +136,14 @@ class ActionJsonSchema(BaseModel):
     )
     send_ascii: Optional[Sequence[int]] = Field(
         default=None, description='Set only if type="send_ascii"'
+    )
+    is_background: bool = Field(
+        default=False,
+        description='Set only if type="command" and running the command in background',
+    )
+    bg_command_id: str | None = Field(
+        default=None,
+        description='Set only if type!="command" and doing action on a running background command',
     )
 
 

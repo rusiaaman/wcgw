@@ -10,15 +10,15 @@
     "mypy-type-checker.args": [
         "--enable-incomplete-feature=NewGenericSyntax",
         "--strict",
-        
     ],
     "editor.formatOnSave": true,
     "editor.renderWhitespace": "selection",
     "[python]": {
-      "editor.defaultFormatter": "charliermarsh.ruff",
-      "editor.codeActionsOnSave": {
-          "source.fixAll": "always",
-          "source.organizeImports": "always",
-      }
-    }
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "always",
+            "source.organizeImports": "always",
+        }
+    },
+    "python-envs.pythonProjects": []
 }
