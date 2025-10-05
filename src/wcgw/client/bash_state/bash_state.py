@@ -39,8 +39,8 @@ from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 from .parser.bash_statement_parser import BashStatementParser
 
-PROMPT_CONST = re.compile(r"◉ ([^\n]*)╰──➤")
-PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'╰──➤'' \r\e[2K'"
+PROMPT_CONST = re.compile(r"◉ ([^\n]*)──➤")
+PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'──➤'' \r\e[2K'"
 PROMPT_STATEMENT = ""
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -309,7 +309,7 @@ def ensure_wcgw_block_in_rc_file(shell_path: str, console: Console) -> None:
         wcgw_block = f"""{marker_start}
 if [ -n "$IN_WCGW_ENVIRONMENT" ]; then
  export GIT_PAGER=cat PAGER=cat
- PROMPT_COMMAND='printf "◉ $(pwd)╰──➤ \\r\\e[2K"'
+ PROMPT_COMMAND='printf "◉ $(pwd)──➤ \\r\\e[2K"'
  prmptcmdwcgw() {{ eval "$PROMPT_COMMAND" }}
  add-zsh-hook -d precmd prmptcmdwcgw
  precmd_functions+=prmptcmdwcgw
@@ -320,7 +320,7 @@ fi
         wcgw_block = f"""{marker_start}
 if [ -n "$IN_WCGW_ENVIRONMENT" ]; then
  export GIT_PAGER=cat PAGER=cat
- PROMPT_COMMAND='printf "◉ $(pwd)╰──➤ \\r\\e[2K"'
+ PROMPT_COMMAND='printf "◉ $(pwd)──➤ \\r\\e[2K"'
 fi
 {marker_end}
 """
