@@ -589,7 +589,6 @@ class BashState:
                 return
 
     def send(self, s: str | bytes, set_as_command: Optional[str]) -> int:
-        self.close_bg_expect_thread()
         if set_as_command is not None:
             self.last_command = set_as_command
         # if s == "\n":
@@ -598,7 +597,6 @@ class BashState:
         return output
 
     def sendline(self, s: str | bytes, set_as_command: Optional[str]) -> int:
-        self.close_bg_expect_thread()
         if set_as_command is not None:
             self.last_command = set_as_command
         output = self._shell.sendline(s)
@@ -729,30 +727,34 @@ class BashState:
         """Check if prompt is clear to enter new command otherwise send ctrl c"""
         # First clear
         starttime = time.time()
-        while True:
-            try:
-                output = self.expect(
-                    [PROMPT_CONST, pexpect.TIMEOUT], 0.1, flush_rem_prompt=False
-                )
-                if output == 1:
+        self.close_bg_expect_thread()
+        try:
+            while True:
+                try:
+                    output = self.expect(
+                        [PROMPT_CONST, pexpect.TIMEOUT], 0.1, flush_rem_prompt=False
+                    )
+                    if output == 1:
+                        break
+                except pexpect.TIMEOUT:
                     break
-            except pexpect.TIMEOUT:
-                break
-            if time.time() - starttime > 5:
-                self.console.log(
-                    "Error: could not clear output in 5 seconds. Resetting"
-                )
-                self.reset_shell()
-                return
-        output = self.expect([" ", pexpect.TIMEOUT], 0.1)
-        if output != 1:
-            # Then we got something new send ctrl-c
-            self.send("\x03", None)
+                if time.time() - starttime > 5:
+                    self.console.log(
+                        "Error: could not clear output in 5 seconds. Resetting"
+                    )
+                    self.reset_shell()
+                    return
+            output = self.expect([" ", pexpect.TIMEOUT], 0.1)
+            if output != 1:
+                # Then we got something new send ctrl-c
+                self.send("\x03", None)
 
-            output = self.expect([PROMPT_CONST, pexpect.TIMEOUT], 0.1)
-            if output == 1:
-                self.console.log("Error: could not clear output. Resetting")
-                self.reset_shell()
+                output = self.expect([PROMPT_CONST, pexpect.TIMEOUT], 0.1)
+                if output == 1:
+                    self.console.log("Error: could not clear output. Resetting")
+                    self.reset_shell()
+        finally:
+            self.run_bg_expect_thread()
 
     @property
     def state(self) -> BASH_CLF_OUTPUT:
@@ -1252,7 +1254,6 @@ def _execute_bash(
             for i in range(0, len(command), 128):
                 bash_state.send(command[i : i + 128], set_as_command=None)
             bash_state.send(bash_state.linesep, set_as_command=command)
-
         elif isinstance(command_data, StatusCheck):
             bash_state.console.print("Checking status")
             if bash_state.state != "pending":
