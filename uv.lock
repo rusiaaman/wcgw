@@ -65,6 +65,15 @@ wheels = [
 ]
 
 [[package]]
+name = "bracex"
+version = "2.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/9a/fec38644694abfaaeca2798b58e276a8e61de49e2e37494ace423395febc/bracex-2.6.tar.gz", hash = "sha256:98f1347cd77e22ee8d967a30ad4e310b233f7754dbf31ff3fceb76145ba47dc7", size = 26642, upload-time = "2025-06-22T19:12:31.254Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/2a/9186535ce58db529927f6cf5990a849aa9e052eea3e2cfefe20b9e1802da/bracex-2.6-py3-none-any.whl", hash = "sha256:0b0049264e7340b3ec782b5cb99beb325f36c3782a32e36e876452fd49a09952", size = 11508, upload-time = "2025-06-22T19:12:29.781Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2025.4.26"
 source = { registry = "https://pypi.org/simple" }
@@ -1398,7 +1407,7 @@ wheels = [
 
 [[package]]
 name = "wcgw"
-version = "5.4.4"
+version = "5.4.5"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -1421,6 +1430,7 @@ dependencies = [
     { name = "tree-sitter-bash" },
     { name = "typer" },
     { name = "uvicorn" },
+    { name = "wcmatch" },
     { name = "websockets" },
 ]
 
@@ -1466,6 +1476,7 @@ requires-dist = [
     { name = "tree-sitter-bash", specifier = ">=0.23.3" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "uvicorn", specifier = ">=0.31.0" },
+    { name = "wcmatch", specifier = ">=10.1" },
     { name = "websockets", specifier = ">=13.1" },
 ]
 
@@ -1487,6 +1498,18 @@ types = [
     { name = "types-pexpect", specifier = ">=4.9.0.20241208" },
     { name = "types-psutil", specifier = ">=7.0.0.20250218" },
     { name = "types-toml", specifier = ">=0.10.8.20240310" },
+]
+
+[[package]]
+name = "wcmatch"
+version = "10.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bracex" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/3e/c0bdc27cf06f4e47680bd5803a07cb3dfd17de84cde92dd217dcb9e05253/wcmatch-10.1.tar.gz", hash = "sha256:f11f94208c8c8484a16f4f48638a85d771d9513f4ab3f37595978801cb9465af", size = 117421, upload-time = "2025-06-22T19:14:02.49Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/d8/0d1d2e9d3fabcf5d6840362adcf05f8cf3cd06a73358140c3a97189238ae/wcmatch-10.1-py3-none-any.whl", hash = "sha256:5848ace7dbb0476e5e55ab63c6bbd529745089343427caa5537f230cc01beb8a", size = 39854, upload-time = "2025-06-22T19:14:00.978Z" },
 ]
 
 [[package]]

@@ -1,5 +1,4 @@
 import base64
-import fnmatch
 import glob
 import json
 import mimetypes
@@ -29,6 +28,7 @@ from openai.types.chat import (
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from syntax_checker import Output as SCOutput
 from syntax_checker import check_syntax as raw_check_syntax
+from wcmatch import glob as wcglob
 
 from ..client.bash_state.bash_state import (
     BashState,
@@ -570,8 +570,8 @@ def write_file(
 
     # Validate using write_if_empty_mode after checking whitelist
     allowed_globs = context.bash_state.write_if_empty_mode.allowed_globs
-    if allowed_globs != "all" and not any(
-        fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
+    if allowed_globs != "all" and not wcglob.globmatch(
+        path_, allowed_globs, flags=wcglob.GLOBSTAR
     ):
         return (
             f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}",
@@ -762,8 +762,8 @@ def _do_diff_edit(
 
     # Validate using file_edit_mode
     allowed_globs = context.bash_state.file_edit_mode.allowed_globs
-    if allowed_globs != "all" and not any(
-        fnmatch.fnmatch(path_, pattern) for pattern in allowed_globs
+    if allowed_globs != "all" and not wcglob.globmatch(
+        path_, allowed_globs, flags=wcglob.GLOBSTAR
     ):
         raise Exception(
             f"Error: updating file {path_} not allowed in current mode. Doesn't match allowed globs: {allowed_globs}"
