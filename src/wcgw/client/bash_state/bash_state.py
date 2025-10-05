@@ -749,7 +749,7 @@ class BashState:
                 # Then we got something new send ctrl-c
                 self.send("\x03", None)
 
-                output = self.expect([PROMPT_CONST, pexpect.TIMEOUT], 0.1)
+                output = self.expect([PROMPT_CONST, pexpect.TIMEOUT], CONFIG.timeout)
                 if output == 1:
                     self.console.log("Error: could not clear output. Resetting")
                     self.reset_shell()
