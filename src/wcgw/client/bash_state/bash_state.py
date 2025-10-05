@@ -39,7 +39,7 @@ from ..encoder import EncoderDecoder
 from ..modes import BashCommandMode, FileEditMode, WriteIfEmptyMode
 from .parser.bash_statement_parser import BashStatementParser
 
-PROMPT_CONST = re.compile(r"\n*.*◉ ([^\n]*)╰──➤")
+PROMPT_CONST = re.compile(r"◉ ([^\n]*)╰──➤")
 PROMPT_COMMAND = "printf '◉ '\"$(pwd)\"'╰──➤'' \r\e[2K'"
 PROMPT_STATEMENT = ""
 BASH_CLF_OUTPUT = Literal["repl", "pending"]
@@ -1174,7 +1174,7 @@ def execute_bash(
     return output, cost
 
 
-def assert_single_statement(command: str):
+def assert_single_statement(command: str) -> None:
     # Check for multiple statements using the bash statement parser
     if "\n" in command:
         try:
@@ -1191,7 +1191,7 @@ def assert_single_statement(command: str):
             )
 
 
-def get_bg_running_commandsinfo(bash_state: BashState):
+def get_bg_running_commandsinfo(bash_state: BashState) -> str:
     msg = ""
     running = []
     for id_, state in bash_state.background_shells.items():

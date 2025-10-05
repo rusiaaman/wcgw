@@ -351,12 +351,13 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
         action_json=Command(command="echo 'hello'\necho world'"),
         thread_id=context.bash_state._current_thread_id,
     )
-    outputs, _ = get_tool_output(
-        context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
-    )
-    assert len(outputs) == 1
-    assert isinstance(outputs[0], str)
-    assert "Error: Command contains multiple statements" in outputs[0]
+    try:
+        outputs, _ = get_tool_output(
+            context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
+        )
+        assert False, "Expected ValueError to be raised"
+    except ValueError as e:
+        assert "Error: Command contains multiple statements" in str(e)
 
 
 def test_interaction_commands(context: Context, temp_dir: str) -> None:

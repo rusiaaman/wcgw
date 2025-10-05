@@ -392,7 +392,7 @@ def reset_wcgw(
             f"Reset successful with mode change to {mode_name}.\n"
             + mode_prompt
             + "\n"
-            + get_status(context.bash_state)
+            + get_status(context.bash_state, is_bg=False)
         )
     else:
         # Regular reset without mode change - keep same mode but update directory
@@ -412,7 +412,7 @@ def reset_wcgw(
             starting_directory,
             thread_id,
         )
-    return "Reset successful" + get_status(context.bash_state)
+    return "Reset successful" + get_status(context.bash_state, is_bg=False)
 
 
 T = TypeVar("T")
