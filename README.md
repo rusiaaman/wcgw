@@ -17,6 +17,8 @@ wcgw is an MCP server with tightly integrated shell and code editing tools.
 
 ## Updates
 
+- [6 Oct 2025] Model can now run multiple commands in background. ZSH is now a supported shell. Multiplexing improvements.
+
 - [27 Apr 2025] Removed support for GPTs over relay server. Only MCP server is supported in version >= 5.
 
 - [24 Mar 2025] Improved writing and editing experience for sonnet 3.7, CLAUDE.md gets loaded automatically.
@@ -45,16 +47,16 @@ wcgw is an MCP server with tightly integrated shell and code editing tools.
   - File edit has spacing tolerant matching, with warning on issues like indentation mismatch. If there's no match, the closest match is returned to the AI to fix its mistakes.
   - Using Aider-like search and replace, which has better performance than tool call based search and replace.
 - ⚡ **Shell optimizations**:
-  - Only one command is allowed to be run at a time, simplifying management and avoiding rogue processes. There's only single shell instance at any point of time.
   - Current working directory is always returned after any shell command to prevent AI from getting lost.
   - Command polling exits after a quick timeout to avoid slow feedback. However, status checking has wait tolerance based on fresh output streaming from a command. Both of these approach combined provides a good shell interaction experience.
+  - Supports multiple concurrent background commands alongside the main interactive shell.
 - ⚡ **Saving repo context in a single file**: Task checkpointing using "ContextSave" tool saves detailed context in a single file. Tasks can later be resumed in a new chat asking "Resume `task id`". The saved file can be used to do other kinds of knowledge transfer, such as taking help from another AI.
 - ⚡ **Easily switch between various modes**:
   - Ask it to run in 'architect' mode for planning. Inspired by adier's architect mode, work with Claude to come up with a plan first. Leads to better accuracy and prevents premature file editing.
   - Ask it to run in 'code-writer' mode for code editing and project building. You can provide specific paths with wild card support to prevent other files getting edited.
   - By default it runs in 'wcgw' mode that has no restrictions and full authorisation.
   - More details in [Modes section](#modes)
-- ⚡ **Runs in multiplex terminal** Run `screen -x` to attach to the terminal that the AI runs commands on. See history or interrupt process or interact with the same terminal that AI uses.
+- ⚡ **Runs in multiplex terminal** Use [vscode extension](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw) or run `screen -x` to attach to the terminal that the AI runs commands on. See history or interrupt process or interact with the same terminal that AI uses.
 - ⚡ **Automatically load CLAUDE.md/AGENTS.md** Loads "CLAUDE.md" or "AGENTS.md" file in project root and sends as instructions during initialisation. Instructions in a global "~/.wcgw/CLAUDE.md" or "~/.wcgw/AGENTS.md" file are loaded and added along with project specific CLAUDE.md. The file name is case sensitive. CLAUDE.md is attached if it's present otherwise AGENTS.md is attached.
 
 ## Top use cases examples
@@ -86,8 +88,8 @@ Then create or update `claude_desktop_config.json` (~/Library/Application Suppor
 {
   "mcpServers": {
     "wcgw": {
-      "command": "uv",
-      "args": ["tool", "run", "--python", "3.12", "wcgw"]
+      "command": "uvx",
+      "args": ["wcgw@latest"]
     }
   }
 }
@@ -116,7 +118,7 @@ Then add or update the claude config file `%APPDATA%\Claude\claude_desktop_confi
   "mcpServers": {
     "wcgw": {
       "command": "wsl.exe",
-      "args": ["uv", "tool", "run", "--python", "3.12", "wcgw"]
+      "args": ["uvx", "wcgw@latest"]
     }
   }
 }
@@ -178,6 +180,9 @@ Note: in code-writer mode either all commands are allowed or none are allowed fo
 
 #### Attach to the working terminal to investigate
 
+NEW: the [vscode extension](https://marketplace.visualstudio.com/items?itemName=AmanRusia.wcgw) now automatically attach the running terminal
+if workspace path matches.
+
 If you've `screen` command installed, wcgw runs on a screen instance automatically. If you've started wcgw mcp server, you can list the screen sessions:
 
 `screen -ls`
@@ -188,7 +193,7 @@ You can then attach to the session using `screen -x 93358.wcgw.235521`
 
 You may interrupt any running command safely.
 
-You can interact with the terminal but beware that the AI might be running in parallel and it may conflict with what you're doing. It's recommended to keep your interactions to minimum.
+You can interact with the terminal safely, for example for entering passwords, or entering some text. (Warning: If you run a new command, any new LLM command will interrupt it.)
 
 You shouldn't exit the session using `exit `or Ctrl-d, instead you should use `ctrl+a+d` to safely detach without destroying the screen session.
 
