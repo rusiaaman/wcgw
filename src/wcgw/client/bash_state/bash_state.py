@@ -313,7 +313,6 @@ def ensure_wcgw_block_in_rc_file(shell_path: str, console: Console) -> None:
     if shell_name == "zsh":
         wcgw_block = f"""{marker_start}
 if [ -n "$IN_WCGW_ENVIRONMENT" ]; then
- export GIT_PAGER=cat PAGER=cat
  PROMPT_COMMAND='printf "◉ $(pwd)──➤ \\r\\e[2K"'
  prmptcmdwcgw() {{ eval "$PROMPT_COMMAND" }}
  add-zsh-hook -d precmd prmptcmdwcgw
@@ -324,7 +323,6 @@ fi
     elif shell_name == "bash":
         wcgw_block = f"""{marker_start}
 if [ -n "$IN_WCGW_ENVIRONMENT" ]; then
- export GIT_PAGER=cat PAGER=cat
  PROMPT_COMMAND='printf "◉ $(pwd)──➤ \\r\\e[2K"'
 fi
 {marker_end}
