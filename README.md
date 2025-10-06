@@ -97,6 +97,21 @@ Then create or update `claude_desktop_config.json` (~/Library/Application Suppor
 
 Then restart claude app.
 
+**Optional: Force a specific shell**
+
+To use a specific shell (bash or zsh), add the `--shell` argument:
+
+```json
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "uvx",
+      "args": ["wcgw@latest", "--shell", "/bin/bash"]
+    }
+  }
+}
+```
+
 _If there's an error in setting up_
 
 - If there's an error like "uv ENOENT", make sure `uv` is installed. Then run 'which uv' in the terminal, and use its output in place of "uv" in the configuration.
