@@ -1262,8 +1262,8 @@ def _execute_bash(
                 is_bg = True
 
             bash_state.clear_to_run()
-            for i in range(0, len(command), 128):
-                bash_state.send(command[i : i + 128], set_as_command=None)
+            for i in range(0, len(command), 64):
+                bash_state.send(command[i : i + 64], set_as_command=None)
             bash_state.send(bash_state.linesep, set_as_command=command)
         elif isinstance(command_data, StatusCheck):
             bash_state.console.print("Checking status")

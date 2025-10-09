@@ -43,7 +43,7 @@ TOOL_PROMPTS = [
 - The first or the last line might be `(...truncated)` if the output is too long.
 - Always run `pwd` if you get any file or directory not found error to make sure you're not lost.
 - Do not run bg commands using "&", instead use this tool.
-- Do not use 'cat' to read files, use ReadFiles tool instead
+- You must not use echo/cat to read/write files, use ReadFiles/FileWriteOrEdit
 - In order to check status of previous command, use `status_check` with empty command argument.
 - Only command is allowed to run at a time. You need to wait for any previous command to finish before running a new one.
 - Programs don't hang easily, so most likely explanation for no output is usually that the program is still running, and you need to check status again.
