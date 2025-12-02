@@ -1064,7 +1064,7 @@ def get_tool_output(
                 arg.type,
                 context,
                 arg.any_workspace_path,
-                arg.initial_files_to_read,
+                arg.initial_files_to_read or [],
                 arg.task_id_to_resume,
                 coding_max_tokens,
                 noncoding_max_tokens,

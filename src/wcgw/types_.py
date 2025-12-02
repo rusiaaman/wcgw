@@ -52,7 +52,7 @@ class Initialize(BaseModel):
     any_workspace_path: str = Field(
         description="Workspce to initialise in. Don't use ~ by default, instead use empty string"
     )
-    initial_files_to_read: list[str]
+    initial_files_to_read: list[str] | None
     task_id_to_resume: str
     mode_name: Literal["wcgw", "architect", "code_writer"]
     thread_id: str = Field(

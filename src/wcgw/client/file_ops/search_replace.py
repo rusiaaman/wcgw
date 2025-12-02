@@ -101,15 +101,15 @@ def search_replace_edit(
         )
 
     edited_content, comments_ = edit_with_individual_fallback(
-        original_lines, search_replace_blocks
+        original_lines, search_replace_blocks, False
     )
 
     edited_file = "\n".join(edited_content)
     if not comments_:
-        comments = "Edited successfully"
+        comments = "File edited successfully."
     else:
         comments = (
-            "Edited successfully. However, following warnings were generated while matching search blocks.\n"
+            "File edited successfully. However, following warnings were generated while matching search blocks.\n"
             + "\n".join(comments_)
         )
     return edited_file, comments
@@ -152,27 +152,45 @@ def identify_first_differing_block(
 
 
 def edit_with_individual_fallback(
-    original_lines: list[str], search_replace_blocks: list[tuple[list[str], list[str]]]
+    original_lines: list[str],
+    search_replace_blocks: list[tuple[list[str], list[str]]],
+    replace_all: bool,
 ) -> tuple[list[str], set[str]]:
     outputs = FileEditInput(original_lines, 0, search_replace_blocks, 0).edit_file()
     best_matches = FileEditOutput.get_best_match(outputs)
-
     try:
         edited_content, comments_ = best_matches[0].replace_or_throw(3)
     except SearchReplaceMatchError:
         if len(search_replace_blocks) > 1:
-            # Try one at a time
-            all_comments = set[str]()
-            running_lines = list(original_lines)
-            for block in search_replace_blocks:
-                running_lines, comments_ = edit_with_individual_fallback(
-                    running_lines, [block]
-                )
-                all_comments |= comments_
-            return running_lines, all_comments
+            try:
+                # Try one at a time
+                all_comments = set[str]()
+                running_lines = list(original_lines)
+                for block in search_replace_blocks:
+                    running_lines, comments_ = edit_with_individual_fallback(
+                        running_lines, [block], replace_all
+                    )
+                    all_comments |= comments_
+                return running_lines, all_comments
+            except SearchReplaceMatchError:
+                # Raise the outer error instead
+                # Otherwise the suggested search block will be
+                # after applying previous N search blocks and that
+                # would signal to LLM that we've updated the file
+                pass
         raise
 
-    if len(best_matches) > 1:
+    if replace_all and len(best_matches) > 1 and len(search_replace_blocks) == 1:
+        # For only one search/replace block only replace all
+        try:
+            edited_content, comments__ = edit_with_individual_fallback(
+                edited_content, search_replace_blocks, replace_all
+            )
+            comments_ |= comments__
+        except SearchReplaceMatchError:
+            # Will not happen ideally, but still no use of throwing error here
+            pass
+    elif len(best_matches) > 1:
         # Find the first block that differs across matches
         first_diff_block = identify_first_differing_block(best_matches)
         if first_diff_block is not None:
