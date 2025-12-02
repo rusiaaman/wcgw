@@ -11,8 +11,14 @@ class SearchReplaceMatchError(Exception):
         message = f"""
 {message}
 ---
-Edit failed, no changes are applied. You'll have to reapply all search/replace blocks again.
-Retry immediately with same "percentage_to_change" using search replace blocks fixing above error.
+Last edit failed, no changes are applied. None of the search/replace blocks applied in the last tool call.
+Recommendations:
+- Retry immediately with same "percentage_to_change" using search replace blocks fixing above error.
+- If you are still unsure you may re-read the file and then proceed accordingly.
+
+If your search failed due to updates in the file content, remember that these
+are the changes that the user made and you should preserve them
+by updating your replace blocks too.
 """
         super().__init__(message)
 
@@ -88,7 +94,7 @@ Error:
         if score > 1000:
             display = (list(warnings) + list(info))[:max_errors]
             raise SearchReplaceMatchError(
-                "Too many warnings generated, not apply the edits\n"
+                "Too many warnings generated, not applying the edits\n"
                 + "\n".join(display)
             )
 
@@ -123,7 +129,44 @@ def line_process_max_space_tolerance(line: str) -> str:
     return re.sub(r"\s", "", line)
 
 
-REMOVE_INDENTATION = "Warning: matching after removing all spaces in lines."
+REMOVE_INDENTATION = (
+    "Warning: matching without considering indentation (leading spaces)."
+)
+REMOVE_LINE_NUMS = "Warning: you gave search/replace blocks with leading line numbers, do not give them from the next time."
+
+COMMON_MISTAKE_TRANSLATION = str.maketrans(
+    {
+        "‘": "'",
+        "’": "'",
+        "‚": ",",
+        "‛": "'",
+        "′": "'",
+        "“": '"',
+        "”": '"',
+        "‟": '"',
+        "″": '"',
+        "‹": "<",
+        "›": ">",
+        "‐": "-",
+        "‑": "-",
+        "‒": "-",
+        "–": "-",
+        "—": "-",
+        "―": "-",
+        "−": "-",
+        "…": "...",
+    }
+)
+
+
+def remove_leading_linenums(string: str) -> str:
+    return re.sub(r"^\d+ ", "", string).rstrip()
+
+
+def normalize_common_mistakes(string: str) -> str:
+    """Normalize unicode chars which are commonly confused by their ascii variants"""
+    return string.translate(COMMON_MISTAKE_TRANSLATION).rstrip()
+
 
 DEFAULT_TOLERANCES = [
     Tolerance(
@@ -136,15 +179,33 @@ DEFAULT_TOLERANCES = [
         line_process=str.lstrip,
         severity_cat="WARNING",
         score_multiplier=10,
-        error_name="Warning: matching without considering indentation (leading spaces).",
+        error_name=REMOVE_INDENTATION,
+    ),
+    Tolerance(
+        line_process=remove_leading_linenums,
+        severity_cat="WARNING",
+        score_multiplier=5,
+        error_name=REMOVE_LINE_NUMS,
+    ),
+    Tolerance(
+        line_process=normalize_common_mistakes,
+        severity_cat="WARNING",
+        score_multiplier=5,
+        error_name="Warning: matching after normalizing commonly confused characters (quotes, dashes, ellipsis).",
     ),
     Tolerance(
         line_process=line_process_max_space_tolerance,
         severity_cat="WARNING",
         score_multiplier=50,
-        error_name=REMOVE_INDENTATION,
+        error_name="Warning: matching after removing all spaces in lines.",
     ),
 ]
+
+
+def fix_line_nums(
+    matched_lines: list[str], searched_lines: list[str], replaced_lines: list[str]
+) -> list[str]:
+    return [remove_leading_linenums(line) for line in replaced_lines]
 
 
 def fix_indentation(
@@ -313,6 +374,14 @@ class FileEditInput:
 
         for match, tolerances in matches_with_tolerances:
             if any(
+                tolerance.error_name == REMOVE_LINE_NUMS for tolerance in tolerances
+            ):
+                replace_by = fix_line_nums(
+                    self.file_lines[match.start : match.stop],
+                    first_block[0],
+                    replace_by,
+                )
+            if any(
                 tolerance.error_name == REMOVE_INDENTATION for tolerance in tolerances
             ):
                 replace_by = fix_indentation(
@@ -453,6 +522,9 @@ def match_with_tolerance(
                 tolerances_counts[sidx][
                     tolerance_index_by_content_line[search_idx][content_idx]
                 ].count += 1
+
+    # Remove 0 counts
+    tolerances_counts = [[x for x in y if x.count > 0] for y in tolerances_counts]
 
     return list(zip(matched_slices, tolerances_counts))
 
