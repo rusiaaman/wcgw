@@ -125,7 +125,7 @@ def initialize(
         # Try to load state from the thread_id
         if not context.bash_state.load_state_from_thread_id(thread_id):
             return (
-                f"Error: No saved bash state found for thread_id {thread_id}. Please re-initialize to get a new id or use correct id.",
+                f"Error: No saved bash state found for thread_id `{thread_id}`. Please re-initialize to get a new id or use correct id.",
                 context,
                 {},
             )
@@ -363,7 +363,7 @@ def reset_wcgw(
     if thread_id != context.bash_state.current_thread_id:
         # Try to load state from the thread_id
         if not context.bash_state.load_state_from_thread_id(thread_id):
-            return f"Error: No saved bash state found for thread_id {thread_id}. Please re-initialize to get a new id or use correct id."
+            return f"Error: No saved bash state found for thread_id `{thread_id}`. Please re-initialize to get a new id or use correct id."
     if mode_name:
         # update modes if they're relative
         if isinstance(change_mode, CodeWriterMode):
@@ -859,7 +859,7 @@ def file_writing(
             file_writing_args.thread_id
         ):
             return (
-                f"Error: No saved bash state found for thread_id {file_writing_args.thread_id}. Please re-initialize to get a new id or use correct id.",
+                f"Error: No saved bash state found for thread_id `{file_writing_args.thread_id}`. Please re-initialize to get a new id or use correct id.",
                 {},
             )
 

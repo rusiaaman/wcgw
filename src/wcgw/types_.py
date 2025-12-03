@@ -1,8 +1,14 @@
 import os
+import re
 from typing import Any, List, Literal, Optional, Protocol, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field, PrivateAttr
+
+
+def normalize_thread_id(thread_id: str) -> str:
+    """Normalize thread_id by keeping only word characters (alphanumeric and underscore)."""
+    return re.sub(r"[^\w]", "", thread_id)
 
 
 class NoExtraArgs(PydanticBaseModel):
@@ -61,6 +67,7 @@ class Initialize(BaseModel):
     code_writer_config: Optional[CodeWriterMode] = None
 
     def model_post_init(self, __context: Any) -> None:
+        self.thread_id = normalize_thread_id(self.thread_id)
         if self.mode_name == "code_writer":
             assert self.code_writer_config is not None, (
                 "code_writer_config can't be null when the mode is code_writer"
@@ -157,6 +164,10 @@ class BashCommand(BaseModel):
     action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
     wait_for_seconds: Optional[float] = None
     thread_id: str
+
+    def model_post_init(self, __context: Any) -> None:
+        self.thread_id = normalize_thread_id(self.thread_id)
+        return super().model_post_init(__context)
 
     @staticmethod
     def model_json_schema(*args, **kwargs) -> dict[str, Any]:  # type: ignore
@@ -282,6 +293,10 @@ class FileWriteOrEdit(BaseModel):
         description="#3: content/edit blocks. Must be after #2 in the tool xml"
     )
     thread_id: str = Field(description="#4: thread_id")
+
+    def model_post_init(self, __context: Any) -> None:
+        self.thread_id = normalize_thread_id(self.thread_id)
+        return super().model_post_init(__context)
 
 
 class ContextSave(BaseModel):
