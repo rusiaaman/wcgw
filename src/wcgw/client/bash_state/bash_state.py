@@ -1268,7 +1268,9 @@ def _execute_bash(
         elif isinstance(command_data, StatusCheck):
             bash_state.console.print("Checking status")
             if bash_state.state != "pending":
-                return "No running command to check status of", 0.0
+                error = "No running command to check status of.\n"
+                error += get_bg_running_commandsinfo(bash_state)
+                return error, 0.0
 
         elif isinstance(command_data, SendText):
             if not command_data.send_text:
