@@ -1407,7 +1407,7 @@ wheels = [
 
 [[package]]
 name = "wcgw"
-version = "5.5.2"
+version = "5.5.3"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

@@ -56,9 +56,11 @@ class Initialize(BaseModel):
         "user_asked_change_workspace",
     ]
     any_workspace_path: str = Field(
-        description="Workspce to initialise in. Don't use ~ by default, instead use empty string"
+        description="Workspace to initialise in. Don't use ~ by default, instead use empty string"
     )
-    initial_files_to_read: list[str] | None
+    initial_files_to_read: list[str] = Field(
+        description="Array of one or more files to read. Provide [] if no files mentioned."
+    )
     task_id_to_resume: str
     mode_name: Literal["wcgw", "architect", "code_writer"]
     thread_id: str = Field(
