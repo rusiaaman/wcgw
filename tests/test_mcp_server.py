@@ -136,14 +136,7 @@ async def test_handle_list_tools():
             assert "any_workspace_path" in properties
             assert properties["any_workspace_path"]["type"] == "string"
             assert "initial_files_to_read" in properties
-            # initial_files_to_read is list[str] | None, so it uses anyOf
-            assert "anyOf" in properties["initial_files_to_read"]
-            any_of = properties["initial_files_to_read"]["anyOf"]
-            assert len(any_of) == 2
-            # Check for array type
-            assert any(item.get("type") == "array" for item in any_of)
-            # Check for null type
-            assert any(item.get("type") == "null" for item in any_of)
+            assert properties["initial_files_to_read"]["type"] == "array"
         elif tool.name == "BashCommand":
             properties = tool.inputSchema["properties"]
             assert "action_json" in properties
