@@ -1060,11 +1060,11 @@ class FileWhitelistData:
         )
 
 
-WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell sessions, likely a previous program hasn't exited. 
+WAITING_INPUT_MESSAGE = """A command is already running. NOTE: You can't run multiple shell commands in main shell, likely a previous program hasn't exited. 
 1. Get its output using status check.
 2. Use `send_ascii` or `send_specials` to give inputs to the running program OR
 3. kill the previous program by sending ctrl+c first using `send_ascii` or `send_specials`
-4. Interrupt and run the process in background by re-running it using screen
+4. Interrupt and run the process in background
 """
 
 
@@ -1250,9 +1250,6 @@ def _execute_bash(
 
             bash_state.console.print(f"$ {command_data.command}")
 
-            if bash_state.state == "pending":
-                raise ValueError(WAITING_INPUT_MESSAGE)
-
             command = command_data.command.strip()
 
             assert_single_statement(command)
@@ -1260,6 +1257,9 @@ def _execute_bash(
             if command_data.is_background:
                 bash_state = bash_state.start_new_bg_shell(bash_state.cwd)
                 is_bg = True
+
+            if bash_state.state == "pending":
+                raise ValueError(WAITING_INPUT_MESSAGE)
 
             bash_state.clear_to_run()
             for i in range(0, len(command), 64):
