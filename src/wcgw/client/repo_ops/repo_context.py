@@ -114,7 +114,7 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
                 diff = cast(Diff, repo.diff(parent, commit))
             else:
                 # For the first commit, get the diff against an empty tree
-                diff = commit.tree.diff_to_tree(context_lines=0)
+                diff = cast(Diff, commit.tree.diff_to_tree(context_lines=0))
 
             # Process each changed file in the diff
             for patch in diff:
