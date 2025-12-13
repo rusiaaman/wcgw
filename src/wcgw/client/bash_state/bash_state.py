@@ -24,6 +24,7 @@ from uuid import uuid4
 import pexpect
 import psutil
 import pyte
+import pyte.modes as pyte_modes
 
 from ...types_ import (
     BashCommand,
@@ -431,7 +432,7 @@ def start_shell(
 
 def render_terminal_output(text: str) -> list[str]:
     screen = pyte.Screen(160, 500)
-    screen.set_mode(pyte.modes.LNM)
+    screen.set_mode(pyte_modes.LNM)
     stream = pyte.Stream(screen)
     stream.feed(text)
     # Filter out empty lines
