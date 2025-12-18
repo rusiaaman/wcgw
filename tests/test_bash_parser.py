@@ -5,7 +5,7 @@ Tests for the bash statement parser.
 from wcgw.client.bash_state.parser.bash_statement_parser import BashStatementParser
 
 
-def test_bash_statement_parser_basic():
+def test_bash_statement_parser_basic() -> None:
     """Test basic statement parsing."""
     parser = BashStatementParser()
     
@@ -31,7 +31,7 @@ def test_bash_statement_parser_basic():
     assert len(statements) == 1
 
 
-def test_bash_statement_parser_multiple():
+def test_bash_statement_parser_multiple() -> None:
     """Test multiple statement detection."""
     parser = BashStatementParser()
     
@@ -52,7 +52,7 @@ def test_bash_statement_parser_multiple():
     assert len(statements) == 3
 
 
-def test_bash_statement_parser_complex():
+def test_bash_statement_parser_complex() -> None:
     """Test complex statement handling."""
     parser = BashStatementParser()
     
@@ -77,7 +77,7 @@ def test_bash_statement_parser_complex():
     assert len(statements) == 1
 
 
-def test_comments():
+def test_comments() -> None:
     """Test comment handling."""
     parser = BashStatementParser()
 
@@ -121,7 +121,7 @@ def test_comments():
     assert statements[2].node_type == "command"
 
 
-def test_complete_control_structures():
+def test_complete_control_structures() -> None:
     """Test that complete control structures are treated as single statements."""
     parser = BashStatementParser()
 
@@ -153,7 +153,7 @@ def test_complete_control_structures():
     assert statements[0].node_type == "function_definition"
 
 
-def test_multiline_strings():
+def test_multiline_strings() -> None:
     """Test that multi-line strings in quotes are treated as single statements."""
     parser = BashStatementParser()
 
@@ -168,7 +168,7 @@ def test_multiline_strings():
     assert statements[0].node_type == "command"
 
 
-def test_line_continuation():
+def test_line_continuation() -> None:
     """Test that line continuations with backslash are treated as single statements."""
     parser = BashStatementParser()
 
@@ -182,7 +182,7 @@ def test_line_continuation():
     assert len(statements) == 2
 
 
-def test_here_documents():
+def test_here_documents() -> None:
     """Test that here documents are treated as single statements."""
     parser = BashStatementParser()
 
@@ -196,7 +196,7 @@ def test_here_documents():
     assert len(statements) == 2
 
 
-def test_subshells_and_command_substitution():
+def test_subshells_and_command_substitution() -> None:
     """Test subshells and command substitution."""
     parser = BashStatementParser()
 
@@ -216,7 +216,7 @@ def test_subshells_and_command_substitution():
     assert statements[0].node_type == "command"
 
 
-def test_compound_statements():
+def test_compound_statements() -> None:
     """Test compound statements with braces."""
     parser = BashStatementParser()
 
@@ -231,7 +231,7 @@ def test_compound_statements():
     assert statements[0].node_type == "compound_statement"
 
 
-def test_complex_pipelines():
+def test_complex_pipelines() -> None:
     """Test complex pipelines and command chains."""
     parser = BashStatementParser()
 
@@ -246,7 +246,7 @@ def test_complex_pipelines():
     assert statements[0].node_type == "list"
 
 
-def test_mixed_complete_statements():
+def test_mixed_complete_statements() -> None:
     """Test mixing different types of complete statements."""
     parser = BashStatementParser()
 
