@@ -80,6 +80,8 @@ class BashStatementParser:
             "variable_assignment",
             "declaration_command",
             "unset_command",
+            # Comments
+            "comment",
             # Control flow statements
             "for_statement",
             "c_style_for_statement",
@@ -158,7 +160,7 @@ class BashStatementParser:
                 top_statements.append(stmt)
 
         # Sort by position in file for consistent output
-        top_statements.sort(key=lambda s: (s.start_line, s.text))
+        top_statements.sort(key=lambda s: (s.start_line, s.start_byte))
 
         return top_statements
 

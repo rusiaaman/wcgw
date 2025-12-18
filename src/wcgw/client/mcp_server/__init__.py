@@ -1,6 +1,6 @@
 # mypy: disable-error-code="import-untyped"
 import asyncio
-import importlib
+from importlib import metadata
 
 import typer
 from typer import Typer
@@ -21,7 +21,7 @@ def app(
 ) -> None:
     """Main entry point for the package."""
     if version:
-        version_ = importlib.metadata.version("wcgw")
+        version_ = metadata.version("wcgw")
         print(f"wcgw version: {version_}")
         raise typer.Exit()
 

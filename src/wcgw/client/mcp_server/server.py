@@ -1,7 +1,7 @@
-import importlib
 import logging
 import os
-from typing import Any, Optional
+from importlib import metadata
+from typing import Any
 
 import mcp.server.stdio
 import mcp.types as types
@@ -111,7 +111,7 @@ async def handle_call_tool(
             0.0,
             lambda x, y: ("", 0),
             24000,  # coding_max_tokens
-            8000,   # noncoding_max_tokens
+            8000,  # noncoding_max_tokens
         )
 
     except Exception as e:
@@ -127,7 +127,7 @@ async def handle_call_tool(
 
 Initialize call done.
     """
-                
+
                 # If custom instructions exist, prepend them to the original message
                 if CUSTOM_INSTRUCTIONS:
                     output_or_done += f"\n{CUSTOM_INSTRUCTIONS}\n{original_message}"
@@ -154,8 +154,8 @@ CUSTOM_INSTRUCTIONS = None
 async def main(shell_path: str = "") -> None:
     global BASH_STATE, CUSTOM_INSTRUCTIONS
     CONFIG.update(3, 55, 5)
-    version = str(importlib.metadata.version("wcgw"))
-    
+    version = str(metadata.version("wcgw"))
+
     # Read custom instructions from environment variable
     CUSTOM_INSTRUCTIONS = os.getenv("WCGW_SERVER_INSTRUCTIONS")
 
@@ -164,7 +164,16 @@ async def main(shell_path: str = "") -> None:
     starting_dir = os.path.join(tmp_dir, "claude_playground")
 
     with BashState(
-        Console(), starting_dir, None, None, None, None, True, None, None, shell_path or None
+        Console(),
+        starting_dir,
+        None,
+        None,
+        None,
+        None,
+        True,
+        None,
+        None,
+        shell_path or None,
     ) as BASH_STATE:
         BASH_STATE.console.log("wcgw version: " + version)
         # Run the server using stdin/stdout streams

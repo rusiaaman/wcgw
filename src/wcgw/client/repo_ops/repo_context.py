@@ -1,10 +1,11 @@
 import os
 from collections import deque
 from pathlib import Path  # Still needed for other parts
-from typing import Optional
+from typing import Optional, cast
 
-from pygit2 import GitError, Repository
+from pygit2 import Diff, GitError
 from pygit2.enums import SortMode
+from pygit2.repository import Repository
 
 from .display_tree import DirectoryTree
 from .file_stats import load_workspace_stats
@@ -110,7 +111,7 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
             # If we have a parent, get the diff between the commit and its parent
             if commit.parents:
                 parent = commit.parents[0]
-                diff = repo.diff(parent, commit)  # type: ignore[attr-defined]
+                diff = cast(Diff, repo.diff(parent, commit))
             else:
                 # For the first commit, get the diff against an empty tree
                 diff = commit.tree.diff_to_tree(context_lines=0)

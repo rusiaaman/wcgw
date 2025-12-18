@@ -70,6 +70,7 @@ dev = [
     "ipython>=8.12.3",
     "gunicorn>=23.0.0",
     "line-profiler>=4.2.0",
+    "pyright>=1.1.407",
 ]
 
 [tool.pytest.ini_options]
