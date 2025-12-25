@@ -606,7 +606,7 @@ class BashState:
         return output
 
     @property
-    def linesep(self) -> Any:
+    def linesep(self) -> str:
         return self._shell.linesep
 
     def sendintr(self) -> None:
@@ -695,7 +695,7 @@ class BashState:
         self.__shell_id: str | None = None
         self._over_screen: bool | None = None
 
-        def _start():
+        def _start() -> None:
             try:
                 self.__shell, self.__shell_id = start_shell(
                     self._bash_command_mode.bash_mode == "restricted_mode",
@@ -727,21 +727,21 @@ class BashState:
         self.run_bg_expect_thread()
 
     @property
-    def _shell(self):
+    def _shell(self) -> "pexpect.spawn[str]":
         if self.__shell is None:
             self._init_thread.join()
             assert self.__shell
         return self.__shell
 
     @property
-    def _shell_id(self):
+    def _shell_id(self) -> str:
         if self.__shell_id is None:
             self._init_thread.join()
             assert self.__shell_id
         return self.__shell_id
 
     @property
-    def over_screen(self):
+    def over_screen(self) -> bool:
         if self._over_screen is None:
             self._init_thread.join()
             assert self._over_screen is not None
