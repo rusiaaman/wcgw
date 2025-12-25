@@ -606,7 +606,7 @@ class BashState:
         return output
 
     @property
-    def linesep(self) -> Any:
+    def linesep(self) -> str:
         return self._shell.linesep
 
     def sendintr(self) -> None:
@@ -691,32 +691,62 @@ class BashState:
         if check_if_screen_command_available():
             cleanup_orphaned_wcgw_screens(self.console)
 
-        try:
-            self._shell, self._shell_id = start_shell(
-                self._bash_command_mode.bash_mode == "restricted_mode",
-                self._cwd,
-                self.console,
-                over_screen=self._use_screen,
-                shell_path=self._shell_path,
-            )
-            self.over_screen = self._use_screen
-        except Exception as e:
-            if not isinstance(e, ValueError):
-                self.console.log(traceback.format_exc())
-            self.console.log("Retrying without using screen")
-            # Try without over_screen
-            self._shell, self._shell_id = start_shell(
-                self._bash_command_mode.bash_mode == "restricted_mode",
-                self._cwd,
-                self.console,
-                over_screen=False,
-                shell_path=self._shell_path,
-            )
-            self.over_screen = False
+        self.__shell: pexpect.spawn[str] | None = None
+        self.__shell_id: str | None = None
+        self._over_screen: bool | None = None
+
+        def _start() -> None:
+            try:
+                self.__shell, self.__shell_id = start_shell(
+                    self._bash_command_mode.bash_mode == "restricted_mode",
+                    self._cwd,
+                    self.console,
+                    over_screen=self._use_screen,
+                    shell_path=self._shell_path,
+                )
+                self._over_screen = self._use_screen
+            except Exception as e:
+                if not isinstance(e, ValueError):
+                    self.console.log(traceback.format_exc())
+                self.console.log("Retrying without using screen")
+                # Try without over_screen
+                self.__shell, self.__shell_id = start_shell(
+                    self._bash_command_mode.bash_mode == "restricted_mode",
+                    self._cwd,
+                    self.console,
+                    over_screen=False,
+                    shell_path=self._shell_path,
+                )
+                self._over_screen = False
+
+        self._init_thread = threading.Thread(target=_start)
+        self._init_thread.start()
 
         self._pending_output = ""
 
         self.run_bg_expect_thread()
+
+    @property
+    def _shell(self) -> "pexpect.spawn[str]":
+        if self.__shell is None:
+            self._init_thread.join()
+            assert self.__shell
+        return self.__shell
+
+    @property
+    def _shell_id(self) -> str:
+        if self.__shell_id is None:
+            self._init_thread.join()
+            assert self.__shell_id
+        return self.__shell_id
+
+    @property
+    def over_screen(self) -> bool:
+        if self._over_screen is None:
+            self._init_thread.join()
+            assert self._over_screen is not None
+            return self._over_screen
+        return self._over_screen
 
     def set_pending(self, last_pending_output: str) -> None:
         if not isinstance(self._state, datetime.datetime):
