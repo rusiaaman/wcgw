@@ -3,7 +3,7 @@ import os
 from mcp.types import Tool, ToolAnnotations
 
 from ..types_ import (
-    BashCommand,
+    ActionJsonSchema,
     ContextSave,
     FileWriteOrEdit,
     Initialize,
@@ -35,7 +35,7 @@ TOOL_PROMPTS = [
         annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     ),
     Tool(
-        inputSchema=remove_titles_from_schema(BashCommand.model_json_schema()),
+        inputSchema=remove_titles_from_schema(ActionJsonSchema.model_json_schema()),
         name="BashCommand",
         description="""
 - Execute a bash command. This is stateful (beware with subsequent calls).

@@ -139,13 +139,11 @@ async def test_handle_list_tools():
             assert properties["initial_files_to_read"]["type"] == "array"
         elif tool.name == "BashCommand":
             properties = tool.inputSchema["properties"]
-            assert "action_json" in properties
+            assert "type" in properties
             assert "wait_for_seconds" in properties
+            assert "thread_id" in properties
             # Check type field has all the command types
-            type_properties = tool.inputSchema["$defs"]["ActionJsonSchema"][
-                "properties"
-            ]
-            type_refs = set(type_properties)
+            type_enum = properties["type"]["enum"]
             required_types = {
                 "command",
                 "status_check",
@@ -153,7 +151,7 @@ async def test_handle_list_tools():
                 "send_specials",
                 "send_ascii",
             }
-            assert required_types.issubset(type_refs)
+            assert required_types == set(type_enum)
         elif tool.name == "FileWriteOrEdit":
             properties = tool.inputSchema["properties"]
             assert "file_path" in properties
@@ -183,7 +181,8 @@ async def test_handle_call_tool(setup_bash_state):
 
     # Test JSON string argument handling
     json_args = {
-        "action_json": {"command": "ls"},
+        "type": "command",
+        "command": "ls",
         "wait_for_seconds": None,
         "thread_id": "",
     }
@@ -208,7 +207,8 @@ async def test_handle_call_tool(setup_bash_state):
         result = await handle_call_tool(
             "BashCommand",
             {
-                "action_json": {"command": "ls"},
+                "type": "command",
+                "command": "ls",
                 "wait_for_seconds": None,
                 "thread_id": "",
             },

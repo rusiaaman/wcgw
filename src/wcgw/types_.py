@@ -66,19 +66,43 @@ class Initialize(BaseModel):
     thread_id: str = Field(
         description="Use the thread_id created in first_call, leave it as empty string if first_call"
     )
-    code_writer_config: Optional[CodeWriterMode] = None
+    allowed_globs: Optional[Literal["all"] | list[str]] = Field(
+        default=None,
+        description='Set only if mode_name="code_writer". File globs that are allowed to be edited/written. Use "all" to allow all files, or provide list of glob patterns.',
+    )
+    allowed_commands: Optional[Literal["all"] | list[str]] = Field(
+        default=None,
+        description='Set only if mode_name="code_writer". Commands that are allowed to be executed. Use "all" to allow all commands, or provide list of allowed commands. Use [] to disable bash commands.',
+    )
 
     def model_post_init(self, __context: Any) -> None:
         self.thread_id = normalize_thread_id(self.thread_id)
         if self.mode_name == "code_writer":
-            assert self.code_writer_config is not None, (
-                "code_writer_config can't be null when the mode is code_writer"
-            )
+            if self.allowed_globs is None or self.allowed_commands is None:
+                raise ValueError(
+                    "allowed_globs and allowed_commands must be set when mode_name is 'code_writer'"
+                )
+            # Patch frequently wrong output trading off accuracy
+            # in rare case there's a file named 'all' or a command named 'all'
+            if isinstance(self.allowed_commands, list) and len(self.allowed_commands) == 1:
+                if self.allowed_commands[0] == "all":
+                    self.allowed_commands = "all"
+            if isinstance(self.allowed_globs, list) and len(self.allowed_globs) == 1:
+                if self.allowed_globs[0] == "all":
+                    self.allowed_globs = "all"
         if self.type != "first_call" and not self.thread_id:
             raise ValueError(
                 "Thread id should be provided if type != 'first_call', including when resetting"
             )
         return super().model_post_init(__context)
+
+    def update_relative_globs(self, workspace_root: str) -> None:
+        """Update globs if they're relative paths"""
+        if self.allowed_globs is not None and self.allowed_globs != "all":
+            self.allowed_globs = [
+                glob if os.path.isabs(glob) else os.path.join(workspace_root, glob)
+                for glob in self.allowed_globs
+            ]
 
     @property
     def mode(self) -> ModesConfig:
@@ -86,25 +110,37 @@ class Initialize(BaseModel):
             return "wcgw"
         if self.mode_name == "architect":
             return "architect"
-        assert self.code_writer_config is not None, (
-            "code_writer_config can't be null when the mode is code_writer"
+        if self.allowed_globs is None or self.allowed_commands is None:
+            raise ValueError(
+                "allowed_globs and allowed_commands must be set when mode_name is 'code_writer'"
+            )
+        return CodeWriterMode(
+            allowed_globs=self.allowed_globs, allowed_commands=self.allowed_commands
         )
-        return self.code_writer_config
 
 
-class Command(BaseModel):
+class CommandBase(BaseModel):
+    wait_for_seconds: Optional[float] = None
+    thread_id: str
+
+    def model_post_init(self, __context: Any) -> None:
+        self.thread_id = normalize_thread_id(self.thread_id)
+        return super().model_post_init(__context)
+
+
+class Command(CommandBase):
     command: str
     type: Literal["command"] = "command"
     is_background: bool = False
 
 
-class StatusCheck(BaseModel):
+class StatusCheck(CommandBase):
     status_check: Literal[True] = True
     type: Literal["status_check"] = "status_check"
     bg_command_id: str | None = None
 
 
-class SendText(BaseModel):
+class SendText(CommandBase):
     send_text: str
     type: Literal["send_text"] = "send_text"
     bg_command_id: str | None = None
@@ -115,13 +151,13 @@ Specials = Literal[
 ]
 
 
-class SendSpecials(BaseModel):
+class SendSpecials(CommandBase):
     send_specials: Sequence[Specials]
     type: Literal["send_specials"] = "send_specials"
     bg_command_id: str | None = None
 
 
-class SendAscii(BaseModel):
+class SendAscii(CommandBase):
     send_ascii: Sequence[int]
     type: Literal["send_ascii"] = "send_ascii"
     bg_command_id: str | None = None
@@ -154,26 +190,11 @@ class ActionJsonSchema(BaseModel):
         default=None,
         description='Set only if type!="command" and doing action on a running background command',
     )
-
-
-class BashCommandOverride(BaseModel):
-    action_json: ActionJsonSchema
     wait_for_seconds: Optional[float] = None
     thread_id: str
 
 
-class BashCommand(BaseModel):
-    action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
-    wait_for_seconds: Optional[float] = None
-    thread_id: str
-
-    def model_post_init(self, __context: Any) -> None:
-        self.thread_id = normalize_thread_id(self.thread_id)
-        return super().model_post_init(__context)
-
-    @staticmethod
-    def model_json_schema(*args, **kwargs) -> dict[str, Any]:  # type: ignore
-        return BashCommandOverride.model_json_schema(*args, **kwargs)
+BashCommand = Command | StatusCheck | SendText | SendSpecials | SendAscii
 
 
 class ReadImage(BaseModel):

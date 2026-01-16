@@ -112,6 +112,7 @@ def initialize(
     noncoding_max_tokens: Optional[int],
     mode: ModesConfig,
     thread_id: str,
+    initialize_obj: Optional[Initialize] = None,
 ) -> tuple[str, Context, dict[str, list[tuple[int, int]]]]:
     # Expand the workspace path
     any_workspace_path = expand_user(any_workspace_path)
@@ -174,11 +175,9 @@ def initialize(
 
             repo_context = f"---\n# Workspace structure\n{repo_context}\n---\n"
 
-            # update modes if they're relative
-            if isinstance(mode, CodeWriterMode):
-                mode.update_relative_globs(any_workspace_path)
-            else:
-                assert isinstance(mode, str)
+            # update modes if they're relative (handled via Initialize.update_relative_globs for code_writer mode)
+            # Mode normalization is done in modes_to_state
+            assert isinstance(mode, (str, CodeWriterMode))
         else:
             if os.path.abspath(any_workspace_path):
                 os.makedirs(any_workspace_path, exist_ok=True)
@@ -365,11 +364,8 @@ def reset_wcgw(
         if not context.bash_state.load_state_from_thread_id(thread_id):
             return f"Error: No saved bash state found for thread_id `{thread_id}`. Please re-initialize to get a new id or use correct id."
     if mode_name:
-        # update modes if they're relative
-        if isinstance(change_mode, CodeWriterMode):
-            change_mode.update_relative_globs(starting_directory)
-        else:
-            assert isinstance(change_mode, str)
+        # update modes if they're relative (handled via modes_to_state for code_writer mode)
+        assert isinstance(change_mode, (str, CodeWriterMode))
 
         # Get new state configuration
         bash_command_mode, file_edit_mode, write_if_empty_mode, mode = modes_to_state(
@@ -911,7 +907,7 @@ def which_tool(args: str) -> TOOLS:
 
 def which_tool_name(name: str) -> Type[TOOLS]:
     if name == "BashCommand":
-        return BashCommand
+        return BashCommand  # type: ignore
     elif name == "FileWriteOrEdit":
         return FileWriteOrEdit
     elif name == "ReadImage":
@@ -928,8 +924,25 @@ def which_tool_name(name: str) -> Type[TOOLS]:
 
 def parse_tool_by_name(name: str, arguments: dict[str, Any]) -> TOOLS:
     tool_type = which_tool_name(name)
+    
+    # Special handling for BashCommand which is a union type
+    if name == "BashCommand":
+        adapter = TypeAdapter[BashCommand](BashCommand)  # type: ignore
+        try:
+            return adapter.validate_python(arguments)
+        except ValidationError:
+            def try_json(x: str) -> Any:
+                if not isinstance(x, str):
+                    return x
+                try:
+                    return json.loads(x)
+                except json.JSONDecodeError:
+                    return x
+            return adapter.validate_python({k: try_json(v) for k, v in arguments.items()})
+    
+    # For other tools, use direct instantiation
     try:
-        return tool_type(**arguments)
+        return tool_type(**arguments)  # type: ignore
     except ValidationError:
 
         def try_json(x: str) -> Any:
@@ -940,7 +953,7 @@ def parse_tool_by_name(name: str, arguments: dict[str, Any]) -> TOOLS:
             except json.JSONDecodeError:
                 return x
 
-        return tool_type(**{k: try_json(v) for k, v in arguments.items()})
+        return tool_type(**{k: try_json(v) for k, v in arguments.items()})  # type: ignore
 
 
 TOOL_CALLS: list[TOOLS] = []
@@ -1045,6 +1058,10 @@ def get_tool_output(
                 else os.path.dirname(arg.any_workspace_path)
             )
             workspace_path = workspace_path if os.path.exists(workspace_path) else ""
+            
+            # Update relative globs before accessing mode property
+            if arg.mode_name == "code_writer":
+                arg.update_relative_globs(workspace_path)
 
             # For these specific operations, thread_id is required
             output = (
@@ -1060,6 +1077,15 @@ def get_tool_output(
                 0.0,
             )
         else:
+            # Expand the workspace path to determine where to update globs
+            workspace_for_globs = expand_user(arg.any_workspace_path)
+            if workspace_for_globs and os.path.exists(workspace_for_globs):
+                if os.path.isfile(workspace_for_globs):
+                    workspace_for_globs = os.path.dirname(workspace_for_globs)
+                # Update relative globs before accessing mode property
+                if arg.mode_name == "code_writer":
+                    arg.update_relative_globs(workspace_for_globs)
+            
             output_, context, init_paths = initialize(
                 arg.type,
                 context,
@@ -1070,6 +1096,7 @@ def get_tool_output(
                 noncoding_max_tokens,
                 arg.mode,
                 arg.thread_id,
+                arg,
             )
             output = output_, 0.0
             # Since init_paths is already a dictionary mapping file paths to line ranges,
@@ -1346,7 +1373,6 @@ if __name__ == "__main__":
                     initial_files_to_read=[],
                     task_id_to_resume="",
                     mode_name="wcgw",
-                    code_writer_config=None,
                     thread_id="",
                 ),
                 default_enc,
@@ -1359,8 +1385,19 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(
-                    action_json=Command(command="pwd"),
+                Command(command="pwd", thread_id=BASH_STATE.current_thread_id),
+                default_enc,
+                0,
+                lambda x, y: ("", 0),
+                24000,  # coding_max_tokens
+                8000,  # noncoding_max_tokens
+            )
+        )
+        print(
+            get_tool_output(
+                Context(BASH_STATE, BASH_STATE.console),
+                Command(
+                    command="source .venv/bin/activate",
                     thread_id=BASH_STATE.current_thread_id,
                 ),
                 default_enc,
@@ -1374,10 +1411,7 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(
-                    action_json=Command(command="source .venv/bin/activate"),
-                    thread_id=BASH_STATE.current_thread_id,
-                ),
+                Command(command="pwd", thread_id=BASH_STATE.current_thread_id),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
@@ -1389,10 +1423,7 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(
-                    action_json=Command(command="pwd"),
-                    thread_id=BASH_STATE.current_thread_id,
-                ),
+                Command(command="take src", thread_id=BASH_STATE.current_thread_id),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),
@@ -1404,25 +1435,7 @@ if __name__ == "__main__":
         print(
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(
-                    action_json=Command(command="take src"),
-                    thread_id=BASH_STATE.current_thread_id,
-                ),
-                default_enc,
-                0,
-                lambda x, y: ("", 0),
-                24000,  # coding_max_tokens
-                8000,  # noncoding_max_tokens
-            )
-        )
-
-        print(
-            get_tool_output(
-                Context(BASH_STATE, BASH_STATE.console),
-                BashCommand(
-                    action_json=Command(command="pwd"),
-                    thread_id=BASH_STATE.current_thread_id,
-                ),
+                Command(command="pwd", thread_id=BASH_STATE.current_thread_id),
                 default_enc,
                 0,
                 lambda x, y: ("", 0),

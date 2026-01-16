@@ -67,7 +67,6 @@ def test_file_edit(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         type="first_call",
     )
     get_tool_output(
@@ -479,7 +478,6 @@ def test_context_based_matching(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         type="first_call",
     )
     get_tool_output(
@@ -561,7 +559,6 @@ def test_unordered(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         type="first_call",
     )
     get_tool_output(
