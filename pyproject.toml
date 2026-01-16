@@ -1,7 +1,7 @@
 [project]
 authors = [{ name = "Aman Rusia", email = "gapypi@arcfu.com" }]
 name = "wcgw"
-version = "5.5.5"
+version = "5.5.6"
 description = "Shell and coding agent for Claude and other mcp clients"
 readme = "README.md"
 requires-python = ">=3.11"
