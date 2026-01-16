@@ -971,7 +971,11 @@ def get_tool_output(
         context.console.print("Calling execute bash tool")
 
         output_str, cost = execute_bash(
-            context.bash_state, enc, arg, noncoding_max_tokens, arg.wait_for_seconds
+            context.bash_state,
+            enc,
+            arg,
+            noncoding_max_tokens,
+            arg.action_json.wait_for_seconds,
         )
         output = output_str, cost
     elif isinstance(arg, WriteIfEmpty):
@@ -1346,7 +1350,6 @@ if __name__ == "__main__":
                     initial_files_to_read=[],
                     task_id_to_resume="",
                     mode_name="wcgw",
-                    code_writer_config=None,
                     thread_id="",
                 ),
                 default_enc,
@@ -1360,8 +1363,9 @@ if __name__ == "__main__":
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
                 BashCommand(
-                    action_json=Command(command="pwd"),
-                    thread_id=BASH_STATE.current_thread_id,
+                    action_json=Command(
+                        command="pwd", thread_id=BASH_STATE.current_thread_id
+                    )
                 ),
                 default_enc,
                 0,
@@ -1375,8 +1379,10 @@ if __name__ == "__main__":
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
                 BashCommand(
-                    action_json=Command(command="source .venv/bin/activate"),
-                    thread_id=BASH_STATE.current_thread_id,
+                    action_json=Command(
+                        command="source .venv/bin/activate",
+                        thread_id=BASH_STATE.current_thread_id,
+                    )
                 ),
                 default_enc,
                 0,
@@ -1390,8 +1396,9 @@ if __name__ == "__main__":
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
                 BashCommand(
-                    action_json=Command(command="pwd"),
-                    thread_id=BASH_STATE.current_thread_id,
+                    action_json=Command(
+                        command="pwd", thread_id=BASH_STATE.current_thread_id
+                    )
                 ),
                 default_enc,
                 0,
@@ -1405,8 +1412,9 @@ if __name__ == "__main__":
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
                 BashCommand(
-                    action_json=Command(command="take src"),
-                    thread_id=BASH_STATE.current_thread_id,
+                    action_json=Command(
+                        command="take src", thread_id=BASH_STATE.current_thread_id
+                    )
                 ),
                 default_enc,
                 0,
@@ -1420,8 +1428,9 @@ if __name__ == "__main__":
             get_tool_output(
                 Context(BASH_STATE, BASH_STATE.console),
                 BashCommand(
-                    action_json=Command(command="pwd"),
-                    thread_id=BASH_STATE.current_thread_id,
+                    action_json=Command(
+                        command="pwd", thread_id=BASH_STATE.current_thread_id
+                    )
                 ),
                 default_enc,
                 0,

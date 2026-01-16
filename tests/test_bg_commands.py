@@ -67,7 +67,6 @@ def context(temp_dir: str) -> Generator[Context, None, None]:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -88,9 +87,12 @@ def test_bg_command_basic(context: Context, temp_dir: str) -> None:
 
     # Start a background command
     cmd = BashCommand(
-        action_json=Command(command="sleep 2", is_background=True),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 2",
+            is_background=True,
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -116,9 +118,12 @@ def test_bg_command_status_check(context: Context, temp_dir: str) -> None:
 
     # Start a background command
     cmd = BashCommand(
-        action_json=Command(command="sleep 1", is_background=True),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 1",
+            is_background=True,
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -135,8 +140,11 @@ def test_bg_command_status_check(context: Context, temp_dir: str) -> None:
 
     # Check status of background command
     status_cmd = BashCommand(
-        action_json=StatusCheck(status_check=True, bg_command_id=bg_id),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=StatusCheck(
+            status_check=True,
+            bg_command_id=bg_id,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, status_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -151,8 +159,11 @@ def test_bg_command_invalid_id(context: Context, temp_dir: str) -> None:
 
     # Try to check status with invalid bg_command_id
     status_cmd = BashCommand(
-        action_json=StatusCheck(status_check=True, bg_command_id="invalid_id"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=StatusCheck(
+            status_check=True,
+            bg_command_id="invalid_id",
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
 
     try:
@@ -169,9 +180,12 @@ def test_bg_command_interrupt(context: Context, temp_dir: str) -> None:
 
     # Start a background command
     cmd = BashCommand(
-        action_json=Command(command="sleep 5", is_background=True),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 5",
+            is_background=True,
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -188,8 +202,11 @@ def test_bg_command_interrupt(context: Context, temp_dir: str) -> None:
 
     # Send Ctrl-C to background command
     interrupt_cmd = BashCommand(
-        action_json=SendSpecials(send_specials=["Ctrl-c"], bg_command_id=bg_id),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendSpecials(
+            send_specials=["Ctrl-c"],
+            bg_command_id=bg_id,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, interrupt_cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -204,9 +221,12 @@ def test_multiple_bg_commands(context: Context, temp_dir: str) -> None:
 
     # Start first background command
     cmd1 = BashCommand(
-        action_json=Command(command="sleep 2", is_background=True),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 2",
+            is_background=True,
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs1, _ = get_tool_output(
         context, cmd1, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -214,9 +234,12 @@ def test_multiple_bg_commands(context: Context, temp_dir: str) -> None:
 
     # Start second background command
     cmd2 = BashCommand(
-        action_json=Command(command="sleep 2", is_background=True),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 2",
+            is_background=True,
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs2, _ = get_tool_output(
         context, cmd2, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000

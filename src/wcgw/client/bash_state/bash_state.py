@@ -1190,11 +1190,11 @@ def execute_bash(
 ) -> tuple[str, float]:
     try:
         # Check if the thread_id matches current
-        if bash_arg.thread_id != bash_state.current_thread_id:
+        if bash_arg.action_json.thread_id != bash_state.current_thread_id:
             # Try to load state from the thread_id
-            if not bash_state.load_state_from_thread_id(bash_arg.thread_id):
+            if not bash_state.load_state_from_thread_id(bash_arg.action_json.thread_id):
                 return (
-                    f"Error: No saved bash state found for thread_id `{bash_arg.thread_id}`. Please initialize first with this ID.",
+                    f"Error: No saved bash state found for thread_id `{bash_arg.action_json.thread_id}`. Please initialize first with this ID.",
                     0.0,
                 )
 
