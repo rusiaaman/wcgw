@@ -3,7 +3,7 @@ import re
 from typing import Any, List, Literal, Optional, Protocol, Sequence, Union
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_serializer, model_validator
 
 
 def normalize_thread_id(thread_id: str) -> str:
@@ -29,10 +29,10 @@ class CodeWriterMode(BaseModel):
     def model_post_init(self, _: Any) -> None:
         # Patch frequently wrong output trading off accuracy
         # in rare case there's a file named 'all' or a command named 'all'
-        if len(self.allowed_commands) == 1:
+        if isinstance(self.allowed_commands, list) and len(self.allowed_commands) == 1:
             if self.allowed_commands[0] == "all":
                 self.allowed_commands = "all"
-        if len(self.allowed_globs) == 1:
+        if isinstance(self.allowed_globs, list) and len(self.allowed_globs) == 1:
             if self.allowed_globs[0] == "all":
                 self.allowed_globs = "all"
 
@@ -66,14 +66,35 @@ class Initialize(BaseModel):
     thread_id: str = Field(
         description="Use the thread_id created in first_call, leave it as empty string if first_call"
     )
-    code_writer_config: Optional[CodeWriterMode] = None
+    allowed_globs: Optional[Literal["all"] | list[str]] = Field(
+        default=None,
+        description="File globs that are allowed to be edited. Set to 'all' to allow all files, or provide a list of glob patterns. Only required when mode_name is 'code_writer'.",
+    )
+    allowed_commands: Optional[Literal["all"] | list[str]] = Field(
+        default=None,
+        description="Shell commands that are allowed to be executed. Set to 'all' to allow all commands, or provide a list of command patterns. Only required when mode_name is 'code_writer'.",
+    )
 
     def model_post_init(self, __context: Any) -> None:
         self.thread_id = normalize_thread_id(self.thread_id)
         if self.mode_name == "code_writer":
-            assert self.code_writer_config is not None, (
-                "code_writer_config can't be null when the mode is code_writer"
+            assert self.allowed_globs is not None, (
+                "allowed_globs can't be null when the mode is code_writer"
             )
+            assert self.allowed_commands is not None, (
+                "allowed_commands can't be null when the mode is code_writer"
+            )
+            # Patch frequently wrong output trading off accuracy
+            # in rare case there's a file named 'all' or a command named 'all'
+            if (
+                isinstance(self.allowed_commands, list)
+                and len(self.allowed_commands) == 1
+            ):
+                if self.allowed_commands[0] == "all":
+                    self.allowed_commands = "all"
+            if isinstance(self.allowed_globs, list) and len(self.allowed_globs) == 1:
+                if self.allowed_globs[0] == "all":
+                    self.allowed_globs = "all"
         if self.type != "first_call" and not self.thread_id:
             raise ValueError(
                 "Thread id should be provided if type != 'first_call', including when resetting"
@@ -86,25 +107,48 @@ class Initialize(BaseModel):
             return "wcgw"
         if self.mode_name == "architect":
             return "architect"
-        assert self.code_writer_config is not None, (
-            "code_writer_config can't be null when the mode is code_writer"
+        assert self.allowed_globs is not None, (
+            "allowed_globs can't be null when the mode is code_writer"
         )
-        return self.code_writer_config
+        assert self.allowed_commands is not None, (
+            "allowed_commands can't be null when the mode is code_writer"
+        )
+        config = CodeWriterMode(
+            allowed_globs=self.allowed_globs, allowed_commands=self.allowed_commands
+        )
+        return config
+
+    def update_relative_globs(self, workspace_root: str) -> None:
+        """Update globs if they're relative paths"""
+        if self.allowed_globs is not None and self.allowed_globs != "all":
+            self.allowed_globs = [
+                glob if os.path.isabs(glob) else os.path.join(workspace_root, glob)
+                for glob in self.allowed_globs
+            ]
 
 
-class Command(BaseModel):
+class CommandBase(BaseModel):
+    wait_for_seconds: Optional[float] = None
+    thread_id: str
+
+    def model_post_init(self, __context: Any) -> None:
+        self.thread_id = normalize_thread_id(self.thread_id)
+        return super().model_post_init(__context)
+
+
+class Command(CommandBase):
     command: str
     type: Literal["command"] = "command"
     is_background: bool = False
 
 
-class StatusCheck(BaseModel):
+class StatusCheck(CommandBase):
     status_check: Literal[True] = True
     type: Literal["status_check"] = "status_check"
     bg_command_id: str | None = None
 
 
-class SendText(BaseModel):
+class SendText(CommandBase):
     send_text: str
     type: Literal["send_text"] = "send_text"
     bg_command_id: str | None = None
@@ -115,13 +159,13 @@ Specials = Literal[
 ]
 
 
-class SendSpecials(BaseModel):
+class SendSpecials(CommandBase):
     send_specials: Sequence[Specials]
     type: Literal["send_specials"] = "send_specials"
     bg_command_id: str | None = None
 
 
-class SendAscii(BaseModel):
+class SendAscii(CommandBase):
     send_ascii: Sequence[int]
     type: Literal["send_ascii"] = "send_ascii"
     bg_command_id: str | None = None
@@ -154,26 +198,29 @@ class ActionJsonSchema(BaseModel):
         default=None,
         description='Set only if type!="command" and doing action on a running background command',
     )
-
-
-class BashCommandOverride(BaseModel):
-    action_json: ActionJsonSchema
     wait_for_seconds: Optional[float] = None
     thread_id: str
 
 
 class BashCommand(BaseModel):
     action_json: Command | StatusCheck | SendText | SendSpecials | SendAscii
-    wait_for_seconds: Optional[float] = None
-    thread_id: str
 
-    def model_post_init(self, __context: Any) -> None:
-        self.thread_id = normalize_thread_id(self.thread_id)
-        return super().model_post_init(__context)
+    @model_validator(mode="before")
+    @classmethod
+    def combine(cls, data: Any) -> Any:
+        # If action_json is already provided, don't wrap it
+        if isinstance(data, dict) and "action_json" in data:
+            return data
+        # Otherwise wrap the data in action_json
+        return {"action_json": data}
+
+    @model_serializer(mode="plain")
+    def serialize_model(self) -> dict[str, Any]:
+        return self.action_json.model_dump()
 
     @staticmethod
     def model_json_schema(*args, **kwargs) -> dict[str, Any]:  # type: ignore
-        return BashCommandOverride.model_json_schema(*args, **kwargs)
+        return ActionJsonSchema.model_json_schema(*args, **kwargs)
 
 
 class ReadImage(BaseModel):

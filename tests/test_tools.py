@@ -83,7 +83,6 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -103,7 +102,6 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="architect",
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -115,17 +113,14 @@ def test_initialize(context: Context, temp_dir: str) -> None:
     assert isinstance(outputs[0], str)
 
     # Test code_writer mode with specific configuration
-    code_writer_config = {
-        "allowed_commands": ["ls", "pwd", "cat"],
-        "allowed_globs": ["*.py", "*.txt"],
-    }
     init_args = Initialize(
         type="first_call",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="code_writer",
-        code_writer_config=code_writer_config,
+        allowed_commands=["ls", "pwd", "cat"],
+        allowed_globs=["*.py", "*.txt"],
         thread_id="",
     )
 
@@ -159,7 +154,6 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[test_file],
         task_id_to_resume="test_task_123",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -195,7 +189,6 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[new_test_file],
         task_id_to_resume="test_task_mode_switch",
         mode_name="architect",  # Different mode than what was used in saving
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -218,7 +211,6 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -237,7 +229,6 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -260,7 +251,6 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -282,7 +272,6 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -291,8 +280,9 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
 
     # Test when nothing is running
     cmd = BashCommand(
-        action_json=StatusCheck(status_check=True),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=StatusCheck(
+            status_check=True, thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -302,9 +292,11 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
 
     # Start a command and check status
     cmd = BashCommand(
-        action_json=Command(command="sleep 1"),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 1",
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -313,8 +305,9 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
 
     # Check status while command is running
     status_check = BashCommand(
-        action_json=StatusCheck(status_check=True),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=StatusCheck(
+            status_check=True, thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, status_check, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -324,8 +317,9 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
 
     # Test simple command
     cmd = BashCommand(
-        action_json=Command(command="echo 'hello world'"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="echo 'hello world'", thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -336,8 +330,10 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
 
     # Test multiline
     cmd = BashCommand(
-        action_json=Command(command="echo 'hello \nworld'"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="echo 'hello \nworld'",
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -348,8 +344,10 @@ def test_bash_command(context: Context, temp_dir: str) -> None:
 
     # Multiple commands should raise exception
     cmd = BashCommand(
-        action_json=Command(command="echo 'hello'\necho world'"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="echo 'hello'\necho world'",
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     try:
         outputs, _ = get_tool_output(
@@ -369,7 +367,6 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -378,8 +375,9 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
 
     # Test text interaction
     cmd = BashCommand(
-        action_json=SendText(send_text="hello"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendText(
+            send_text="hello", thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -389,8 +387,9 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
 
     # Test special keys
     cmd = BashCommand(
-        action_json=SendSpecials(send_specials=["Enter"]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendSpecials(
+            send_specials=["Enter"], thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -401,8 +400,9 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
 
     #  Send ctrl-c
     cmd = BashCommand(
-        action_json=SendAscii(send_ascii=[3]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendAscii(
+            send_ascii=[3], thread_id=context.bash_state._current_thread_id
+        )
     )  # Ctrl-C
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -413,9 +413,11 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
 
     # Test interactions with long running command
     cmd = BashCommand(
-        action_json=Command(command="sleep 1"),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 1",
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -424,8 +426,9 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
 
     # Check status with special keys
     cmd = BashCommand(
-        action_json=SendSpecials(send_specials=["Enter"]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendSpecials(
+            send_specials=["Enter"], thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -434,9 +437,11 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
 
     # Test interrupting command
     cmd = BashCommand(
-        action_json=Command(command="sleep 1"),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 1",
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -445,8 +450,9 @@ def test_interaction_commands(context: Context, temp_dir: str) -> None:
 
     # Send Ctrl-C
     cmd = BashCommand(
-        action_json=SendSpecials(send_specials=["Ctrl-c"]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendSpecials(
+            send_specials=["Ctrl-c"], thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -464,7 +470,6 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -567,7 +572,6 @@ def test_context_save(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -609,7 +613,6 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -623,7 +626,6 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id=context.bash_state._current_thread_id,
     )
     outputs, _ = get_tool_output(
@@ -641,7 +643,6 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="architect",
-        code_writer_config=None,
         thread_id=context.bash_state._current_thread_id,
     )
     outputs, _ = get_tool_output(
@@ -652,14 +653,14 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
     assert "Reset successful with mode change to architect" in outputs[0]
 
     # Test changing to code_writer mode with config
-    code_writer_config = {"allowed_commands": [], "allowed_globs": ["*.py"]}
     reset_args = Initialize(
         type="user_asked_mode_change",
         any_workspace_path=temp_dir,
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="code_writer",
-        code_writer_config=code_writer_config,
+        allowed_commands=[],
+        allowed_globs=["*.py"],
         thread_id=context.bash_state._current_thread_id,
     )
     outputs, _ = get_tool_output(
@@ -675,8 +676,9 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
 
     # Verify mode was actually changed by trying a command not in allowed list
     cmd = BashCommand(
-        action_json=Command(command="touch test.txt"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="touch test.txt", thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -690,7 +692,6 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="shouldnot_proceed",
         mode_name="architect",
-        code_writer_config=None,
         thread_id=context.bash_state._current_thread_id,
     )
     outputs, _ = get_tool_output(
@@ -710,7 +711,6 @@ def test_reinitialize(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="architect",
-        code_writer_config=None,
         thread_id=context.bash_state._current_thread_id,
     )
     outputs, _ = get_tool_output(
@@ -729,7 +729,6 @@ def _test_init(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -748,8 +747,9 @@ def test_file_io(context: Context, temp_dir: str) -> None:
         f.write("hello world")
 
     cmd = BashCommand(
-        action_json=Command(command=f"cat {test_file}"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command=f"cat {test_file}", thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -764,9 +764,11 @@ def test_command_interrupt(context: Context, temp_dir: str) -> None:
     _test_init(context, temp_dir)
 
     cmd = BashCommand(
-        action_json=Command(command="sleep 5"),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 5",
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -774,8 +776,9 @@ def test_command_interrupt(context: Context, temp_dir: str) -> None:
     assert "status = still running" in outputs[0]
 
     cmd = BashCommand(
-        action_json=SendSpecials(send_specials=["Ctrl-c"]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendSpecials(
+            send_specials=["Ctrl-c"], thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -788,9 +791,11 @@ def test_command_suspend(context: Context, temp_dir: str) -> None:
     _test_init(context, temp_dir)
 
     cmd = BashCommand(
-        action_json=Command(command="sleep 5"),
-        wait_for_seconds=0.1,
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="sleep 5",
+            wait_for_seconds=0.1,
+            thread_id=context.bash_state._current_thread_id,
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -803,14 +808,16 @@ def test_text_input(context: Context, temp_dir: str) -> None:
     _test_init(context, temp_dir)
 
     cmd = BashCommand(
-        action_json=Command(command="cat"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="cat", thread_id=context.bash_state._current_thread_id
+        )
     )
     get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     cmd = BashCommand(
-        action_json=SendText(send_text="hello"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendText(
+            send_text="hello", thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -818,8 +825,9 @@ def test_text_input(context: Context, temp_dir: str) -> None:
     assert "hello" in str(outputs[0])
 
     cmd = BashCommand(
-        action_json=SendSpecials(send_specials=["Ctrl-d"]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendSpecials(
+            send_specials=["Ctrl-d"], thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -832,14 +840,16 @@ def test_ascii_input(context: Context, temp_dir: str) -> None:
     _test_init(context, temp_dir)
 
     cmd = BashCommand(
-        action_json=Command(command="cat"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="cat", thread_id=context.bash_state._current_thread_id
+        )
     )
     get_tool_output(context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000)
 
     cmd = BashCommand(
-        action_json=SendAscii(send_ascii=[65, 66, 67]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendAscii(
+            send_ascii=[65, 66, 67], thread_id=context.bash_state._current_thread_id
+        )
     )  # ABC
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -847,8 +857,9 @@ def test_ascii_input(context: Context, temp_dir: str) -> None:
     assert "ABC" in str(outputs[0])
 
     cmd = BashCommand(
-        action_json=SendAscii(send_ascii=[3]),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=SendAscii(
+            send_ascii=[3], thread_id=context.bash_state._current_thread_id
+        )
     )  # Ctrl-C
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -865,7 +876,6 @@ def test_read_image(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -944,7 +954,6 @@ def test_git_recent_files(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
 
@@ -996,7 +1005,6 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
         initial_files_to_read=[],
         task_id_to_resume="",
         mode_name="wcgw",
-        code_writer_config=None,
         thread_id="",
     )
     get_tool_output(
@@ -1026,8 +1034,9 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
 
     # Test invalid bash command
     cmd = BashCommand(
-        action_json=Command(command="nonexistentcommand"),
-        thread_id=context.bash_state._current_thread_id,
+        action_json=Command(
+            command="nonexistentcommand", thread_id=context.bash_state._current_thread_id
+        )
     )
     outputs, _ = get_tool_output(
         context, cmd, default_enc, 1.0, lambda x, y: ("", 0.0), 8000, 4000

@@ -139,13 +139,13 @@ async def test_handle_list_tools():
             assert properties["initial_files_to_read"]["type"] == "array"
         elif tool.name == "BashCommand":
             properties = tool.inputSchema["properties"]
-            assert "action_json" in properties
+            # BashCommand schema is flattened, so it has the action fields directly
+            assert "type" in properties
+            assert "command" in properties
             assert "wait_for_seconds" in properties
+            assert "thread_id" in properties
             # Check type field has all the command types
-            type_properties = tool.inputSchema["$defs"]["ActionJsonSchema"][
-                "properties"
-            ]
-            type_refs = set(type_properties)
+            type_refs = set(properties)
             required_types = {
                 "command",
                 "status_check",
@@ -183,9 +183,7 @@ async def test_handle_call_tool(setup_bash_state):
 
     # Test JSON string argument handling
     json_args = {
-        "action_json": {"command": "ls"},
-        "wait_for_seconds": None,
-        "thread_id": "",
+        "action_json": {"command": "ls", "thread_id": ""},
     }
     result = await handle_call_tool("BashCommand", json_args)
     assert isinstance(result, list)
@@ -208,9 +206,7 @@ async def test_handle_call_tool(setup_bash_state):
         result = await handle_call_tool(
             "BashCommand",
             {
-                "action_json": {"command": "ls"},
-                "wait_for_seconds": None,
-                "thread_id": "",
+                "action_json": {"command": "ls", "thread_id": ""},
             },
         )
         assert "GOT EXCEPTION" in result[0].text
