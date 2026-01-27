@@ -1,9 +1,9 @@
 import os
 from collections import deque
 from pathlib import Path  # Still needed for other parts
-from typing import Optional, cast
+from typing import Optional
 
-from pygit2 import Diff, GitError
+from pygit2 import GitError
 from pygit2.enums import SortMode
 from pygit2.repository import Repository
 
@@ -111,13 +111,15 @@ def get_recent_git_files(repo: Repository, count: int = 10) -> list[str]:
             # If we have a parent, get the diff between the commit and its parent
             if commit.parents:
                 parent = commit.parents[0]
-                diff = cast(Diff, repo.diff(parent, commit))
+                diff = repo.diff(parent, commit)
             else:
                 # For the first commit, get the diff against an empty tree
                 diff = commit.tree.diff_to_tree(context_lines=0)
 
             # Process each changed file in the diff
             for patch in diff:
+                if patch is None:
+                    continue
                 file_path = patch.delta.new_file.path
 
                 # Skip if we've already seen this file or if the file was deleted

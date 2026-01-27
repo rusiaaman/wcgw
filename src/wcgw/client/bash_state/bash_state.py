@@ -382,7 +382,7 @@ def start_shell(
     try:
         shell = pexpect.spawn(
             cmd,
-            env=overrideenv,  # type: ignore[arg-type]
+            env=overrideenv,
             echo=True,
             encoding="utf-8",
             timeout=CONFIG.timeout,
@@ -398,7 +398,7 @@ def start_shell(
 
         shell = pexpect.spawn(
             "/bin/bash --noprofile --norc",
-            env=overrideenv,  # type: ignore[arg-type]
+            env=overrideenv,
             echo=True,
             encoding="utf-8",
             timeout=CONFIG.timeout,
