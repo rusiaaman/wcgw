@@ -26,7 +26,7 @@ dependencies = [
     "psutil>=7.0.0",
     "tree-sitter>=0.24.0",
     "tree-sitter-bash>=0.23.3",
-    "mcp>=1.7.0",
+    "mcp>=1.23.0",
     "wcmatch>=10.1",
 ]
 
