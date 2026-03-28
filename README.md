@@ -273,3 +273,33 @@ The server provides the following MCP tools:
   - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[])
 
 All tools support absolute paths and include built-in protections against common errors. See the [MCP specification](https://modelcontextprotocol.io/) for detailed protocol information.
+
+## Standalone CLI with LLM providers
+
+wcgw also includes a standalone CLI client (`wcgw_local`) that can be used directly with different LLM providers without an MCP host.
+
+### Supported providers
+
+| Provider | Flag | Environment Variable | Models |
+|----------|------|---------------------|--------|
+| OpenAI (default) | _(none)_ | `OPENAI_API_KEY` | gpt-4o, etc. |
+| Anthropic | `--claude` | `ANTHROPIC_API_KEY` | claude-3.5-sonnet, etc. |
+| [MiniMax](https://platform.minimaxi.com/) | `--minimax` | `MINIMAX_API_KEY` | MiniMax-M2.7, MiniMax-M2.7-highspeed (204K context) |
+
+### Usage
+
+```bash
+# With OpenAI (default)
+wcgw_local --first-message "Hello"
+
+# With Anthropic Claude
+wcgw_local --claude --first-message "Hello"
+
+# With MiniMax
+export MINIMAX_API_KEY="your-api-key"
+wcgw_local --minimax --first-message "Hello"
+
+# Optionally select a specific MiniMax model
+export MINIMAX_MODEL="MiniMax-M2.7-highspeed"
+wcgw_local --minimax --first-message "Hello"
+```
