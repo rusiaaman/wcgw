@@ -273,3 +273,8 @@ The server provides the following MCP tools:
   - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[])
 
 All tools support absolute paths and include built-in protections against common errors. See the [MCP specification](https://modelcontextprotocol.io/) for detailed protocol information.
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/rusiaaman-wcgw).
+
