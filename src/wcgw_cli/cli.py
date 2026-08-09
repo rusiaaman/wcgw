@@ -5,6 +5,7 @@ import typer
 from typer import Typer
 
 from wcgw_cli.anthropic_client import loop as claude_loop
+from wcgw_cli.minimax_client import loop as minimax_loop
 from wcgw_cli.openai_client import loop as openai_loop
 
 app = Typer(pretty_exceptions_show_locals=False)
@@ -13,6 +14,7 @@ app = Typer(pretty_exceptions_show_locals=False)
 @app.command()
 def loop(
     claude: bool = False,
+    minimax: bool = False,
     first_message: Optional[str] = None,
     limit: Optional[float] = None,
     resume: Optional[str] = None,
@@ -24,6 +26,12 @@ def loop(
         exit()
     if claude:
         return claude_loop(
+            first_message=first_message,
+            limit=limit,
+            resume=resume,
+        )
+    elif minimax:
+        return minimax_loop(
             first_message=first_message,
             limit=limit,
             resume=resume,

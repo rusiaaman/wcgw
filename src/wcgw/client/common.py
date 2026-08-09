@@ -20,6 +20,7 @@ from openai.types.chat import (
 
 History = list[ChatCompletionMessageParam]
 Models = Literal["gpt-4o-2024-08-06", "gpt-4o-mini"]
+MiniMaxModels = Literal["MiniMax-M2.7", "MiniMax-M2.7-highspeed"]
 
 
 def discard_input() -> None:
