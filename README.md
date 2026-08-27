@@ -87,6 +87,34 @@ Then create or update `claude_desktop_config.json` (~/Library/Application Suppor
 
 Then restart claude app.
 
+**Optional: Guard wcgw tool calls with Armorer Guard**
+
+wcgw intentionally gives an agent broad shell and filesystem access. If you want
+a local pre-call check before wcgw receives MCP tool-call arguments, you can wrap
+it with [Armorer Guard](https://github.com/ArmorerLabs/Armorer-Guard):
+
+```json
+{
+  "mcpServers": {
+    "wcgw": {
+      "command": "armorer-guard",
+      "args": [
+        "mcp-proxy",
+        "--",
+        "uvx",
+        "--python",
+        "3.12",
+        "wcgw@latest"
+      ]
+    }
+  }
+}
+```
+
+Armorer Guard runs locally and can block prompt injection, credential leakage,
+exfiltration risk, and dangerous actions before forwarding safe calls. It is an
+additional guardrail, not a substitute for limiting what the agent can access.
+
 **Optional: Force a specific shell**
 
 To use a specific shell (bash or zsh), add the `--shell` argument:
