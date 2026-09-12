@@ -141,6 +141,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         project_root_path=temp_dir,
         description="Test context",
         relevant_file_globs=["*.txt"],
+        thread_id=context.bash_state.current_thread_id,
     )
     get_tool_output(
         context, save_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -176,6 +177,7 @@ def test_initialize(context: Context, temp_dir: str) -> None:
         project_root_path=temp_dir,
         description="Test context with mode switch",
         relevant_file_globs=["*.txt"],
+        thread_id=context.bash_state.current_thread_id,
     )
     get_tool_output(
         context, save_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
@@ -491,7 +493,9 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     assert "Success" in outputs[0]
 
     # Test reading the file back
-    read_args = ReadFiles(file_paths=[test_file])
+    read_args = ReadFiles(
+        file_paths=[test_file], thread_id=context.bash_state.current_thread_id
+    )
     outputs, _ = get_tool_output(
         context, read_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
@@ -536,7 +540,9 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     )  # Should fail with exception
 
     # Test writing after reading the file (should succeed with warning)
-    read_args = ReadFiles(file_paths=[test_file2])
+    read_args = ReadFiles(
+        file_paths=[test_file2], thread_id=context.bash_state.current_thread_id
+    )
     outputs, _ = get_tool_output(
         context, read_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
@@ -554,7 +560,9 @@ def test_write_and_read_file(context: Context, temp_dir: str) -> None:
     assert "Success" in outputs[0]
 
     # Verify the new content was written
-    read_args = ReadFiles(file_paths=[test_file2])
+    read_args = ReadFiles(
+        file_paths=[test_file2], thread_id=context.bash_state.current_thread_id
+    )
     outputs, _ = get_tool_output(
         context, read_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
@@ -592,6 +600,7 @@ def test_context_save(context: Context, temp_dir: str) -> None:
         project_root_path=temp_dir,
         description="Test save",
         relevant_file_globs=["*.txt"],
+        thread_id=context.bash_state.current_thread_id,
     )
 
     outputs, _ = get_tool_output(
@@ -892,7 +901,9 @@ def test_read_image(context: Context, temp_dir: str) -> None:
         )
 
     # Test reading image
-    read_args = ReadImage(file_path=test_image)
+    read_args = ReadImage(
+        file_path=test_image, thread_id=context.bash_state.current_thread_id
+    )
     outputs, _ = get_tool_output(
         context, read_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
@@ -988,7 +999,9 @@ def test_write_empty_file_and_read(context: Context, temp_dir: str) -> None:
     assert len(outputs) == 1
     assert "Success" in outputs[0]
 
-    read_args = ReadFiles(file_paths=[test_file])
+    read_args = ReadFiles(
+        file_paths=[test_file], thread_id=context.bash_state.current_thread_id
+    )
     outputs, _ = get_tool_output(
         context, read_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )
@@ -1011,7 +1024,10 @@ def test_error_cases(context: Context, temp_dir: str) -> None:
     )
 
     # Test reading non-existent file
-    read_args = ReadFiles(file_paths=[os.path.join(temp_dir, "nonexistent.txt")])
+    read_args = ReadFiles(
+        file_paths=[os.path.join(temp_dir, "nonexistent.txt")],
+        thread_id=context.bash_state.current_thread_id,
+    )
     outputs, _ = get_tool_output(
         context, read_args, 1.0, lambda x, y: ("", 0.0), 8000, 4000
     )

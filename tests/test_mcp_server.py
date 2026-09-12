@@ -1,4 +1,8 @@
+import asyncio
 import os
+import re
+import threading
+import time
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -37,15 +41,28 @@ def setup_bash_state():
     # Create new BashState with mode
     home_dir = os.path.expanduser("~")
     bash_state = BashState(Console(), home_dir, None, None, None, "wcgw", False, None)
+    server.BASH_STATES.clear()
+    server.STATE_CALL_LOCKS.clear()
+    server.STATE_CREATION_LOCKS.clear()
     server.BASH_STATE = bash_state
+    server.BASH_STATES[bash_state.current_thread_id] = bash_state
 
     try:
         yield server.BASH_STATE
     finally:
-        try:
-            bash_state.cleanup()
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
+        states = {
+            id(state): state
+            for state in [bash_state, server.BASH_STATE, *server.BASH_STATES.values()]
+            if state is not None
+        }
+        for state in states.values():
+            try:
+                state.cleanup()
+            except Exception as e:
+                print(f"Error during cleanup: {e}")
+        server.BASH_STATES.clear()
+        server.STATE_CALL_LOCKS.clear()
+        server.STATE_CREATION_LOCKS.clear()
         server.BASH_STATE = None
 
 
@@ -154,6 +171,10 @@ async def test_handle_list_tools():
                 "send_ascii",
             }
             assert required_types.issubset(type_refs)
+        elif tool.name in {"ReadFiles", "ReadImage", "ContextSave"}:
+            properties = tool.inputSchema["properties"]
+            assert "thread_id" in properties
+            assert "thread_id" not in tool.inputSchema.get("required", [])
         elif tool.name == "FileWriteOrEdit":
             properties = tool.inputSchema["properties"]
             assert "file_path" in properties
@@ -180,10 +201,15 @@ async def test_handle_call_tool(setup_bash_state):
     assert len(result) > 0
     assert isinstance(result[0], TextContent)
     assert "Initialize" in result[0].text
+    initialized_thread = re.search(r"Use thread_id=(\w+)", result[0].text)
+    assert initialized_thread is not None
 
     # Test JSON string argument handling
     json_args = {
-        "action_json": {"command": "ls", "thread_id": ""},
+        "action_json": {
+            "command": "ls",
+            "thread_id": initialized_thread.group(1),
+        },
     }
     result = await handle_call_tool("BashCommand", json_args)
     assert isinstance(result, list)
@@ -206,10 +232,288 @@ async def test_handle_call_tool(setup_bash_state):
         result = await handle_call_tool(
             "BashCommand",
             {
-                "action_json": {"command": "ls", "thread_id": ""},
+                "action_json": {
+                    "command": "ls",
+                    "thread_id": initialized_thread.group(1),
+                },
             },
         )
         assert "GOT EXCEPTION" in result[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_call_tool_preserves_shells_across_thread_ids(
+    setup_bash_state, tmp_path
+):
+    first_workspace = tmp_path / "first"
+    second_workspace = tmp_path / "second"
+    first_workspace.mkdir()
+    second_workspace.mkdir()
+
+    init_args = {
+        "initial_files_to_read": [],
+        "task_id_to_resume": "",
+        "mode_name": "wcgw",
+        "type": "first_call",
+        "thread_id": "",
+    }
+    first_init = await handle_call_tool(
+        "Initialize", {**init_args, "any_workspace_path": str(first_workspace)}
+    )
+    first_match = re.search(r"Use thread_id=(\w+)", first_init[0].text)
+    assert first_match is not None
+    first_thread_id = first_match.group(1)
+
+    pending = await handle_call_tool(
+        "BashCommand",
+        {
+            "type": "command",
+            "command": "sleep 10",
+            "thread_id": first_thread_id,
+            "wait_for_seconds": 0.1,
+        },
+    )
+    assert "status = still running" in pending[0].text
+
+    second_init = await handle_call_tool(
+        "Initialize", {**init_args, "any_workspace_path": str(second_workspace)}
+    )
+    second_match = re.search(r"Use thread_id=(\w+)", second_init[0].text)
+    assert second_match is not None
+    second_thread_id = second_match.group(1)
+    assert second_thread_id != first_thread_id
+
+    second_pwd = await handle_call_tool(
+        "BashCommand",
+        {
+            "type": "command",
+            "command": "pwd",
+            "thread_id": second_thread_id,
+            "wait_for_seconds": 0.5,
+        },
+    )
+    assert str(second_workspace) in second_pwd[0].text
+
+    first_status = await handle_call_tool(
+        "BashCommand",
+        {
+            "type": "status_check",
+            "status_check": True,
+            "thread_id": first_thread_id,
+            "wait_for_seconds": 0.1,
+        },
+    )
+    assert "status = still running" in first_status[0].text
+
+
+@pytest.mark.asyncio
+async def test_handle_call_tool_runs_different_shell_states_concurrently(
+    setup_bash_state,
+):
+    first_state = server.new_state("thread_a")
+    second_state = server.new_state("thread_b")
+    server.BASH_STATES["thread_a"] = first_state
+    server.BASH_STATES["thread_b"] = second_state
+    call_order: list[str] = []
+
+    def fake_get_tool_output(*args, **kwargs):
+        tool_call = args[1]
+        thread_id = tool_call.action_json.thread_id
+        call_order.append(f"{thread_id}:start")
+        if thread_id == "thread_a":
+            time.sleep(0.2)
+        call_order.append(f"{thread_id}:end")
+        return ["ok"], 0.0
+
+    with patch(
+        "wcgw.client.mcp_server.server.get_tool_output",
+        side_effect=fake_get_tool_output,
+    ):
+        first_call = asyncio.create_task(
+            handle_call_tool(
+                "BashCommand",
+                {"type": "command", "command": "first", "thread_id": "thread_a"},
+            )
+        )
+        await asyncio.sleep(0.02)
+        second_call = asyncio.create_task(
+            handle_call_tool(
+                "BashCommand",
+                {"type": "command", "command": "second", "thread_id": "thread_b"},
+            )
+        )
+        await asyncio.gather(first_call, second_call)
+
+    assert call_order.index("thread_b:end") < call_order.index("thread_a:end")
+
+
+@pytest.mark.asyncio
+async def test_handle_call_tool_serializes_calls_for_same_thread_id(
+    setup_bash_state,
+):
+    state = server.new_state("thread_a")
+    server.BASH_STATES["thread_a"] = state
+    counter_lock = threading.Lock()
+    active_calls = 0
+    max_active_calls = 0
+
+    def fake_get_tool_output(*args, **kwargs):
+        nonlocal active_calls, max_active_calls
+        with counter_lock:
+            active_calls += 1
+            max_active_calls = max(max_active_calls, active_calls)
+        time.sleep(0.05)
+        with counter_lock:
+            active_calls -= 1
+        return ["ok"], 0.0
+
+    with patch(
+        "wcgw.client.mcp_server.server.get_tool_output",
+        side_effect=fake_get_tool_output,
+    ):
+        await asyncio.gather(
+            handle_call_tool(
+                "BashCommand",
+                {"type": "command", "command": "first", "thread_id": "thread_a"},
+            ),
+            handle_call_tool(
+                "BashCommand",
+                {"type": "command", "command": "second", "thread_id": "thread_a"},
+            ),
+        )
+
+    assert max_active_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_first_call_state_creation_does_not_block_event_loop(setup_bash_state):
+    assert server.BASH_STATE is not None
+    created_state = server.BASH_STATE
+
+    def slow_new_state(thread_id):
+        time.sleep(0.2)
+        return created_state
+
+    with (
+        patch("wcgw.client.mcp_server.server.new_state", side_effect=slow_new_state),
+        patch(
+            "wcgw.client.mcp_server.server.get_tool_output",
+            return_value=(["ok"], 0.0),
+        ),
+    ):
+        call = asyncio.create_task(
+            handle_call_tool(
+                "Initialize",
+                {
+                    "any_workspace_path": "",
+                    "initial_files_to_read": [],
+                    "task_id_to_resume": "",
+                    "mode_name": "wcgw",
+                    "type": "first_call",
+                    "thread_id": "",
+                },
+            )
+        )
+        started = time.monotonic()
+        await asyncio.sleep(0.02)
+        elapsed = time.monotonic() - started
+        assert elapsed < 0.1
+        await call
+
+
+@pytest.mark.asyncio
+async def test_restore_is_atomic_for_same_thread_id(setup_bash_state):
+    restored_state = server.new_state("restored")
+    server.BASH_STATES.pop("restored", None)
+    restore_calls = 0
+    restore_lock = threading.Lock()
+
+    def slow_restore(thread_id):
+        nonlocal restore_calls
+        with restore_lock:
+            restore_calls += 1
+        time.sleep(0.1)
+        return restored_state
+
+    with (
+        patch("wcgw.client.mcp_server.server.restored_state", side_effect=slow_restore),
+        patch(
+            "wcgw.client.mcp_server.server.get_tool_output",
+            return_value=(["ok"], 0.0),
+        ),
+    ):
+        await asyncio.gather(
+            handle_call_tool(
+                "BashCommand",
+                {"type": "command", "command": "first", "thread_id": "restored"},
+            ),
+            handle_call_tool(
+                "BashCommand",
+                {"type": "command", "command": "second", "thread_id": "restored"},
+            ),
+        )
+
+    assert restore_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_call_tool_routes_read_tools_by_thread_id(setup_bash_state):
+    first_state = server.new_state("thread_a")
+    second_state = server.new_state("thread_b")
+    server.BASH_STATES["thread_a"] = first_state
+    server.BASH_STATES["thread_b"] = second_state
+
+    def fake_get_tool_output(*args, **kwargs):
+        context = args[0]
+        return [context.bash_state.current_thread_id], 0.0
+
+    with patch(
+        "wcgw.client.mcp_server.server.get_tool_output",
+        side_effect=fake_get_tool_output,
+    ):
+        result = await handle_call_tool(
+            "ReadFiles",
+            {"file_paths": ["/tmp/example"], "thread_id": "thread_b"},
+        )
+
+    assert result[0].text == "thread_b"
+
+
+@pytest.mark.asyncio
+async def test_legacy_read_authorizes_later_threaded_write(setup_bash_state, tmp_path):
+    second_state = server.new_state("thread_b")
+    server.BASH_STATES["thread_b"] = second_state
+    test_file = tmp_path / "legacy.txt"
+    test_file.write_text("legacy")
+
+    read_result = await handle_call_tool(
+        "ReadFiles", {"file_paths": [str(test_file)]}
+    )
+    assert "legacy" in read_result[0].text
+    assert server.BASH_STATE is not None
+    assert str(test_file) in server.BASH_STATE.whitelist_for_overwrite
+    assert str(test_file) not in second_state.whitelist_for_overwrite
+
+    def inspect_write_state(*args, **kwargs):
+        context = args[0]
+        authorized = str(test_file) in context.bash_state.whitelist_for_overwrite
+        return [str(authorized)], 0.0
+
+    with patch(
+        "wcgw.client.mcp_server.server.get_tool_output",
+        side_effect=inspect_write_state,
+    ):
+        write_result = await handle_call_tool(
+            "FileWriteOrEdit",
+            {
+                "file_path": str(test_file),
+                "percentage_to_change": 100,
+                "text_or_search_replace_blocks": "replacement",
+                "thread_id": "thread_b",
+            },
+        )
+
+    assert write_result[0].text == "True"
 
 
 @pytest.mark.asyncio
@@ -227,6 +531,7 @@ async def test_handle_call_tool_image_response(setup_bash_state):
         "wcgw.client.mcp_server.server.get_tool_output",
         return_value=([mock_image], None),
     ):
+        assert server.BASH_STATE is not None
         result = await handle_call_tool("ReadImage", {"file_path": "test.png"})
         assert result[0].data == mock_image_data
         assert result[0].mimeType == mock_media_type

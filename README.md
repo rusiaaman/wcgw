@@ -102,6 +102,19 @@ To use a specific shell (bash or zsh), add the `--shell` argument:
 }
 ```
 
+**Optional: Streamable HTTP transport**
+
+`wcgw_mcp` keeps stdio as the default transport. For clients or gateways that
+work better with a long-lived HTTP MCP endpoint, run:
+
+```bash
+uvx --python 3.12 wcgw@latest --transport streamable-http --host 127.0.0.1 --port 8765
+```
+
+The MCP endpoint is `http://127.0.0.1:8765/mcp/`. Binding to loopback keeps the
+server local while allowing an HTTP-capable local gateway to multiplex requests
+without sharing one stdio pipe.
+
 _If there's an error in setting up_
 
 - If there's an error like "uv ENOENT", make sure `uv` is installed. Then run 'which uv' in the terminal, and use its output in place of "uv" in the configuration.
@@ -251,25 +264,25 @@ The server provides the following MCP tools:
 **Shell Operations:**
 
 - `Initialize`: Reset shell and set up workspace environment
-  - Parameters: `any_workspace_path` (string), `initial_files_to_read` (string[]), `mode_name` ("wcgw"|"architect"|"code_writer"), `task_id_to_resume` (string)
+  - Parameters: `any_workspace_path` (string), `initial_files_to_read` (string[]), `mode_name` ("wcgw"|"architect"|"code_writer"), `task_id_to_resume` (string), `thread_id` (string; empty only for the first call)
 - `BashCommand`: Execute shell commands with timeout control
-  - Parameters: `command` (string), `wait_for_seconds` (int, optional)
+  - Parameters: `command` (string), `wait_for_seconds` (int, optional), `thread_id` (string)
   - Parameters: `send_text` (string) or `send_specials` (["Enter"|"Key-up"|...]) or `send_ascii` (int[]), `wait_for_seconds` (int, optional)
 
 **File Operations:**
 
 - `ReadFiles`: Read content from one or more files
-  - Parameters: `file_paths` (string[])
+  - Parameters: `file_paths` (string[]), `thread_id` (string)
 - `WriteIfEmpty`: Create new files or write to empty files
   - Parameters: `file_path` (string), `file_content` (string)
 - `FileEdit`: Edit existing files using search/replace blocks
   - Parameters: `file_path` (string), `file_edit_using_search_replace_blocks` (string)
 - `ReadImage`: Read image files for display/processing
-  - Parameters: `file_path` (string)
+  - Parameters: `file_path` (string), `thread_id` (string)
 
 **Project Management:**
 
 - `ContextSave`: Save project context and files for Knowledge Transfer or saving task checkpoints to be resumed later
-  - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[])
+  - Parameters: `id` (string), `project_root_path` (string), `description` (string), `relevant_file_globs` (string[]), `thread_id` (string)
 
 All tools support absolute paths and include built-in protections against common errors. See the [MCP specification](https://modelcontextprotocol.io/) for detailed protocol information.

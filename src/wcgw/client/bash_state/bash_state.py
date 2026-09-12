@@ -2,7 +2,6 @@ import datetime
 import json
 import os
 import platform
-import random
 import re
 import shlex
 import subprocess
@@ -315,8 +314,9 @@ def ensure_wcgw_block_in_rc_file(shell_path: str, console: Console) -> None:
 if [ -n "$IN_WCGW_ENVIRONMENT" ]; then
  PROMPT_COMMAND='printf "◉ $(pwd)──➤ \\r\\e[2K"'
  prmptcmdwcgw() {{ eval "$PROMPT_COMMAND" }}
+ autoload -Uz add-zsh-hook
  add-zsh-hook -d precmd prmptcmdwcgw
- precmd_functions+=prmptcmdwcgw
+ add-zsh-hook precmd prmptcmdwcgw
 fi
 {marker_end}
 """
@@ -346,8 +346,18 @@ fi
         with open(rc_file_path) as f:
             content = f.read()
 
+        if marker_start in content and marker_end in content:
+            block_start = content.index(marker_start)
+            block_end = content.index(marker_end, block_start) + len(marker_end)
+            expected_block = wcgw_block.rstrip("\n")
+            if content[block_start:block_end] == expected_block:
+                return
+            content = content[:block_start] + expected_block + content[block_end:]
+            with open(rc_file_path, "w") as f:
+                f.write(content)
+            console.log(f"Updated WCGW environment block in {rc_file_path}")
+            return
         if marker_start in content:
-            # Block already exists
             return
 
         # Append the block to the file
@@ -401,6 +411,7 @@ def start_shell(
             echo=True,
             encoding="utf-8",
             timeout=CONFIG.timeout,
+            cwd=initial_dir,
             codec_errors="backslashreplace",
         )
         shell.sendline(PROMPT_STATEMENT)
@@ -458,8 +469,8 @@ def get_bash_state_dir_xdg() -> str:
 
 
 def generate_thread_id() -> str:
-    """Generate a random 4-digit thread_id."""
-    return f"i{random.randint(1000, 9999)}"
+    """Generate a collision-resistant thread_id."""
+    return f"i{uuid4().hex}"
 
 
 def save_bash_state_by_id(thread_id: str, bash_state_dict: dict[str, Any]) -> None:
@@ -607,6 +618,10 @@ class BashState:
     @property
     def linesep(self) -> str:
         return self._shell.linesep
+
+    @property
+    def shell_path(self) -> str:
+        return self._shell_path
 
     def sendintr(self) -> None:
         self.close_bg_expect_thread()

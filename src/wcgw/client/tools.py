@@ -630,7 +630,9 @@ def write_file(
                     paths_: list[str] = []
                     for start, end in unread_ranges:
                         paths_.append(path_ + ":" + f"{start}-{end}")
-                    paths_readfiles = ReadFiles(file_paths=paths_)
+                    paths_readfiles = ReadFiles(
+                        file_paths=paths_, thread_id=context.bash_state.current_thread_id
+                    )
                     readfiles, file_ranges_dict, truncated = read_files(
                         paths_readfiles.file_paths,
                         coding_max_tokens,
