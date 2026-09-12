@@ -5,7 +5,6 @@ from typing import Any, List, Literal, Optional, Protocol, Sequence, Union
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field, PrivateAttr, model_serializer, model_validator
 
-
 _PIPE_TAIL_RE = re.compile(r"\|\s*tail(?:\s+(?:-n\s*|-)?(\d+))?\s*$")
 
 
@@ -143,7 +142,7 @@ class Initialize(BaseModel):
             ]
 
 
-class CommandBase(BaseModel):
+class CommandBase(PydanticBaseModel):
     wait_for_seconds: Optional[float] = None
     thread_id: str
 
@@ -191,7 +190,7 @@ class SendAscii(CommandBase):
     bg_command_id: str | None = None
 
 
-class ActionJsonSchema(BaseModel):
+class ActionJsonSchema(PydanticBaseModel):
     type: Literal[
         "command", "status_check", "send_text", "send_specials", "send_ascii"
     ] = Field(description="type of action.")
