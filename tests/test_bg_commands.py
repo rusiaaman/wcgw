@@ -3,6 +3,7 @@ Tests for background command execution feature.
 """
 
 import tempfile
+import time
 from typing import Generator
 
 import pytest
@@ -137,6 +138,10 @@ def test_bg_command_status_check(context: Context, temp_dir: str) -> None:
 
     assert bg_id is not None
 
+    # Let the process finish before polling. The PTY output must remain available
+    # to the explicit status check rather than being consumed by a reader thread.
+    time.sleep(1.2)
+
     # Check status of background command
     status_cmd = BashCommand(
         action_json=StatusCheck(
@@ -151,6 +156,7 @@ def test_bg_command_status_check(context: Context, temp_dir: str) -> None:
 
     assert len(outputs) == 1
     assert "status = process exited" in outputs[0]
+    assert bg_id not in context.bash_state.background_shells
 
 
 def test_bg_command_invalid_id(context: Context, temp_dir: str) -> None:

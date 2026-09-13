@@ -635,27 +635,14 @@ class BashState:
         return before
 
     def run_bg_expect_thread(self) -> None:
+        """Leave PTY output buffered until the next explicit poll.
+
+        A reader thread that calls ``pexpect.expect`` races with foreground tool
+        calls and can consume command output or the completion prompt. Explicit
+        status polling is the single reader, so output and completion state stay
+        deterministic across MCP requests.
         """
-        Run background expect thread for handling shell interactions.
-        """
-
-        def _bg_expect_thread_handler() -> None:
-            while True:
-                if self._bg_expect_thread_stop_event.is_set():
-                    break
-                output = self._shell.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=0.1)
-                if output == 0:
-                    break
-
-        if self._bg_expect_thread:
-            self.close_bg_expect_thread()
-
-        self._bg_expect_thread = threading.Thread(
-            target=_bg_expect_thread_handler,
-        )
-        self._bg_expect_thread.start()
-        for k, v in self.background_shells.items():
-            v.run_bg_expect_thread()
+        return
 
     def close_bg_expect_thread(self) -> None:
         if self._bg_expect_thread:
@@ -1311,6 +1298,13 @@ def _execute_bash(
         elif isinstance(command_data, StatusCheck):
             bash_state.console.print("Checking status")
             if bash_state.state != "pending":
+                if is_bg:
+                    result = get_status(bash_state, True)
+                    bash_state.cleanup()
+                    og_bash_state.background_shells.pop(
+                        bash_state.current_thread_id, None
+                    )
+                    return result, 0.0
                 error = "No running command to check status of.\n"
                 error += get_bg_running_commandsinfo(bash_state)
                 return error, 0.0
@@ -1430,13 +1424,6 @@ You may want to try Ctrl-c again or program specific exit interactive commands.
 
             exit_status = get_status(bash_state, is_bg)
             incremental_text += exit_status
-            if is_bg and bash_state.state == "repl":
-                try:
-                    bash_state.cleanup()
-                    og_bash_state.background_shells.pop(bash_state.current_thread_id)
-                except Exception as e:
-                    bash_state.console.log(f"error while cleaning up {e}")
-
             return incremental_text, 0
 
     before = str(bash_state.before)
@@ -1450,12 +1437,11 @@ You may want to try Ctrl-c again or program specific exit interactive commands.
     try:
         exit_status = get_status(bash_state, is_bg)
         output += exit_status
-        if is_bg and bash_state.state == "repl":
-            try:
-                bash_state.cleanup()
-                og_bash_state.background_shells.pop(bash_state.current_thread_id)
-            except Exception as e:
-                bash_state.console.log(f"error while cleaning up {e}")
+        if is_bg and is_status_check(bash_arg):
+            bash_state.cleanup()
+            og_bash_state.background_shells.pop(
+                bash_state.current_thread_id, None
+            )
     except ValueError:
         bash_state.console.print(output)
         bash_state.console.print(traceback.format_exc())
