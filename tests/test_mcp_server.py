@@ -44,6 +44,7 @@ def setup_bash_state():
     server.BASH_STATES.clear()
     server.STATE_CALL_LOCKS.clear()
     server.STATE_CREATION_LOCKS.clear()
+    server.STATE_ACTIVE_CALLS.clear()
     server.BASH_STATE = bash_state
     server.BASH_STATES[bash_state.current_thread_id] = bash_state
 
@@ -63,6 +64,7 @@ def setup_bash_state():
         server.BASH_STATES.clear()
         server.STATE_CALL_LOCKS.clear()
         server.STATE_CREATION_LOCKS.clear()
+        server.STATE_ACTIVE_CALLS.clear()
         server.BASH_STATE = None
 
 
@@ -535,6 +537,89 @@ async def test_handle_call_tool_image_response(setup_bash_state):
         result = await handle_call_tool("ReadImage", {"file_path": "test.png"})
         assert result[0].data == mock_image_data
         assert result[0].mimeType == mock_media_type
+
+
+@pytest.mark.asyncio
+async def test_reap_idle_states_removes_inactive_saved_state(
+    setup_bash_state, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    state = server.new_state("idle_thread")
+    server.BASH_STATES[state.current_thread_id] = state
+    server.STATE_CALL_LOCKS[state.current_thread_id] = asyncio.Lock()
+    server.STATE_CREATION_LOCKS[state.current_thread_id] = asyncio.Lock()
+    state.save_state_to_disk()
+
+    state_file = (
+        tmp_path / "wcgw" / "bash_state" / "idle_thread_bash_state.json"
+    )
+    old_time = time.time() - 7200
+    os.utime(state_file, (old_time, old_time))
+
+    with patch.object(state, "cleanup") as cleanup:
+        reaped = await server.reap_idle_states(time.time(), 3600)
+
+    cleanup.assert_called_once_with()
+    state.cleanup()
+    assert reaped == 1
+    assert "idle_thread" not in server.BASH_STATES
+    assert "idle_thread" not in server.STATE_CALL_LOCKS
+    assert "idle_thread" not in server.STATE_CREATION_LOCKS
+
+
+@pytest.mark.asyncio
+async def test_reap_idle_states_keeps_active_and_pending_states(
+    setup_bash_state, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    state = server.new_state("busy_thread")
+    server.BASH_STATES[state.current_thread_id] = state
+    state.save_state_to_disk()
+
+    state_file = (
+        tmp_path / "wcgw" / "bash_state" / "busy_thread_bash_state.json"
+    )
+    old_time = time.time() - 7200
+    os.utime(state_file, (old_time, old_time))
+
+    async with server.leased_state_for_tool(
+        server.ReadFiles(file_paths=[], thread_id=state.current_thread_id)
+    ) as leased_state:
+        assert leased_state is state
+        assert server.STATE_ACTIVE_CALLS[state.current_thread_id] == 1
+        assert await server.reap_idle_states(time.time(), 3600) == 0
+        assert state.current_thread_id in server.BASH_STATES
+
+    assert state.current_thread_id not in server.STATE_ACTIVE_CALLS
+    state.set_pending("")
+    assert await server.reap_idle_states(time.time(), 3600) == 0
+    assert state.current_thread_id in server.BASH_STATES
+    state.set_repl()
+
+    state.background_shells["background"] = Mock()
+    assert await server.reap_idle_states(time.time(), 3600) == 0
+    assert state.current_thread_id in server.BASH_STATES
+    state.background_shells.clear()
+
+
+def test_http_state_idle_timeout_configuration(monkeypatch):
+    monkeypatch.delenv(server.HTTP_STATE_IDLE_TIMEOUT_ENV, raising=False)
+    assert (
+        server.http_state_idle_timeout_seconds()
+        == server.DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS
+    )
+
+    monkeypatch.setenv(server.HTTP_STATE_IDLE_TIMEOUT_ENV, "0")
+    assert server.http_state_idle_timeout_seconds() == 0
+
+    monkeypatch.setenv(server.HTTP_STATE_IDLE_TIMEOUT_ENV, "15.5")
+    assert server.http_state_idle_timeout_seconds() == 15.5
+
+    monkeypatch.setenv(server.HTTP_STATE_IDLE_TIMEOUT_ENV, "invalid")
+    assert (
+        server.http_state_idle_timeout_seconds()
+        == server.DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS
+    )
 
 
 @pytest.mark.asyncio

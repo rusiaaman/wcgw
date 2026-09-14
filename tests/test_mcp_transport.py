@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 import shutil
+import time
 
 import httpx
 import pytest
@@ -112,6 +113,7 @@ async def test_streamable_http_transport_serves_wcgw(tmp_path, monkeypatch) -> N
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("SHELL", "/bin/bash")
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     app = server.streamable_http_app("/bin/bash", "localhost", 8765)
 
     async with app.router.lifespan_context(app):
@@ -204,3 +206,29 @@ async def test_streamable_http_transport_serves_wcgw(tmp_path, monkeypatch) -> N
                     assert not long_call.done()
                     long_result = await asyncio.wait_for(long_call, timeout=2)
                     assert "status = process exited" in result_text(long_result)
+                    assert set(server.BASH_STATES) == {first_thread, second_thread}
+
+                    state_file = (
+                        tmp_path
+                        / "data"
+                        / "wcgw"
+                        / "bash_state"
+                        / f"{first_thread}_bash_state.json"
+                    )
+                    old_time = time.time() - 7200
+                    os.utime(state_file, (old_time, old_time))
+
+                    assert await server.reap_idle_states(time.time(), 3600) == 1
+                    assert first_thread not in server.BASH_STATES
+
+                    restored = await session.call_tool(
+                        "BashCommand",
+                        {
+                            "type": "command",
+                            "command": "pwd",
+                            "thread_id": first_thread,
+                            "wait_for_seconds": 0.5,
+                        },
+                    )
+                    assert "status = process exited" in result_text(restored)
+                    assert first_thread in server.BASH_STATES

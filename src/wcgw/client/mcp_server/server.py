@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from importlib import metadata
 from typing import Any, AsyncIterator
@@ -26,7 +27,12 @@ from ...types_ import (
     ReadFiles,
     ReadImage,
 )
-from ..bash_state.bash_state import CONFIG, BashState, get_tmpdir
+from ..bash_state.bash_state import (
+    CONFIG,
+    BashState,
+    get_bash_state_dir_xdg,
+    get_tmpdir,
+)
 from ..tools import (
     TOOLS,
     Context,
@@ -112,24 +118,24 @@ async def handle_call_tool(
 
     tool_type = which_tool_name(name)
     tool_call = parse_tool_by_name(name, arguments)
-    state = await state_for_tool(tool_call)
 
-    try:
-        if isinstance(tool_call, FileWriteOrEdit):
-            sync_legacy_whitelist_into_state(state)
-        async with state_call_lock(state.current_thread_id):
-            output_or_dones, _ = await asyncio.to_thread(
-                get_tool_output,
-                Context(state, state.console),
-                tool_call,
-                0.0,
-                lambda x, y: ("", 0),
-                24000,  # coding_max_tokens
-                8000,  # noncoding_max_tokens
-            )
+    async with leased_state_for_tool(tool_call) as state:
+        try:
+            if isinstance(tool_call, FileWriteOrEdit):
+                sync_legacy_whitelist_into_state(state)
+            async with state_call_lock(state.current_thread_id):
+                output_or_dones, _ = await asyncio.to_thread(
+                    get_tool_output,
+                    Context(state, state.console),
+                    tool_call,
+                    0.0,
+                    lambda x, y: ("", 0),
+                    24000,  # coding_max_tokens
+                    8000,  # noncoding_max_tokens
+                )
 
-    except Exception as e:
-        output_or_dones = [f"GOT EXCEPTION while calling tool. Error: {e}"]
+        except Exception as e:
+            output_or_dones = [f"GOT EXCEPTION while calling tool. Error: {e}"]
 
     content: list[types.TextContent | types.ImageContent | types.EmbeddedResource] = []
     for output_or_done in output_or_dones:
@@ -165,6 +171,7 @@ BASH_STATE: BashState | None = None
 BASH_STATES: dict[str, BashState] = {}
 STATE_CALL_LOCKS: dict[str, asyncio.Lock] = {}
 STATE_CREATION_LOCKS: dict[str, asyncio.Lock] = {}
+STATE_ACTIVE_CALLS: dict[str, int] = {}
 CUSTOM_INSTRUCTIONS = None
 STARTING_DIR = ""
 SHELL_PATH = ""
@@ -256,6 +263,123 @@ async def state_for_tool(tool_call: TOOLS) -> BashState:
         return restored
 
 
+@asynccontextmanager
+async def leased_state_for_tool(tool_call: TOOLS) -> AsyncIterator[BashState]:
+    state = await state_for_tool(tool_call)
+    leased_thread_id = state.current_thread_id
+    STATE_ACTIVE_CALLS[leased_thread_id] = (
+        STATE_ACTIVE_CALLS.get(leased_thread_id, 0) + 1
+    )
+    try:
+        yield state
+    finally:
+        active_calls = STATE_ACTIVE_CALLS.get(leased_thread_id, 0)
+        if active_calls <= 1:
+            STATE_ACTIVE_CALLS.pop(leased_thread_id, None)
+        else:
+            STATE_ACTIVE_CALLS[leased_thread_id] = active_calls - 1
+
+        current_thread_id = state.current_thread_id
+        if current_thread_id != leased_thread_id:
+            if BASH_STATES.get(leased_thread_id) is state:
+                BASH_STATES.pop(leased_thread_id)
+            BASH_STATES[current_thread_id] = state
+            STATE_CALL_LOCKS.pop(leased_thread_id, None)
+            STATE_CREATION_LOCKS.pop(leased_thread_id, None)
+
+
+HTTP_STATE_IDLE_TIMEOUT_ENV = "WCGW_HTTP_STATE_IDLE_TIMEOUT_SECONDS"
+DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS = 60.0 * 60.0
+HTTP_STATE_REAPER_INTERVAL_SECONDS = 60.0
+
+
+def http_state_idle_timeout_seconds() -> float:
+    configured = os.getenv(HTTP_STATE_IDLE_TIMEOUT_ENV)
+    if configured is None:
+        return DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS
+    try:
+        idle_timeout_seconds = float(configured)
+    except ValueError:
+        logger.warning(
+            "%s must be a non-negative number; using %.0f seconds",
+            HTTP_STATE_IDLE_TIMEOUT_ENV,
+            DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS,
+        )
+        return DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS
+    if idle_timeout_seconds < 0:
+        logger.warning(
+            "%s must be non-negative; using %.0f seconds",
+            HTTP_STATE_IDLE_TIMEOUT_ENV,
+            DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS,
+        )
+        return DEFAULT_HTTP_STATE_IDLE_TIMEOUT_SECONDS
+    return idle_timeout_seconds
+
+
+def state_last_saved_at(thread_id: str) -> float | None:
+    state_file = os.path.join(
+        get_bash_state_dir_xdg(), f"{thread_id}_bash_state.json"
+    )
+    try:
+        return os.path.getmtime(state_file)
+    except OSError:
+        return None
+
+
+def state_can_be_reaped(
+    thread_id: str, state: BashState, now: float, idle_timeout_seconds: float
+) -> bool:
+    if state is BASH_STATE:
+        return False
+    if STATE_ACTIVE_CALLS.get(thread_id, 0) > 0:
+        return False
+    if state.state == "pending" or state.background_shells:
+        return False
+    last_saved_at = state_last_saved_at(thread_id)
+    if last_saved_at is None:
+        return True
+    return now - last_saved_at >= idle_timeout_seconds
+
+
+async def reap_idle_states(now: float, idle_timeout_seconds: float) -> int:
+    if idle_timeout_seconds <= 0:
+        return 0
+
+    reaped: list[tuple[str, BashState]] = []
+    for thread_id, state in list(BASH_STATES.items()):
+        if not state_can_be_reaped(thread_id, state, now, idle_timeout_seconds):
+            continue
+        if BASH_STATES.pop(thread_id, None) is not state:
+            continue
+        STATE_CALL_LOCKS.pop(thread_id, None)
+        STATE_CREATION_LOCKS.pop(thread_id, None)
+        STATE_ACTIVE_CALLS.pop(thread_id, None)
+        reaped.append((thread_id, state))
+
+    if not reaped:
+        return 0
+
+    cleanup_results = await asyncio.gather(
+        *(asyncio.to_thread(state.cleanup) for _, state in reaped),
+        return_exceptions=True,
+    )
+    for (thread_id, _), result in zip(reaped, cleanup_results):
+        if isinstance(result, BaseException):
+            logger.error(
+                "failed to clean up idle WCGW shell state %s: %s",
+                thread_id,
+                result,
+            )
+    logger.info("reaped %d idle WCGW shell states", len(reaped))
+    return len(reaped)
+
+
+async def reap_idle_states_forever(idle_timeout_seconds: float) -> None:
+    while True:
+        await asyncio.sleep(HTTP_STATE_REAPER_INTERVAL_SECONDS)
+        await reap_idle_states(time.time(), idle_timeout_seconds)
+
+
 def configure_server(shell_path: str) -> str:
     global BASH_STATE, CUSTOM_INSTRUCTIONS, STARTING_DIR, SHELL_PATH
     CONFIG.update(3, 55, 5)
@@ -294,6 +418,7 @@ def cleanup_states() -> None:
     BASH_STATES.clear()
     STATE_CALL_LOCKS.clear()
     STATE_CREATION_LOCKS.clear()
+    STATE_ACTIVE_CALLS.clear()
     BASH_STATE = None
 
 
@@ -335,10 +460,22 @@ def streamable_http_app(shell_path: str, host: str, port: int) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        idle_timeout_seconds = http_state_idle_timeout_seconds()
+        reaper_task: asyncio.Task[None] | None = None
+        if idle_timeout_seconds > 0:
+            reaper_task = asyncio.create_task(
+                reap_idle_states_forever(idle_timeout_seconds)
+            )
         try:
             async with session_manager.run():
                 yield
         finally:
+            if reaper_task is not None:
+                reaper_task.cancel()
+                try:
+                    await reaper_task
+                except asyncio.CancelledError:
+                    pass
             cleanup_states()
 
     app = FastAPI(lifespan=lifespan)

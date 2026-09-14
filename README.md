@@ -113,7 +113,11 @@ uvx --python 3.12 wcgw@latest --transport streamable-http --host 127.0.0.1 --por
 
 The MCP endpoint is `http://127.0.0.1:8765/mcp/`. Binding to loopback keeps the
 server local while allowing an HTTP-capable local gateway to multiplex requests
-without sharing one stdio pipe.
+without sharing one stdio pipe. Inactive HTTP shell states are released after one
+hour and restored from their saved thread state on the next tool call. Set
+`WCGW_HTTP_STATE_IDLE_TIMEOUT_SECONDS=0` to disable this cleanup, or set another
+non-negative timeout in seconds. States with active tool calls, pending commands,
+or attached background commands are never reaped.
 
 _If there's an error in setting up_
 
