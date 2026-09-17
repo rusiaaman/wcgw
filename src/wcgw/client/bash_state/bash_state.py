@@ -666,8 +666,33 @@ class BashState:
         for k, v in self.background_shells.items():
             v.close_bg_expect_thread()
 
+    def command_is_running(self) -> bool:
+        if self.state != "pending":
+            return False
+        if not self._shell.isalive():
+            self.set_repl()
+            return False
+        index = self.expect(
+            [self.prompt, pexpect.TIMEOUT, pexpect.EOF],
+            timeout=0,
+            flush_rem_prompt=False,
+        )
+        if index == 1:
+            return True
+        self.set_repl()
+        return False
+
+    def has_running_commands(self) -> bool:
+        if self.command_is_running():
+            return True
+        return any(state.has_running_commands() for state in self.background_shells.values())
+
     def cleanup(self) -> None:
         self.close_bg_expect_thread()
+        background_shells = list(self.background_shells.values())
+        self.background_shells.clear()
+        for state in background_shells:
+            state.cleanup()
         self._shell.close(True)
 
     def __enter__(self) -> "BashState":
